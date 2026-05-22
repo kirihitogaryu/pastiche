@@ -14,10 +14,46 @@
 	};
 
 	let { asset, active = false, selected = false, mode = 'library', onOpen, onSelect }: Props = $props();
+
+	let pressTimer: ReturnType<typeof setTimeout> | null = null;
+	let longPressed = false;
+
+	function startPress() {
+		if (mode !== 'library') return;
+		longPressed = false;
+		pressTimer = setTimeout(() => {
+			longPressed = true;
+			onSelect(asset);
+		}, 420);
+	}
+
+	function clearPress() {
+		if (pressTimer) clearTimeout(pressTimer);
+		pressTimer = null;
+	}
+
+	function openFromCard() {
+		clearPress();
+		if (longPressed) return;
+		onOpen(asset);
+	}
 </script>
 
 <article class:active class:selected class="asset-card">
-	<button class="image-button" type="button" aria-label={`Inspect ${asset.title}`} onclick={() => onOpen(asset)}>
+	<button
+		class="image-button"
+		type="button"
+		aria-label={`Inspect ${asset.title}`}
+		onclick={openFromCard}
+		onpointerdown={startPress}
+		onpointerup={clearPress}
+		onpointercancel={clearPress}
+		onpointerleave={clearPress}
+		oncontextmenu={(event) => {
+			event.preventDefault();
+			onSelect(asset);
+		}}
+	>
 		<img src={asset.imageUrl} alt={asset.title} loading="lazy" />
 		<span class="shade"></span>
 		<span class="tag">{asset.tags[0]}</span>

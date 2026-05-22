@@ -34,6 +34,11 @@ export function closeMobileInspect() {
 	appState.mobileState = 'browse';
 }
 
+export function exitSelection() {
+	appState.mobileState = 'browse';
+	appState.selectedAssetIds = [];
+}
+
 export function enterSelection(asset: Asset) {
 	appState.mobileState = 'selecting';
 	appState.selectedAssetIds = [asset.id];
