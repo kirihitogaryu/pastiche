@@ -39,6 +39,7 @@ The product should feel like a serious creative tool rather than a social feed, 
 4. One adaptive app shell. Modes, tokens, and Inspector content stay consistent while placement changes by viewport.
 5. Browsing must stay fluid. Search, breadcrumbs, filters, folders, and image selection should support fast movement through large visual collections.
 6. Iconography should be coherent from the start. Use Phosphor as the planned icon family for navigation, tools, and action buttons.
+7. Projects are creative workspaces layered over the Library, not folders that own files.
 
 ## Accessibility & Inclusion
 
