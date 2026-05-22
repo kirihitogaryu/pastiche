@@ -84,7 +84,9 @@
 	}
 
 	h1 {
+		font-family: var(--font-heading);
 		font-size: clamp(2.4rem, 8vw, 5.5rem);
+		font-weight: 600;
 		line-height: 0.95;
 		letter-spacing: 0;
 		margin-bottom: var(--space-4);
@@ -151,12 +153,16 @@
 	}
 
 	h2 {
+		font-family: var(--font-heading);
 		font-size: 1rem;
+		font-weight: 600;
 	}
 
 	h3 {
 		margin-bottom: var(--space-2);
+		font-family: var(--font-heading);
 		font-size: 1.2rem;
+		font-weight: 600;
 	}
 
 	article p,

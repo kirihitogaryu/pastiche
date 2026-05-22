@@ -7,6 +7,12 @@ test('desktop library and explore surfaces are navigable', async ({ page }) => {
 	await primary.getByRole('button', { name: 'Library' }).click();
 	await expect(page.getByRole('button', { name: 'Inspect Crimson Horizon' })).toBeVisible();
 	await expect(page.getByRole('heading', { name: 'Crimson Horizon' })).toBeVisible();
+	await page.getByRole('button', { name: 'Collapse library sidebar' }).click();
+	await expect(page.getByRole('button', { name: 'Expand library sidebar' })).toBeVisible();
+	await page.getByRole('button', { name: 'Close inspector' }).click();
+	await expect(page.getByRole('complementary', { name: 'Image inspector' })).toBeHidden();
+	await page.getByRole('button', { name: 'Inspect Crimson Horizon' }).click();
+	await expect(page.getByRole('heading', { name: 'Crimson Horizon' })).toBeVisible();
 
 	await page.getByPlaceholder('Search artwork, artists, or collections...').fill('mondrian');
 	await expect(page.getByRole('button', { name: 'Inspect Primary Blocks' })).toBeVisible();
@@ -14,6 +20,9 @@ test('desktop library and explore surfaces are navigable', async ({ page }) => {
 	await page.getByPlaceholder('Search artwork, artists, or collections...').fill('');
 	await primary.getByRole('button', { name: 'Explore' }).click();
 	await expect(page.getByRole('button', { name: 'Inspect Coastal Village Afternoon' })).toBeVisible();
+	await page.getByRole('button', { name: 'Close inspector' }).click();
+	await page.getByRole('button', { name: 'Inspect Coastal Village Afternoon' }).click();
+	await expect(page.getByRole('heading', { name: 'Coastal Village Afternoon' })).toBeVisible();
 	await page.getByRole('banner').getByRole('button', { name: 'Add to Library' }).click();
 	await expect(page.getByRole('heading', { name: 'Add to Library' })).toBeVisible();
 	await expect(page.getByRole('button', { name: /From Gallery/ })).toBeVisible();

@@ -123,7 +123,9 @@
 	}
 
 	h2 {
+		font-family: var(--font-heading);
 		font-size: 1.15rem;
+		font-weight: 600;
 		line-height: 1.2;
 	}
 

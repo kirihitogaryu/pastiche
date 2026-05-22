@@ -176,7 +176,9 @@
 	}
 
 	h1 {
+		font-family: var(--font-heading);
 		font-size: 1.65rem;
+		font-weight: 600;
 		line-height: 1.12;
 	}
 

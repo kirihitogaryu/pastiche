@@ -1,5 +1,6 @@
 <script lang="ts">
-	import CaretDownIcon from 'phosphor-svelte/lib/CaretDownIcon';
+	import CaretLineLeftIcon from 'phosphor-svelte/lib/CaretLineLeftIcon';
+	import CaretLineRightIcon from 'phosphor-svelte/lib/CaretLineRightIcon';
 	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
 	import HeartIcon from 'phosphor-svelte/lib/HeartIcon';
 	import ImageSquareIcon from 'phosphor-svelte/lib/ImageSquareIcon';
@@ -12,9 +13,10 @@
 		collapsed?: boolean;
 		path: string[];
 		onPath: (path: string[]) => void;
+		onToggle: () => void;
 	};
 
-	let { collapsed = false, path, onPath }: Props = $props();
+	let { collapsed = false, path, onPath, onToggle }: Props = $props();
 
 	const roots = [
 		{ label: 'All Images', count: '12,842', icon: ImageSquareIcon },
@@ -27,15 +29,24 @@
 <aside class:collapsed class="library-sidebar" aria-label="Library folders">
 	<header>
 		<span><FolderIcon size={18} weight="duotone" /> Library</span>
-		<button type="button" aria-label="Collapse library sidebar">
-			<CaretDownIcon size={16} />
+		<button
+			type="button"
+			aria-label={collapsed ? 'Expand library sidebar' : 'Collapse library sidebar'}
+			title={collapsed ? 'Expand library sidebar' : 'Collapse library sidebar'}
+			onclick={onToggle}
+		>
+			{#if collapsed}
+				<CaretLineRightIcon size={16} />
+			{:else}
+				<CaretLineLeftIcon size={16} />
+			{/if}
 		</button>
 	</header>
 
 	<nav class="sidebar-section" aria-label="Library shortcuts">
 		{#each roots as item}
 			{@const Icon = item.icon}
-			<button type="button">
+			<button type="button" title={item.label}>
 				<Icon size={18} />
 				<span>{item.label}</span>
 				<small>{item.count}</small>
@@ -53,6 +64,7 @@
 				class:active={folder.path.join('/') === path.join('/')}
 				style={`--depth: ${Math.max(folder.path.length - 2, 0)}`}
 				type="button"
+				title={folder.path.join(' / ')}
 				onclick={() => onPath(folder.path)}
 			>
 				<FolderIcon size={16} />
@@ -68,7 +80,7 @@
 	</div>
 	<nav class="sidebar-section" aria-label="Smart folders">
 		{#each smartFolders as folder}
-			<button type="button">
+			<button type="button" title={folder.label}>
 				<span>{folder.label}</span>
 				<small>{folder.count}</small>
 			</button>
@@ -93,6 +105,17 @@
 		border-right: 1px solid var(--color-border-soft);
 		background: oklch(12% 0.008 70 / 0.72);
 		overflow: auto;
+		transition:
+			width var(--duration-base) var(--ease-out),
+			min-width var(--duration-base) var(--ease-out),
+			padding var(--duration-base) var(--ease-out);
+	}
+
+	.library-sidebar.collapsed {
+		width: 4.25rem;
+		min-width: 4.25rem;
+		padding-inline: var(--space-2);
+		overflow: hidden;
 	}
 
 	header,
@@ -126,6 +149,11 @@
 		text-align: left;
 	}
 
+	.collapsed button {
+		justify-content: center;
+		padding-inline: 0;
+	}
+
 	button:hover,
 	button.active {
 		background: var(--color-hover);
@@ -138,6 +166,18 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	.collapsed header span,
+	.collapsed button span,
+	.collapsed button small,
+	.collapsed .section-heading,
+	.collapsed footer {
+		display: none;
+	}
+
+	.collapsed header {
+		justify-content: center;
 	}
 
 	button small {
@@ -153,6 +193,10 @@
 
 	.folder-tree button {
 		padding-left: calc(var(--space-2) + var(--depth) * 1rem);
+	}
+
+	.collapsed .folder-tree button {
+		padding-left: 0;
 	}
 
 	.section-heading {

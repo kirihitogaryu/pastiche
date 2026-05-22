@@ -6,6 +6,8 @@ export const appState = $state({
 	selectedAssetIds: [] as string[],
 	mobileState: 'browse' as MobileState,
 	addOpen: false,
+	inspectorOpen: true,
+	librarySidebarCollapsed: false,
 	focusedPreviewOpen: false,
 	query: '',
 	activeTags: [] as string[],
@@ -17,11 +19,21 @@ export function setMode(mode: AppMode) {
 	appState.mode = mode;
 	appState.mobileState = 'browse';
 	appState.addOpen = false;
+	appState.inspectorOpen = mode === 'library' || mode === 'explore';
 	appState.focusedPreviewOpen = false;
 }
 
 export function selectAsset(asset: Asset) {
 	appState.selectedAssetId = asset.id;
+	appState.inspectorOpen = true;
+}
+
+export function closeInspector() {
+	appState.inspectorOpen = false;
+}
+
+export function toggleLibrarySidebar() {
+	appState.librarySidebarCollapsed = !appState.librarySidebarCollapsed;
 }
 
 export function openMobileInspect(asset: Asset, scrollY: number) {

@@ -3,9 +3,11 @@
 	import LibrarySidebar from '$lib/components/browse/LibrarySidebar.svelte';
 	import AssetInspector from '$lib/components/inspector/AssetInspector.svelte';
 	import {
+		closeInspector,
 		enterSelection,
 		openMobileInspect,
 		selectAsset,
+		toggleLibrarySidebar,
 		toggleSelection,
 		appState
 	} from '$lib/state/app-state.svelte';
@@ -58,7 +60,12 @@
 
 <div class:explore={mode === 'explore'} class="browse-workspace">
 	{#if mode === 'library'}
-		<LibrarySidebar path={appState.folderPath} onPath={setPath} />
+		<LibrarySidebar
+			collapsed={appState.librarySidebarCollapsed}
+			path={appState.folderPath}
+			onPath={setPath}
+			onToggle={toggleLibrarySidebar}
+		/>
 	{/if}
 
 	<section class="browse-content" aria-label={`${mode} browser`}>
@@ -96,7 +103,9 @@
 		</div>
 	</section>
 
-	<AssetInspector asset={activeAsset} />
+	{#if appState.inspectorOpen}
+		<AssetInspector asset={activeAsset} onClose={closeInspector} />
+	{/if}
 </div>
 
 <style>

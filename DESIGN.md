@@ -34,7 +34,7 @@ Suggested CSS token direction:
 
 # Typography
 
-Use a practical product sans for UI text and a restrained italic serif wordmark. Do not use display fonts in controls, labels, or metadata.
+Use Crimson Text for headings and the restrained italic wordmark. Use Montserrat for body text, controls, labels, and metadata.
 
 # Layout
 
