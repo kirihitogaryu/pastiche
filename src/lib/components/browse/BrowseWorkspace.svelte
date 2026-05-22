@@ -210,7 +210,8 @@
 			position: sticky;
 			top: 0;
 			z-index: 2;
-			padding: var(--space-3);
+			gap: var(--space-2);
+			padding: var(--space-2) var(--space-3);
 			background: oklch(12% 0.008 70 / 0.92);
 			backdrop-filter: blur(16px);
 		}
@@ -220,8 +221,9 @@
 		}
 
 		.chips button {
-			min-height: 2.45rem;
-			padding-inline: var(--space-4);
+			min-height: 2rem;
+			padding-inline: var(--space-3);
+			font-size: 0.78rem;
 		}
 
 		.scroll-area {

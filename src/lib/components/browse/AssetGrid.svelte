@@ -61,10 +61,10 @@
 
 	@media (max-width: 759px) {
 		.asset-grid {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-			gap: var(--space-3);
-			padding: var(--space-3);
-			padding-bottom: calc(var(--bottom-nav-height) + var(--space-5));
+			grid-template-columns: repeat(auto-fill, minmax(6.45rem, 1fr));
+			gap: 0.45rem;
+			padding: var(--space-2);
+			padding-bottom: calc(var(--bottom-nav-height) + var(--space-3));
 		}
 
 		.asset-grid :global(.asset-card:nth-child(n)) {
@@ -72,8 +72,5 @@
 			grid-row: auto;
 		}
 
-		.asset-grid :global(.asset-card:nth-child(6n + 1)) {
-			grid-column: span 2;
-		}
 	}
 </style>

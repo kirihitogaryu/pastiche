@@ -18,22 +18,22 @@
 
 <nav class:secondary class="bottom-nav" aria-label="Mobile primary">
 	<button class:active={mode === 'library'} type="button" onclick={() => onSelect('library')}>
-		<BookOpenIcon size={25} weight={mode === 'library' ? 'fill' : 'regular'} />
+		<BookOpenIcon size={21} weight={mode === 'library' ? 'fill' : 'regular'} />
 		<span>Library</span>
 	</button>
 	<button class:active={mode === 'explore'} type="button" onclick={() => onSelect('explore')}>
-		<CompassIcon size={25} weight={mode === 'explore' ? 'fill' : 'regular'} />
+		<CompassIcon size={21} weight={mode === 'explore' ? 'fill' : 'regular'} />
 		<span>Explore</span>
 	</button>
 	<button class="add" type="button" aria-label="Add to Library" onclick={onAdd}>
-		<PlusIcon size={34} />
+		<PlusIcon size={28} />
 	</button>
 	<button class:active={mode === 'canvas'} type="button" onclick={() => onSelect('canvas')}>
-		<ScribbleIcon size={27} weight={mode === 'canvas' ? 'fill' : 'regular'} />
+		<ScribbleIcon size={22} weight={mode === 'canvas' ? 'fill' : 'regular'} />
 		<span>Canvas</span>
 	</button>
 	<button class:active={mode === 'resources'} type="button" onclick={() => onSelect('resources')}>
-		<FolderIcon size={25} weight={mode === 'resources' ? 'fill' : 'regular'} />
+		<FolderIcon size={21} weight={mode === 'resources' ? 'fill' : 'regular'} />
 		<span>Resources</span>
 	</button>
 </nav>
@@ -46,10 +46,10 @@
 		bottom: 0;
 		z-index: var(--z-sticky);
 		height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
-		padding: var(--space-2) var(--space-3) max(var(--space-2), env(safe-area-inset-bottom));
+		padding: 0.4rem var(--space-2) max(0.4rem, env(safe-area-inset-bottom));
 		display: grid;
 		grid-template-columns: repeat(5, 1fr);
-		gap: var(--space-2);
+		gap: 0.35rem;
 		border-top: 1px solid var(--color-border);
 		background: oklch(10% 0.006 70 / 0.92);
 		backdrop-filter: blur(18px);
@@ -68,9 +68,9 @@
 		color: var(--color-muted);
 		display: grid;
 		place-items: center;
-		gap: 0.2rem;
+		gap: 0.1rem;
 		cursor: pointer;
-		font-size: 0.75rem;
+		font-size: 0.64rem;
 	}
 
 	button.active {
@@ -79,8 +79,8 @@
 	}
 
 	button.add {
-		width: 4.1rem;
-		height: 4.1rem;
+		width: 3.35rem;
+		height: 3.35rem;
 		align-self: center;
 		justify-self: center;
 		border: 1px solid var(--color-border);

@@ -207,17 +207,46 @@
 		}
 
 		.image-button {
-			min-height: 10.5rem;
+			min-height: 7rem;
+			aspect-ratio: 1 / 1.18;
+		}
+
+		.tag {
+			top: var(--space-2);
+			left: var(--space-2);
+			max-width: calc(100% - 3.8rem);
+			padding: 0.24rem 0.42rem;
+			font-size: 0.62rem;
+		}
+
+		.quick-action {
+			top: var(--space-2);
+			right: var(--space-2);
+			width: 1.9rem;
+			height: 1.9rem;
+			border-radius: var(--radius-sm);
 		}
 
 		.meta {
-			left: var(--space-3);
-			right: var(--space-3);
-			bottom: var(--space-3);
+			left: var(--space-2);
+			right: var(--space-2);
+			bottom: var(--space-2);
+			gap: 0.15rem;
 		}
 
 		.meta strong {
-			font-size: 1.04rem;
+			font-size: 0.82rem;
+			line-height: 1;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.meta small {
+			font-size: 0.62rem;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
 		}
 	}
 </style>

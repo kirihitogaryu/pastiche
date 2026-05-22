@@ -105,10 +105,6 @@
 		border-right: 1px solid var(--color-border-soft);
 		background: oklch(12% 0.008 70 / 0.72);
 		overflow: auto;
-		transition:
-			width var(--duration-base) var(--ease-out),
-			min-width var(--duration-base) var(--ease-out),
-			padding var(--duration-base) var(--ease-out);
 	}
 
 	.library-sidebar.collapsed {
@@ -172,8 +168,14 @@
 	.collapsed button span,
 	.collapsed button small,
 	.collapsed .section-heading,
+	.collapsed .folder-tree,
+	.collapsed .sidebar-section[aria-label='Smart folders'],
 	.collapsed footer {
 		display: none;
+	}
+
+	.collapsed .sidebar-section {
+		margin-top: var(--space-3);
 	}
 
 	.collapsed header {

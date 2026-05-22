@@ -11,27 +11,27 @@
 	<div class="brand-row">
 		<div class="wordmark">pastiche.</div>
 		<div class="actions">
-			<button type="button" aria-label="Filter"><FunnelIcon size={23} /></button>
-			<button type="button" aria-label="More"><DotsThreeIcon size={25} weight="bold" /></button>
+			<button type="button" aria-label="Filter"><FunnelIcon size={19} /></button>
+			<button type="button" aria-label="More"><DotsThreeIcon size={21} weight="bold" /></button>
 		</div>
 	</div>
 	<div class="crumbs" aria-label="Current location">
-		<FolderIcon size={20} />
+		<FolderIcon size={16} />
 		<span>{appState.folderPath.join(' / ')}</span>
 	</div>
 	<label class="search">
-		<MagnifyingGlassIcon size={24} />
+		<MagnifyingGlassIcon size={19} />
 		<span class="sr-only">Search current folder</span>
 		<input bind:value={appState.query} placeholder="Search artworks, tags, creators, colors..." />
-		<SlidersHorizontalIcon size={24} />
+		<SlidersHorizontalIcon size={19} />
 	</label>
 </header>
 
 <style>
 	.mobile-header {
 		display: grid;
-		gap: var(--space-4);
-		padding: max(var(--space-4), env(safe-area-inset-top)) var(--space-4) var(--space-3);
+		gap: var(--space-2);
+		padding: max(var(--space-3), env(safe-area-inset-top)) var(--space-3) var(--space-2);
 		border-bottom: 1px solid var(--color-border-soft);
 	}
 
@@ -49,8 +49,9 @@
 
 	.wordmark {
 		font-family: var(--font-wordmark);
-		font-size: 2rem;
+		font-size: 1.6rem;
 		font-style: italic;
+		line-height: 1;
 	}
 
 	.actions {
@@ -58,8 +59,8 @@
 	}
 
 	button {
-		width: 2.85rem;
-		height: 2.85rem;
+		width: 2.35rem;
+		height: 2.35rem;
 		border: 1px solid var(--color-border);
 		border-radius: 50%;
 		background: var(--color-surface);
@@ -71,13 +72,22 @@
 	.crumbs {
 		gap: var(--space-2);
 		color: var(--color-muted);
-		font-size: 0.95rem;
+		font-size: 0.78rem;
+		line-height: 1.2;
+		overflow: hidden;
+		white-space: nowrap;
+	}
+
+	.crumbs span {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.search {
-		height: 3.5rem;
-		gap: var(--space-3);
-		padding: 0 var(--space-4);
+		height: 2.75rem;
+		gap: var(--space-2);
+		padding: 0 var(--space-3);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-xl);
 		background: var(--color-surface);
@@ -91,6 +101,7 @@
 		outline: 0;
 		background: transparent;
 		color: var(--color-text);
+		font-size: 0.84rem;
 	}
 
 	@media (min-width: 760px) {
