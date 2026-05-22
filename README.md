@@ -8,6 +8,7 @@ The project is currently in a documentation-first setup phase. The next major wo
 
 - The product handoff brief lives at `docs/product/pastiche-app-handoff.md`.
 - The current HTML design mockup lives at `docs/design/mockups/pastiche_ui_v3.html`.
+- The mobile interface plan lives at `docs/design/mobile-interface-plan.md`.
 - Product design context for UI work lives at `PRODUCT.md`.
 - Project organization rules live at `docs/project-organization.md`.
 - Planning specs live at `docs/superpowers/specs/`.

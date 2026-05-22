@@ -26,6 +26,7 @@ The shared shell includes:
 - breadcrumb or file/project path
 - search and filter controls
 - collapsible primary navigation
+- Phosphor iconography
 - main workspace
 - Inspector
 - contextual bulk actions
@@ -43,6 +44,8 @@ The shell supports five top-level modes:
 - Resources
 
 Modes should remain stable across viewport sizes. The location of mode controls can change, but the user should not feel that different devices expose different products.
+
+Use Phosphor as the planned icon set for the app shell. Avoid starting implementation with default Material icons or mixed placeholder icon systems.
 
 ## Navigation Rules
 
@@ -193,8 +196,12 @@ Behavior:
 - sidebars are replaced by drawers or separate screens
 - bottom navigation exposes primary modes
 - filters and folder/project navigation can use drawers
+- long-pressing an image can enter Selection Mode, with accessible alternatives through menus and keyboard commands
+- the central Add action opens an Add To Library drawer instead of becoming a permanent mode
 
 Phone should feel closer to a mobile visual browsing app than a desktop file manager.
+
+Detailed phone behavior is captured in `docs/design/mobile-interface-plan.md`.
 
 ## Inspector Behavior
 
