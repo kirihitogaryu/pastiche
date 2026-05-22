@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build output
+.svelte-kit/
+build/
+dist/
+.vite/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local archive/runtime data
+workspace.sqlite
+workspace.sqlite-*
+originals/
+thumbnails/
+palettes-cache/
+imports/
+exports/
+moodboards/
