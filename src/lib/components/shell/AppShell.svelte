@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { appState, closeAdd, openAdd, setMode } from '$lib/state/app-state.svelte';
+	import BrowseWorkspace from '$lib/components/browse/BrowseWorkspace.svelte';
 	import HomeHub from '$lib/components/home/HomeHub.svelte';
 	import ModeRail from '$lib/components/shell/ModeRail.svelte';
 	import MobileHeader from '$lib/components/shell/MobileHeader.svelte';
@@ -15,6 +16,8 @@
 		<main id="main-content" class="workspace">
 			{#if appState.mode === 'home'}
 				<HomeHub />
+			{:else if appState.mode === 'library' || appState.mode === 'explore'}
+				<BrowseWorkspace mode={appState.mode} />
 			{:else}
 				<section class="placeholder" aria-label={`${appState.mode} workspace placeholder`}>
 					<p>{appState.mode}</p>
