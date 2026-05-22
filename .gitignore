@@ -1,16 +1,27 @@
 # Dependencies
 node_modules/
 
-# Build output
+# Output
+.output
+.vercel
+.netlify
+.wrangler
 .svelte-kit/
 build/
 dist/
 .vite/
 
-# Environment and secrets
+# OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Env
 .env
 .env.*
 !.env.example
+!.env.test
 
 # Logs
 *.log
@@ -18,11 +29,14 @@ npm-debug.log*
 pnpm-debug.log*
 yarn-debug.log*
 
-# OS/editor noise
-.DS_Store
-Thumbs.db
-.idea/
-.vscode/
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Playwright
+test-results/
+playwright-report/
+coverage/
 
 # Local archive/runtime data
 workspace.sqlite
