@@ -20,9 +20,24 @@ test('desktop library and explore surfaces are navigable', async ({ page }) => {
 	await page.getByPlaceholder('Search artwork, artists, or collections...').fill('');
 	await primary.getByRole('button', { name: 'Explore' }).click();
 	await expect(page.getByRole('button', { name: 'Inspect Coastal Village Afternoon' })).toBeVisible();
+	await page.locator('.scroll-area').evaluate((node) => {
+		node.scrollTop = 120;
+		node.dispatchEvent(new Event('scroll', { bubbles: true }));
+	});
+	await expect(page.getByRole('banner').getByRole('link', { name: 'Pastiche Home' })).toBeHidden();
+	await expect(page.getByText('Search by:')).toBeHidden();
+	await page.locator('.scroll-area').evaluate((node) => {
+		node.scrollTop = 0;
+		node.dispatchEvent(new Event('scroll', { bubbles: true }));
+	});
 	await page.getByRole('button', { name: 'Close inspector' }).click();
 	await page.getByRole('button', { name: 'Inspect Coastal Village Afternoon' }).click();
 	await expect(page.getByRole('heading', { name: 'Coastal Village Afternoon' })).toBeVisible();
+	await page.locator('.scroll-area').evaluate((node) => {
+		node.scrollTop = 0;
+		node.dispatchEvent(new Event('scroll', { bubbles: true }));
+	});
+	await expect(page.getByRole('banner').getByRole('button', { name: 'Add to Library' })).toBeVisible();
 	await page.getByRole('banner').getByRole('button', { name: 'Add to Library' }).click();
 	await expect(page.getByRole('heading', { name: 'Add to Library' })).toBeVisible();
 	await expect(page.getByRole('button', { name: /From Gallery/ })).toBeVisible();

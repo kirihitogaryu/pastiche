@@ -5,9 +5,15 @@
 	import DotsThreeIcon from 'phosphor-svelte/lib/DotsThreeIcon';
 	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
 	import { appState } from '$lib/state/app-state.svelte';
+
+	type Props = {
+		compact?: boolean;
+	};
+
+	let { compact = false }: Props = $props();
 </script>
 
-<header class="mobile-header">
+<header class:compact class="mobile-header">
 	<div class="brand-row">
 		<div class="wordmark">pastiche.</div>
 		<div class="actions">
@@ -33,6 +39,9 @@
 		gap: var(--space-2);
 		padding: max(var(--space-3), env(safe-area-inset-top)) var(--space-3) var(--space-2);
 		border-bottom: 1px solid var(--color-border-soft);
+		transition:
+			padding var(--duration-base) var(--ease-out),
+			gap var(--duration-base) var(--ease-out);
 	}
 
 	.brand-row,
@@ -102,6 +111,20 @@
 		background: transparent;
 		color: var(--color-text);
 		font-size: 0.84rem;
+	}
+
+	.mobile-header.compact {
+		gap: 0;
+		padding: max(0.45rem, env(safe-area-inset-top)) var(--space-3) 0.45rem;
+	}
+
+	.mobile-header.compact .brand-row,
+	.mobile-header.compact .crumbs {
+		display: none;
+	}
+
+	.mobile-header.compact .search {
+		height: 2.45rem;
 	}
 
 	@media (min-width: 760px) {

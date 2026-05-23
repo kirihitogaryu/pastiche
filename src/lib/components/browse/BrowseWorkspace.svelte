@@ -7,6 +7,7 @@
 		enterSelection,
 		openMobileInspect,
 		selectAsset,
+		setShellScrolled,
 		toggleLibrarySidebar,
 		toggleSelection,
 		appState
@@ -58,7 +59,7 @@
 	}
 </script>
 
-<div class:explore={mode === 'explore'} class="browse-workspace">
+<div class:compact={appState.shellScrolled} class:explore={mode === 'explore'} class="browse-workspace">
 	{#if mode === 'library'}
 		<LibrarySidebar
 			collapsed={appState.librarySidebarCollapsed}
@@ -91,7 +92,7 @@
 			<span>{mode === 'library' ? appState.folderPath.join(' / ') : 'Newest references'}</span>
 		</div>
 
-		<div class="scroll-area">
+		<div class="scroll-area" onscroll={(event) => setShellScrolled(event.currentTarget.scrollTop > 12)}>
 			<AssetGrid
 				assets={filteredAssets}
 				activeId={activeAsset?.id}
@@ -182,6 +183,12 @@
 		margin: 0;
 		color: var(--color-text);
 		font-weight: 650;
+	}
+
+	.browse-workspace.compact .sources,
+	.browse-workspace.compact .chips,
+	.browse-workspace.compact .result-row {
+		display: none;
 	}
 
 	.scroll-area {

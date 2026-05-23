@@ -6,6 +6,7 @@
 		closeMobileInspect,
 		exitSelection,
 		openAdd,
+		setShellScrolled,
 		setMode
 	} from '$lib/state/app-state.svelte';
 	import BrowseWorkspace from '$lib/components/browse/BrowseWorkspace.svelte';
@@ -26,9 +27,13 @@
 <div class="app-shell">
 	<ModeRail mode={appState.mode} onSelect={setMode} />
 	<div class="app-main">
-		<TopBar mode={appState.mode} />
-		<MobileHeader />
-		<main id="main-content" class="workspace">
+		<TopBar mode={appState.mode} compact={appState.shellScrolled} />
+		<MobileHeader compact={appState.shellScrolled} />
+		<main
+			id="main-content"
+			class="workspace"
+			onscroll={(event) => setShellScrolled(event.currentTarget.scrollTop > 12)}
+		>
 			{#if appState.mode === 'home'}
 				<HomeHub />
 			{:else if appState.mode === 'library' || appState.mode === 'explore'}

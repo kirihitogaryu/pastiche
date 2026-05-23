@@ -5,9 +5,14 @@
 	import PaletteIcon from 'phosphor-svelte/lib/PaletteIcon';
 	import ScribbleIcon from 'phosphor-svelte/lib/ScribbleIcon';
 	import { pinnedProjects } from '$lib/data/mock-navigation';
+	import { setShellScrolled } from '$lib/state/app-state.svelte';
 </script>
 
-<section class="home" aria-labelledby="home-title">
+<section
+	class="home"
+	aria-labelledby="home-title"
+	onscroll={(event) => setShellScrolled(event.currentTarget.scrollTop > 12)}
+>
 	<div class="intro">
 		<p class="eyebrow">Studio hub</p>
 		<h1 id="home-title">Hi, Kristoph.</h1>
@@ -57,7 +62,7 @@
 
 <style>
 	.home {
-		min-height: 100%;
+		height: 100%;
 		overflow: auto;
 		padding: var(--space-6);
 	}

@@ -9,9 +9,10 @@
 
 	type Props = {
 		mode: AppMode;
+		compact?: boolean;
 	};
 
-	let { mode }: Props = $props();
+	let { mode, compact = false }: Props = $props();
 
 	const labels: Record<AppMode, string> = {
 		home: 'Home',
@@ -23,7 +24,7 @@
 	};
 </script>
 
-<header class="topbar">
+<header class:compact class="topbar">
 	<a class="wordmark" href="/" aria-label="Pastiche Home">pastiche.</a>
 	<div class="mode-pill">{labels[mode]}</div>
 	<label class="search">
@@ -52,18 +53,21 @@
 	.topbar {
 		display: none;
 		align-items: center;
-		gap: var(--space-4);
-		min-height: var(--topbar-height);
-		padding: var(--space-4) var(--space-5);
+		gap: var(--space-3);
+		min-height: 3.75rem;
+		padding: 0.55rem var(--space-5);
 		border-bottom: 1px solid var(--color-border-soft);
 		background: oklch(12% 0.008 70 / 0.86);
+		transition:
+			min-height var(--duration-base) var(--ease-out),
+			padding var(--duration-base) var(--ease-out);
 	}
 
 	.wordmark {
 		color: var(--color-text);
 		text-decoration: none;
 		font-family: var(--font-wordmark);
-		font-size: 1.75rem;
+		font-size: 1.55rem;
 		font-style: italic;
 		white-space: nowrap;
 	}
@@ -79,15 +83,16 @@
 	}
 
 	.mode-pill {
-		padding: 0.7rem 1rem;
+		padding: 0.58rem 0.85rem;
 		font-weight: 600;
+		font-size: 0.86rem;
 	}
 
 	.search {
 		min-width: 16rem;
 		max-width: 38rem;
 		flex: 1;
-		height: 3rem;
+		height: 2.55rem;
 		display: flex;
 		align-items: center;
 		gap: var(--space-3);
@@ -112,7 +117,7 @@
 	.tool,
 	.add,
 	.view-toggle button {
-		height: 3rem;
+		height: 2.55rem;
 		border: 0;
 		color: var(--color-text);
 		cursor: pointer;
@@ -132,7 +137,7 @@
 
 	.view-toggle button,
 	.add {
-		width: 3rem;
+		width: 2.55rem;
 		display: grid;
 		place-items: center;
 		border-radius: var(--radius-md);
@@ -142,6 +147,24 @@
 	.add {
 		border: 1px solid var(--color-border);
 		background: var(--color-surface);
+	}
+
+	.topbar.compact {
+		min-height: 3.15rem;
+		padding-block: 0.35rem;
+	}
+
+	.topbar.compact .wordmark,
+	.topbar.compact .mode-pill,
+	.topbar.compact .tool,
+	.topbar.compact .view-toggle,
+	.topbar.compact .add {
+		display: none;
+	}
+
+	.topbar.compact .search {
+		max-width: none;
+		height: 2.4rem;
 	}
 
 	@media (min-width: 760px) {

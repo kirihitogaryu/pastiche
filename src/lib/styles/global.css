@@ -4,6 +4,8 @@
 *::before,
 *::after {
 	box-sizing: border-box;
+	scrollbar-width: thin;
+	scrollbar-color: oklch(55% 0.012 75 / 0.55) transparent;
 }
 
 html,
@@ -41,6 +43,29 @@ textarea {
 img {
 	display: block;
 	max-width: 100%;
+}
+
+::-webkit-scrollbar {
+	width: 0.45rem;
+	height: 0.45rem;
+}
+
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+	border-radius: var(--radius-pill);
+	background: oklch(55% 0.012 75 / 0.46);
+}
+
+::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:active {
+	background: var(--color-accent);
+}
+
+::-webkit-scrollbar-corner {
+	background: transparent;
 }
 
 :focus {

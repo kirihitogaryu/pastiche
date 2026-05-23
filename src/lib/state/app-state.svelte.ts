@@ -8,6 +8,7 @@ export const appState = $state({
 	addOpen: false,
 	inspectorOpen: true,
 	librarySidebarCollapsed: false,
+	shellScrolled: false,
 	focusedPreviewOpen: false,
 	query: '',
 	activeTags: [] as string[],
@@ -20,6 +21,7 @@ export function setMode(mode: AppMode) {
 	appState.mobileState = 'browse';
 	appState.addOpen = false;
 	appState.inspectorOpen = mode === 'library' || mode === 'explore';
+	appState.shellScrolled = false;
 	appState.focusedPreviewOpen = false;
 }
 
@@ -34,6 +36,10 @@ export function closeInspector() {
 
 export function toggleLibrarySidebar() {
 	appState.librarySidebarCollapsed = !appState.librarySidebarCollapsed;
+}
+
+export function setShellScrolled(scrolled: boolean) {
+	appState.shellScrolled = scrolled;
 }
 
 export function openMobileInspect(asset: Asset, scrollY: number) {
