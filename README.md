@@ -1,4 +1,4 @@
-# Pastiche
+# Pastiche {{THIS IS A WIP}}
 
 Pastiche is a local-first personal artist reference operating system: image archive, capture tool, color suite, curated source browser, and moodboard canvas.
 
