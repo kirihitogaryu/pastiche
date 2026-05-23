@@ -13,7 +13,6 @@
 		appState
 	} from '$lib/state/app-state.svelte';
 	import { exploreAssets, libraryAssets } from '$lib/data/mock-assets';
-	import { exploreChips, exploreSources, libraryChips } from '$lib/data/mock-navigation';
 	import type { AppMode, Asset } from '$lib/types';
 
 	type Props = {
@@ -23,7 +22,6 @@
 	let { mode }: Props = $props();
 
 	let currentAssets = $derived(mode === 'library' ? libraryAssets : exploreAssets);
-	let chips = $derived(mode === 'library' ? libraryChips : exploreChips);
 	let filteredAssets = $derived(
 		currentAssets.filter((asset) => {
 			const query = appState.query.trim().toLowerCase();
@@ -59,7 +57,7 @@
 	}
 </script>
 
-<div class:compact={appState.shellScrolled} class:explore={mode === 'explore'} class="browse-workspace">
+<div class:explore={mode === 'explore'} class="browse-workspace">
 	{#if mode === 'library'}
 		<LibrarySidebar
 			collapsed={appState.librarySidebarCollapsed}
@@ -70,28 +68,6 @@
 	{/if}
 
 	<section class="browse-content" aria-label={`${mode} browser`}>
-		{#if mode === 'explore'}
-			<div class="sources" aria-label="Explore sources">
-				<span>Source:</span>
-				{#each exploreSources as source}
-					<button class:active={source === 'All Sources'} type="button">{source}</button>
-				{/each}
-			</div>
-		{/if}
-
-		<div class="chips" aria-label={`${mode} filters`}>
-			<span>Search by:</span>
-			{#each chips as chip}
-				<button class:active={chip.toLowerCase() === 'all'} type="button">{chip}</button>
-			{/each}
-			<button type="button">+ More</button>
-		</div>
-
-		<div class="result-row">
-			<p>{filteredAssets.length.toLocaleString()} results</p>
-			<span>{mode === 'library' ? appState.folderPath.join(' / ') : 'Newest references'}</span>
-		</div>
-
 		<div class="scroll-area" onscroll={(event) => setShellScrolled(event.currentTarget.scrollTop > 12)}>
 			<AssetGrid
 				assets={filteredAssets}
@@ -124,73 +100,6 @@
 		flex-direction: column;
 	}
 
-	.sources,
-	.chips,
-	.result-row {
-		display: flex;
-		align-items: center;
-		gap: var(--space-3);
-		padding-inline: var(--space-5);
-	}
-
-	.sources {
-		padding-top: var(--space-5);
-	}
-
-	.sources span,
-	.chips span,
-	.result-row span {
-		color: var(--color-muted);
-		font-size: 0.86rem;
-		white-space: nowrap;
-	}
-
-	.sources button,
-	.chips button {
-		min-height: 2.35rem;
-		padding: 0 var(--space-4);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-pill);
-		background: transparent;
-		color: var(--color-text);
-		cursor: pointer;
-		white-space: nowrap;
-	}
-
-	.sources button.active,
-	.chips button.active {
-		background: var(--color-selected);
-	}
-
-	.chips {
-		padding-top: var(--space-4);
-		padding-bottom: var(--space-2);
-		overflow-x: auto;
-		scrollbar-width: none;
-	}
-
-	.chips::-webkit-scrollbar {
-		display: none;
-	}
-
-	.result-row {
-		justify-content: space-between;
-		padding-top: var(--space-2);
-		padding-bottom: var(--space-2);
-	}
-
-	.result-row p {
-		margin: 0;
-		color: var(--color-text);
-		font-weight: 650;
-	}
-
-	.browse-workspace.compact .sources,
-	.browse-workspace.compact .chips,
-	.browse-workspace.compact .result-row {
-		display: none;
-	}
-
 	.scroll-area {
 		min-height: 0;
 		flex: 1;
@@ -206,31 +115,6 @@
 		.browse-content {
 			height: auto;
 			min-height: 100%;
-		}
-
-		.sources,
-		.result-row {
-			display: none;
-		}
-
-		.chips {
-			position: sticky;
-			top: 0;
-			z-index: 2;
-			gap: var(--space-2);
-			padding: var(--space-2) var(--space-3);
-			background: oklch(12% 0.008 70 / 0.92);
-			backdrop-filter: blur(16px);
-		}
-
-		.chips span {
-			display: none;
-		}
-
-		.chips button {
-			min-height: 2rem;
-			padding-inline: var(--space-3);
-			font-size: 0.78rem;
 		}
 
 		.scroll-area {

@@ -9,10 +9,9 @@
 
 	type Props = {
 		mode: AppMode;
-		compact?: boolean;
 	};
 
-	let { mode, compact = false }: Props = $props();
+	let { mode }: Props = $props();
 
 	const labels: Record<AppMode, string> = {
 		home: 'Home',
@@ -22,11 +21,70 @@
 		colors: 'Colors',
 		resources: 'Resources'
 	};
+
+	type BreadcrumbItem = {
+		id: string;
+		label: string;
+		path?: string[];
+		current?: boolean;
+		ellipsis?: boolean;
+	};
+
+	let breadcrumbItems = $derived.by(() => {
+		const path = appState.folderPath;
+		const visible =
+			path.length <= 3
+				? path
+				: [path[0], '...', ...path.slice(Math.max(path.length - 2, 1))];
+
+		return visible.map((label, index): BreadcrumbItem => {
+			const ellipsis = label === '...';
+			const originalIndex = ellipsis
+				? -1
+				: path.length <= 3
+					? index
+					: index === 0
+						? 0
+						: path.length - (visible.length - index);
+
+			return {
+				id: `${label}-${index}`,
+				label,
+				ellipsis,
+				current: !ellipsis && originalIndex === path.length - 1,
+				path: ellipsis ? undefined : path.slice(0, originalIndex + 1)
+			};
+		});
+	});
+
+	function setBreadcrumb(path?: string[]) {
+		if (!path) return;
+		appState.folderPath = path;
+	}
 </script>
 
-<header class:compact class="topbar">
+<header class="topbar">
 	<a class="wordmark" href="/" aria-label="Pastiche Home">pastiche.</a>
-	<div class="mode-pill">{labels[mode]}</div>
+	{#if mode === 'library'}
+		<nav class="breadcrumb" aria-label="Library breadcrumb">
+			{#each breadcrumbItems as crumb}
+				{#if crumb.ellipsis}
+					<span aria-hidden="true">...</span>
+				{:else}
+					<button
+						class:current={crumb.current}
+						type="button"
+						aria-current={crumb.current ? 'page' : undefined}
+						onclick={() => setBreadcrumb(crumb.path)}
+					>
+						{crumb.label}
+					</button>
+				{/if}
+			{/each}
+		</nav>
+	{:else}
+		<div class="mode-pill">{labels[mode]}</div>
+	{/if}
 	<label class="search">
 		<span class="sr-only">Search {labels[mode]}</span>
 		<MagnifyingGlassIcon size={20} />
@@ -58,9 +116,6 @@
 		padding: 0.55rem var(--space-5);
 		border-bottom: 1px solid var(--color-border-soft);
 		background: oklch(12% 0.008 70 / 0.86);
-		transition:
-			min-height var(--duration-base) var(--ease-out),
-			padding var(--duration-base) var(--ease-out);
 	}
 
 	.wordmark {
@@ -86,6 +141,54 @@
 		padding: 0.58rem 0.85rem;
 		font-weight: 600;
 		font-size: 0.86rem;
+	}
+
+	.breadcrumb {
+		max-width: 19rem;
+		min-height: 2.55rem;
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		padding: 0 var(--space-3);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		background: var(--color-surface);
+		overflow: hidden;
+		white-space: nowrap;
+	}
+
+	.breadcrumb button,
+	.breadcrumb span {
+		min-width: 0;
+		border: 0;
+		background: transparent;
+		color: var(--color-dim);
+		font-size: 0.82rem;
+	}
+
+	.breadcrumb button {
+		max-width: 7rem;
+		padding: 0;
+		cursor: pointer;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.breadcrumb button:hover {
+		color: var(--color-muted);
+	}
+
+	.breadcrumb button.current {
+		color: var(--color-accent);
+		font-weight: 650;
+	}
+
+	.breadcrumb button:not(:last-child)::after,
+	.breadcrumb span::after {
+		content: "/";
+		margin-left: 0.35rem;
+		color: var(--color-dim);
+		font-weight: 400;
 	}
 
 	.search {
@@ -147,24 +250,6 @@
 	.add {
 		border: 1px solid var(--color-border);
 		background: var(--color-surface);
-	}
-
-	.topbar.compact {
-		min-height: 3.15rem;
-		padding-block: 0.35rem;
-	}
-
-	.topbar.compact .wordmark,
-	.topbar.compact .mode-pill,
-	.topbar.compact .tool,
-	.topbar.compact .view-toggle,
-	.topbar.compact .add {
-		display: none;
-	}
-
-	.topbar.compact .search {
-		max-width: none;
-		height: 2.4rem;
 	}
 
 	@media (min-width: 760px) {

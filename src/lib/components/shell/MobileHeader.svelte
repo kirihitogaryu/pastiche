@@ -4,34 +4,49 @@
 	import SlidersHorizontalIcon from 'phosphor-svelte/lib/SlidersHorizontalIcon';
 	import DotsThreeIcon from 'phosphor-svelte/lib/DotsThreeIcon';
 	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
+	import type { AppMode } from '$lib/types';
 	import { appState } from '$lib/state/app-state.svelte';
 
 	type Props = {
+		mode: AppMode;
 		compact?: boolean;
 	};
 
-	let { compact = false }: Props = $props();
+	let { mode, compact = false }: Props = $props();
+
+	let visible = $derived(mode === 'library' || mode === 'explore');
+	let showBreadcrumb = $derived(mode === 'library');
+	let searchLabel = $derived(mode === 'explore' ? 'Search sources' : 'Search current folder');
+	let searchPlaceholder = $derived(
+		mode === 'explore'
+			? 'Search artworks, collections, artists...'
+			: 'Search artworks, tags, creators, colors...'
+	);
 </script>
 
-<header class:compact class="mobile-header">
-	<div class="brand-row">
-		<div class="wordmark">pastiche.</div>
-		<div class="actions">
-			<button type="button" aria-label="Filter"><FunnelIcon size={19} /></button>
-			<button type="button" aria-label="More"><DotsThreeIcon size={21} weight="bold" /></button>
+{#if visible}
+	<header class:compact class="mobile-header">
+		<div class="brand-row">
+			<div class="wordmark">pastiche.</div>
+			<div class="actions">
+				<button type="button" aria-label="Filter"><FunnelIcon size={19} /></button>
+				<button type="button" aria-label="More"><DotsThreeIcon size={21} weight="bold" /></button>
+			</div>
 		</div>
-	</div>
-	<div class="crumbs" aria-label="Current location">
-		<FolderIcon size={16} />
-		<span>{appState.folderPath.join(' / ')}</span>
-	</div>
-	<label class="search">
-		<MagnifyingGlassIcon size={19} />
-		<span class="sr-only">Search current folder</span>
-		<input bind:value={appState.query} placeholder="Search artworks, tags, creators, colors..." />
-		<SlidersHorizontalIcon size={19} />
-	</label>
-</header>
+		{#if showBreadcrumb}
+			<div class="crumbs" aria-label="Current location">
+				<FolderIcon size={16} />
+				<span>{appState.folderPath.join(' / ')}</span>
+			</div>
+		{/if}
+		<label class="search">
+			<MagnifyingGlassIcon size={19} />
+			<span class="sr-only">{searchLabel}</span>
+			<input bind:value={appState.query} placeholder={searchPlaceholder} />
+			<SlidersHorizontalIcon size={19} />
+		</label>
+	</header>
+{/if}
 
 <style>
 	.mobile-header {

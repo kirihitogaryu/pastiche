@@ -5,6 +5,9 @@ test('desktop library and explore surfaces are navigable', async ({ page }) => {
 
 	const primary = page.getByRole('navigation', { name: 'Primary' });
 	await primary.getByRole('button', { name: 'Library' }).click();
+	await expect(
+		page.getByRole('navigation', { name: 'Library breadcrumb' }).getByRole('button', { name: 'artworks' })
+	).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Inspect Crimson Horizon' })).toBeVisible();
 	await expect(page.getByRole('heading', { name: 'Crimson Horizon' })).toBeVisible();
 	await page.getByRole('button', { name: 'Collapse library sidebar' }).click();
@@ -24,8 +27,9 @@ test('desktop library and explore surfaces are navigable', async ({ page }) => {
 		node.scrollTop = 120;
 		node.dispatchEvent(new Event('scroll', { bubbles: true }));
 	});
-	await expect(page.getByRole('banner').getByRole('link', { name: 'Pastiche Home' })).toBeHidden();
 	await expect(page.getByText('Search by:')).toBeHidden();
+	await expect(page.getByRole('banner').getByRole('link', { name: 'Pastiche Home' })).toBeVisible();
+	await expect(page.getByRole('banner').getByRole('button', { name: 'Add to Library' })).toBeVisible();
 	await page.locator('.scroll-area').evaluate((node) => {
 		node.scrollTop = 0;
 		node.dispatchEvent(new Event('scroll', { bubbles: true }));
@@ -47,7 +51,17 @@ test('phone browse opens inspect and add sheet', async ({ page }) => {
 	await page.setViewportSize({ width: 390, height: 844 });
 	await page.goto('/');
 
+	await expect(page.getByPlaceholder('Search artworks, tags, creators, colors...')).toBeHidden();
+
 	const mobilePrimary = page.getByRole('navigation', { name: 'Mobile primary' });
+	await mobilePrimary.getByRole('button', { name: 'Library', exact: true }).click();
+	await expect(page.getByPlaceholder('Search artworks, tags, creators, colors...')).toBeVisible();
+	await expect(page.getByLabel('Current location')).toBeVisible();
+
+	await mobilePrimary.getByRole('button', { name: 'Explore', exact: true }).click();
+	await expect(page.getByPlaceholder('Search artworks, collections, artists...')).toBeVisible();
+	await expect(page.getByLabel('Current location')).toBeHidden();
+
 	await mobilePrimary.getByRole('button', { name: 'Library', exact: true }).click();
 
 	await page.getByRole('button', { name: 'Inspect Crimson Horizon' }).click();

@@ -60,6 +60,8 @@ Core components:
 - selection action bar
 - focused preview overlay
 
+Desktop browse uses the top bar as the command surface. Category/source/tag filtering should live in the Filter modal rather than persistent chip strips that reduce browsing space.
+
 # Motion
 
 Use short, stateful transitions only. Drawer, Inspector, selection bar, and preview overlay motion should orient the user without delaying browsing.

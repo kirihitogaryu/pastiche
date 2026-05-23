@@ -53,6 +53,8 @@ Use a bottom navigation bar for primary modes:
 - Canvas
 - Resources
 
+Home is intentionally unresolved on phone for now. It should remain reachable later, but the exact pattern needs a dedicated design decision rather than forcing a generic sixth bottom-nav item into the current shell.
+
 The center Add action opens an import drawer rather than switching to a permanent mode.
 
 The bottom nav should respect safe-area insets and remain visually secondary when another command surface is active, such as Selection Mode.

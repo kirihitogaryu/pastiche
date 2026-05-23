@@ -27,8 +27,8 @@
 <div class="app-shell">
 	<ModeRail mode={appState.mode} onSelect={setMode} />
 	<div class="app-main">
-		<TopBar mode={appState.mode} compact={appState.shellScrolled} />
-		<MobileHeader compact={appState.shellScrolled} />
+		<TopBar mode={appState.mode} />
+		<MobileHeader mode={appState.mode} compact={appState.shellScrolled} />
 		<main
 			id="main-content"
 			class="workspace"
