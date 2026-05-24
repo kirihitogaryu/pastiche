@@ -1,4 +1,4 @@
-import type { AppMode, Asset, MobileState } from '$lib/types';
+import type { AppMode, Asset, LibraryView, MobileState } from '$lib/types';
 
 export const appState = $state({
 	mode: 'home' as AppMode,
@@ -8,6 +8,14 @@ export const appState = $state({
 	addOpen: false,
 	inspectorOpen: true,
 	librarySidebarCollapsed: false,
+	libraryView: 'overview' as LibraryView,
+	lastLibraryView: 'overview' as LibraryView,
+	activeLibraryFolderPath: ['library', 'refs', 'artworks'] as string[],
+	activeSmartFolderId: null as string | null,
+	activeTagId: null as string | null,
+	activeProjectId: null as string | null,
+	librarySort: 'Newest',
+	filterOpen: false,
 	shellScrolled: false,
 	focusedPreviewOpen: false,
 	query: '',
@@ -17,12 +25,71 @@ export const appState = $state({
 });
 
 export function setMode(mode: AppMode) {
+	if (mode === 'library' && appState.mode === 'library') {
+		openLibraryOverview();
+		return;
+	}
+
 	appState.mode = mode;
 	appState.mobileState = 'browse';
 	appState.addOpen = false;
-	appState.inspectorOpen = mode === 'library' || mode === 'explore';
+	appState.inspectorOpen = mode === 'explore';
 	appState.shellScrolled = false;
 	appState.focusedPreviewOpen = false;
+
+	if (mode === 'library') {
+		appState.libraryView = appState.lastLibraryView;
+		appState.inspectorOpen = false;
+	}
+}
+
+export function openLibraryOverview() {
+	appState.mode = 'library';
+	appState.libraryView = 'overview';
+	appState.lastLibraryView = 'overview';
+	appState.mobileState = 'browse';
+	appState.addOpen = false;
+	appState.filterOpen = false;
+}
+
+export function openFullLibrary() {
+	appState.mode = 'library';
+	appState.libraryView = 'all';
+	appState.lastLibraryView = 'all';
+	appState.mobileState = 'browse';
+}
+
+export function openLibraryFolder(path: string[]) {
+	appState.mode = 'library';
+	appState.libraryView = 'folder';
+	appState.lastLibraryView = 'folder';
+	appState.activeLibraryFolderPath = path;
+	appState.folderPath = path;
+	appState.mobileState = 'browse';
+}
+
+export function openSmartFolder(id: string) {
+	appState.mode = 'library';
+	appState.libraryView = 'smart';
+	appState.lastLibraryView = 'smart';
+	appState.activeSmartFolderId = id;
+	appState.mobileState = 'browse';
+}
+
+export function openProjectLibrary(id: string) {
+	appState.mode = 'library';
+	appState.libraryView = 'project';
+	appState.lastLibraryView = 'project';
+	appState.activeProjectId = id;
+	appState.mobileState = 'browse';
+}
+
+export function openFilter() {
+	appState.filterOpen = true;
+}
+
+export function closeFilter() {
+	appState.filterOpen = false;
 }
 
 export function selectAsset(asset: Asset) {
@@ -63,10 +130,9 @@ export function enterSelection(asset: Asset) {
 }
 
 export function toggleSelection(asset: Asset) {
-	const selected = new Set(appState.selectedAssetIds);
-	if (selected.has(asset.id)) selected.delete(asset.id);
-	else selected.add(asset.id);
-	appState.selectedAssetIds = [...selected];
+	appState.selectedAssetIds = appState.selectedAssetIds.includes(asset.id)
+		? appState.selectedAssetIds.filter((id) => id !== asset.id)
+		: [...appState.selectedAssetIds, asset.id];
 	if (appState.selectedAssetIds.length === 0) appState.mobileState = 'browse';
 }
 

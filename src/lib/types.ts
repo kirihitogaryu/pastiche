@@ -37,3 +37,26 @@ export type Project = {
 	assetIds: string[];
 	canvasCount: number;
 };
+
+export type LibraryView = 'overview' | 'all' | 'folder' | 'smart' | 'tag' | 'project';
+
+export type LibraryFolder = {
+	id: string;
+	name: string;
+	path: string[];
+	assetCount: number;
+	childFolderCount: number;
+	parentId?: string;
+};
+
+export type SmartFolder = {
+	id: string;
+	label: string;
+	count: number;
+	icon: 'star' | 'clock' | 'tag' | 'link';
+};
+
+export type LibraryProjectSummary = Project & {
+	noteCount: number;
+	coverAssetIds: string[];
+};

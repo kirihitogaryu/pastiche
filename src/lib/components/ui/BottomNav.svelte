@@ -71,11 +71,19 @@
 		gap: 0.1rem;
 		cursor: pointer;
 		font-size: 0.64rem;
+		transition:
+			background var(--duration-fast) var(--ease-out),
+			color var(--duration-fast) var(--ease-out),
+			transform var(--duration-fast) var(--ease-out);
 	}
 
 	button.active {
 		background: var(--color-surface-raised);
 		color: var(--color-text);
+	}
+
+	button:active {
+		transform: translateY(1px);
 	}
 
 	button.add {

@@ -30,7 +30,6 @@
 
 		<div class="hero">
 			<img src={asset.imageUrl} alt={asset.title} />
-			<span>1 / 1</span>
 		</div>
 
 		<div class="primary-actions" aria-label="Image actions">
@@ -131,18 +130,6 @@
 		width: 100%;
 		max-height: 58vh;
 		object-fit: cover;
-	}
-
-	.hero span {
-		position: absolute;
-		left: 50%;
-		bottom: var(--space-4);
-		transform: translateX(-50%);
-		padding: 0.35rem 0.8rem;
-		border-radius: var(--radius-pill);
-		background: oklch(10% 0.006 70 / 0.72);
-		color: var(--color-text);
-		font-size: 0.82rem;
 	}
 
 	.primary-actions,

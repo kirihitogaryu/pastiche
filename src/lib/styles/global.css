@@ -5,7 +5,7 @@
 *::after {
 	box-sizing: border-box;
 	scrollbar-width: thin;
-	scrollbar-color: oklch(55% 0.012 75 / 0.55) transparent;
+	scrollbar-color: oklch(62% 0.006 75 / 0.42) transparent;
 }
 
 html,
@@ -46,8 +46,8 @@ img {
 }
 
 ::-webkit-scrollbar {
-	width: 0.45rem;
-	height: 0.45rem;
+	width: 0.36rem;
+	height: 0.36rem;
 }
 
 ::-webkit-scrollbar-track {
@@ -56,12 +56,12 @@ img {
 
 ::-webkit-scrollbar-thumb {
 	border-radius: var(--radius-pill);
-	background: oklch(55% 0.012 75 / 0.46);
+	background: oklch(62% 0.006 75 / 0.36);
 }
 
 ::-webkit-scrollbar-thumb:hover,
 ::-webkit-scrollbar-thumb:active {
-	background: var(--color-accent);
+	background: oklch(76% 0.006 75 / 0.62);
 }
 
 ::-webkit-scrollbar-corner {

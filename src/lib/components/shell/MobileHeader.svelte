@@ -1,11 +1,10 @@
 <script lang="ts">
 	import FunnelIcon from 'phosphor-svelte/lib/FunnelIcon';
+	import HouseIcon from 'phosphor-svelte/lib/HouseIcon';
 	import MagnifyingGlassIcon from 'phosphor-svelte/lib/MagnifyingGlassIcon';
-	import SlidersHorizontalIcon from 'phosphor-svelte/lib/SlidersHorizontalIcon';
 	import DotsThreeIcon from 'phosphor-svelte/lib/DotsThreeIcon';
-	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
 	import type { AppMode } from '$lib/types';
-	import { appState } from '$lib/state/app-state.svelte';
+	import { appState, openFilter, setMode } from '$lib/state/app-state.svelte';
 
 	type Props = {
 		mode: AppMode;
@@ -15,36 +14,50 @@
 	let { mode, compact = false }: Props = $props();
 
 	let visible = $derived(mode === 'library' || mode === 'explore');
-	let showBreadcrumb = $derived(mode === 'library');
-	let searchLabel = $derived(mode === 'explore' ? 'Search sources' : 'Search current folder');
-	let searchPlaceholder = $derived(
-		mode === 'explore'
-			? 'Search artworks, collections, artists...'
-			: 'Search artworks, tags, creators, colors...'
-	);
+	let showSearch = $derived(mode === 'explore');
+	let showBreadcrumb = $derived(false);
+	let searchLabel = $derived('Search sources');
+	let searchPlaceholder = $derived('Search artworks, collections, artists...');
 </script>
 
 {#if visible}
-	<header class:compact class="mobile-header">
+	<header class:compact={mode === 'explore' && compact} class="mobile-header">
 		<div class="brand-row">
-			<div class="wordmark">pastiche.</div>
+			<div class="brand-cluster">
+				<button class="home-button" type="button" aria-label="Home" onclick={() => setMode('home')}>
+					<HouseIcon size={17} />
+				</button>
+				<div class="wordmark">pastiche.</div>
+			</div>
 			<div class="actions">
-				<button type="button" aria-label="Filter"><FunnelIcon size={19} /></button>
+				<button type="button" aria-label="Filter" onclick={openFilter}
+					><FunnelIcon size={19} /></button
+				>
 				<button type="button" aria-label="More"><DotsThreeIcon size={21} weight="bold" /></button>
 			</div>
 		</div>
 		{#if showBreadcrumb}
 			<div class="crumbs" aria-label="Current location">
-				<FolderIcon size={16} />
 				<span>{appState.folderPath.join(' / ')}</span>
 			</div>
 		{/if}
-		<label class="search">
-			<MagnifyingGlassIcon size={19} />
-			<span class="sr-only">{searchLabel}</span>
-			<input bind:value={appState.query} placeholder={searchPlaceholder} />
-			<SlidersHorizontalIcon size={19} />
-		</label>
+		{#if showSearch}
+			<div class="search-row">
+				<button
+					class="home-button compact-home"
+					type="button"
+					aria-label="Home"
+					onclick={() => setMode('home')}
+				>
+					<HouseIcon size={17} />
+				</button>
+				<label class="search">
+					<MagnifyingGlassIcon size={19} />
+					<span class="sr-only">{searchLabel}</span>
+					<input bind:value={appState.query} placeholder={searchPlaceholder} />
+				</label>
+			</div>
+		{/if}
 	</header>
 {/if}
 
@@ -56,11 +69,13 @@
 		border-bottom: 1px solid var(--color-border-soft);
 		transition:
 			padding var(--duration-base) var(--ease-out),
-			gap var(--duration-base) var(--ease-out);
+			border-color var(--duration-fast) var(--ease-out);
 	}
 
 	.brand-row,
+	.brand-cluster,
 	.crumbs,
+	.search-row,
 	.search,
 	.actions {
 		display: flex;
@@ -69,6 +84,11 @@
 
 	.brand-row {
 		justify-content: space-between;
+	}
+
+	.brand-cluster {
+		min-width: 0;
+		gap: var(--space-2);
 	}
 
 	.wordmark {
@@ -91,6 +111,34 @@
 		color: var(--color-text);
 		display: grid;
 		place-items: center;
+		transition:
+			background var(--duration-fast) var(--ease-out),
+			border-color var(--duration-fast) var(--ease-out),
+			color var(--duration-fast) var(--ease-out);
+	}
+
+	button:hover,
+	button:focus-visible {
+		border-color: var(--color-border-strong);
+		background: var(--color-surface-soft);
+	}
+
+	.home-button {
+		width: 2rem;
+		height: 2rem;
+		background: transparent;
+		color: var(--color-muted);
+	}
+
+	.home-button:focus-visible,
+	.home-button:hover {
+		color: var(--color-text);
+		border-color: var(--color-border-strong);
+	}
+
+	.compact-home {
+		display: none;
+		flex: 0 0 auto;
 	}
 
 	.crumbs {
@@ -109,6 +157,7 @@
 	}
 
 	.search {
+		flex: 1;
 		height: 2.75rem;
 		gap: var(--space-2);
 		padding: 0 var(--space-3);
@@ -116,6 +165,14 @@
 		border-radius: var(--radius-xl);
 		background: var(--color-surface);
 		color: var(--color-muted);
+		transition:
+			background var(--duration-fast) var(--ease-out),
+			border-color var(--duration-fast) var(--ease-out);
+	}
+
+	.search:focus-within {
+		border-color: var(--color-border-strong);
+		background: var(--color-surface-soft);
 	}
 
 	input {
@@ -130,7 +187,7 @@
 
 	.mobile-header.compact {
 		gap: 0;
-		padding: max(0.45rem, env(safe-area-inset-top)) var(--space-3) 0.45rem;
+		padding: max(0.55rem, env(safe-area-inset-top)) var(--space-3) 0.55rem;
 	}
 
 	.mobile-header.compact .brand-row,
@@ -138,8 +195,12 @@
 		display: none;
 	}
 
+	.mobile-header.compact .compact-home {
+		display: grid;
+	}
+
 	.mobile-header.compact .search {
-		height: 2.45rem;
+		height: 2.55rem;
 	}
 
 	@media (min-width: 760px) {

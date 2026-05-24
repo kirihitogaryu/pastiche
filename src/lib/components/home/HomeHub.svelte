@@ -24,6 +24,7 @@
 			<button type="button"><ImageIcon size={20} /> Import images</button>
 			<button type="button"><FolderPlusIcon size={20} /> Create Project</button>
 			<button type="button"><CompassIcon size={20} /> Explore sources</button>
+			<button type="button"><ScribbleIcon size={20} /> New Canvas</button>
 		</div>
 	</div>
 
@@ -191,6 +192,20 @@
 	@media (max-width: 759px) {
 		.home {
 			padding: var(--space-5) var(--space-4) calc(var(--bottom-nav-height) + var(--space-6));
+		}
+
+		.quick-actions {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: var(--space-2);
+		}
+
+		.quick-actions button {
+			min-height: 3.25rem;
+			justify-content: flex-start;
+			padding: 0 var(--space-3);
+			font-size: 0.78rem;
+			line-height: 1.2;
 		}
 	}
 </style>

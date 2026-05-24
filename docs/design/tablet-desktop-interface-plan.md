@@ -70,6 +70,8 @@ Library is archive/folder oriented.
 
 Reference: `library-full-sidebar-folder-view.png`
 
+Desktop Library should converge with the same information architecture as mobile: Overview, Full Library, Folder Contents, Smart Folders, Tags, and Projects. The desktop sidebar becomes an accelerator for these destinations, not the only way to understand the archive.
+
 ### Layout
 
 ```text

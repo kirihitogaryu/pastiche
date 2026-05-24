@@ -61,16 +61,19 @@
 
 	@media (max-width: 759px) {
 		.asset-grid {
-			grid-template-columns: repeat(auto-fill, minmax(6.45rem, 1fr));
-			gap: 0.45rem;
+			display: block;
+			columns: 9.25rem;
+			column-gap: 0.45rem;
 			padding: var(--space-2);
 			padding-bottom: calc(var(--bottom-nav-height) + var(--space-3));
 		}
 
 		.asset-grid :global(.asset-card:nth-child(n)) {
-			grid-column: auto;
-			grid-row: auto;
+			display: inline-block;
+			width: 100%;
+			margin: 0 0 0.45rem;
+			break-inside: avoid;
+			vertical-align: top;
 		}
-
 	}
 </style>

@@ -34,7 +34,7 @@ const warmAbstract: PaletteSwatch[] = [
 	{ hex: '#7a6a4a', label: 'warm stone' }
 ];
 
-export const mockAssets: Asset[] = [
+const baseMockAssets: Asset[] = [
 	{
 		id: 'crimson-horizon',
 		title: 'Crimson Horizon',
@@ -397,6 +397,97 @@ export const mockAssets: Asset[] = [
 		projects: [],
 		folderPath: ['explore', 'the met']
 	}
+];
+
+const folderExampleSeeds = [
+	{
+		sourceId: 'rose-band',
+		id: 'artworks-rose-band',
+		title: 'Rose Band Study',
+		folderPath: ['library', 'refs', 'artworks']
+	},
+	{
+		sourceId: 'mondrian-blocks',
+		id: 'artworks-mondrian-blocks',
+		title: 'Primary Blocks Study',
+		folderPath: ['library', 'refs', 'artworks']
+	},
+	{
+		sourceId: 'kandinsky-study',
+		id: 'artworks-kandinsky-study',
+		title: 'Circular Composition Notes',
+		folderPath: ['library', 'refs', 'artworks']
+	},
+	{
+		sourceId: 'orange-black-orbit',
+		id: 'artworks-orange-black-orbit',
+		title: 'Orange Orbit Study',
+		folderPath: ['library', 'refs', 'artworks']
+	},
+	{
+		sourceId: 'ink-architecture',
+		id: 'artworks-ink-architecture',
+		title: 'Cathedral Value Study',
+		folderPath: ['library', 'refs', 'artworks']
+	},
+	{
+		sourceId: 'summer-studio',
+		id: 'artworks-summer-studio',
+		title: 'Studio Light Study',
+		folderPath: ['library', 'refs', 'artworks']
+	},
+	{
+		sourceId: 'rose-band',
+		id: 'impressionism-rose-band',
+		title: 'Rose Band Color Note',
+		folderPath: ['library', 'refs', 'artworks', 'impressionism']
+	},
+	{
+		sourceId: 'summer-studio',
+		id: 'lighting-summer-studio',
+		title: 'Window Light Study',
+		folderPath: ['library', 'refs', 'artworks', 'lighting']
+	},
+	{
+		sourceId: 'ink-architecture',
+		id: 'architecture-ink-study',
+		title: 'Cathedral Study Copy',
+		folderPath: ['library', 'refs', 'artworks', 'architecture']
+	},
+	{
+		sourceId: 'figure-hands',
+		id: 'figure-hands-copy',
+		title: 'Hand Construction Copy',
+		folderPath: ['library', 'refs', 'artworks', 'figure']
+	}
+] satisfies Array<{
+	sourceId: string;
+	id: string;
+	title: string;
+	folderPath: string[];
+}>;
+
+function duplicateAssetForFolder(seed: (typeof folderExampleSeeds)[number]): Asset {
+	const source = baseMockAssets.find((asset) => asset.id === seed.sourceId);
+	if (!source) {
+		throw new Error(`Missing source asset for folder example: ${seed.sourceId}`);
+	}
+
+	return {
+		...source,
+		id: seed.id,
+		title: seed.title,
+		saved: true,
+		folderPath: seed.folderPath,
+		tags: [...source.tags],
+		palette: [...source.palette],
+		projects: [...source.projects]
+	};
+}
+
+export const mockAssets: Asset[] = [
+	...baseMockAssets,
+	...folderExampleSeeds.map((seed) => duplicateAssetForFolder(seed))
 ];
 
 export const libraryAssets = mockAssets.filter((asset) => asset.saved);

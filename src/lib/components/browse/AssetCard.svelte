@@ -14,6 +14,8 @@
 	};
 
 	let { asset, active = false, selected = false, mode = 'library', onOpen, onSelect }: Props = $props();
+	let displayRatio = $derived(Math.min(1.65, Math.max(0.72, asset.width / asset.height)));
+	let menuOpen = $state(false);
 
 	let pressTimer: ReturnType<typeof setTimeout> | null = null;
 	let longPressed = false;
@@ -35,11 +37,29 @@
 	function openFromCard() {
 		clearPress();
 		if (longPressed) return;
+		menuOpen = false;
 		onOpen(asset);
+	}
+
+	function toggleMenu(event: MouseEvent) {
+		event.stopPropagation();
+		menuOpen = !menuOpen;
+	}
+
+	function chooseMenuAction(event: MouseEvent) {
+		event.stopPropagation();
+		menuOpen = false;
+		onSelect(asset);
 	}
 </script>
 
-<article class:active class:selected class="asset-card">
+<article
+	class:active
+	class:selected
+	class:explore={mode === 'explore'}
+	class="asset-card"
+	style={`--asset-ratio: ${displayRatio}`}
+>
 	<button
 		class="image-button"
 		type="button"
@@ -70,9 +90,11 @@
 		<button
 			class="quick-action"
 			class:favorite={asset.favorite}
+			class:active-selection={selected}
 			type="button"
-			aria-label={asset.favorite ? `${asset.title} is favorited` : `Favorite ${asset.title}`}
-			onclick={() => onSelect(asset)}
+			aria-label={`${asset.title} actions`}
+			aria-expanded={menuOpen}
+			onclick={toggleMenu}
 		>
 			{#if selected}
 				<CheckCircleIcon size={22} weight="fill" />
@@ -80,6 +102,16 @@
 				<StarIcon size={20} weight={asset.favorite ? 'fill' : 'regular'} />
 			{/if}
 		</button>
+	{/if}
+	{#if menuOpen && mode === 'library'}
+		<div class="card-menu" role="menu" aria-label={`${asset.title} actions`}>
+			<button type="button" role="menuitem" onclick={chooseMenuAction}>
+				{asset.favorite ? 'Remove favorite' : 'Favorite'}
+			</button>
+			<button type="button" role="menuitem" onclick={chooseMenuAction}>Add to Canvas</button>
+			<button type="button" role="menuitem" onclick={chooseMenuAction}>Tag</button>
+			<button type="button" role="menuitem" onclick={chooseMenuAction}>Move</button>
+		</div>
 	{/if}
 </article>
 
@@ -108,6 +140,14 @@
 	.asset-card:hover {
 		transform: translateY(-1px);
 		border-color: var(--color-border-strong);
+	}
+
+	.asset-card:hover .quick-action,
+	.asset-card:focus-within .quick-action,
+	.quick-action[aria-expanded='true'],
+	.quick-action.active-selection {
+		opacity: 1;
+		pointer-events: auto;
 	}
 
 	.image-button {
@@ -186,19 +226,75 @@
 	.quick-action {
 		top: var(--space-3);
 		right: var(--space-3);
-		width: 2.3rem;
-		height: 2.3rem;
+		width: 1.85rem;
+		height: 1.85rem;
 		display: grid;
 		place-items: center;
+		padding: 0;
 		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
+		border-radius: var(--radius-sm);
 		background: oklch(8% 0.006 70 / 0.72);
 		color: var(--color-text);
 		cursor: pointer;
+		line-height: 0;
+		opacity: 0;
+		pointer-events: none;
+		transition:
+			opacity var(--duration-fast) var(--ease-out),
+			border-color var(--duration-fast) var(--ease-out);
+	}
+
+	.quick-action :global(svg) {
+		display: block;
+		width: 1rem;
+		height: 1rem;
 	}
 
 	.quick-action.favorite {
 		color: var(--color-accent);
+	}
+
+	.card-menu {
+		position: absolute;
+		top: calc(var(--space-3) + 2.1rem);
+		right: var(--space-3);
+		z-index: 3;
+		width: min(10.5rem, calc(100% - var(--space-6)));
+		overflow: hidden;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: oklch(13% 0.008 70 / 0.96);
+		box-shadow: 0 1rem 2.4rem oklch(0% 0 0 / 0.28);
+		animation: menu-in var(--duration-fast) var(--ease-out);
+	}
+
+	.card-menu button {
+		width: 100%;
+		min-height: 2.1rem;
+		padding: 0 var(--space-3);
+		border: 0;
+		border-bottom: 1px solid var(--color-border-soft);
+		background: transparent;
+		color: var(--color-text);
+		cursor: pointer;
+		font-size: 0.76rem;
+		text-align: left;
+	}
+
+	.card-menu button:last-child {
+		border-bottom: 0;
+	}
+
+	.card-menu button:hover,
+	.card-menu button:focus-visible {
+		background: var(--color-hover);
+	}
+
+	@keyframes menu-in {
+		from {
+			opacity: 0;
+			transform: translateY(-0.3rem);
+		}
 	}
 
 	@media (max-width: 759px) {
@@ -207,8 +303,8 @@
 		}
 
 		.image-button {
-			min-height: 7rem;
-			aspect-ratio: 1 / 1.18;
+			min-height: 0;
+			aspect-ratio: var(--asset-ratio);
 		}
 
 		.tag {
@@ -222,9 +318,13 @@
 		.quick-action {
 			top: var(--space-2);
 			right: var(--space-2);
-			width: 1.9rem;
-			height: 1.9rem;
-			border-radius: var(--radius-sm);
+			width: 1.65rem;
+			height: 1.65rem;
+		}
+
+		.card-menu {
+			top: calc(var(--space-2) + 1.9rem);
+			right: var(--space-2);
 		}
 
 		.meta {

@@ -10,8 +10,11 @@
 		setMode
 	} from '$lib/state/app-state.svelte';
 	import BrowseWorkspace from '$lib/components/browse/BrowseWorkspace.svelte';
+	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
+	import FilterPanel from '$lib/components/filters/FilterPanel.svelte';
 	import HomeHub from '$lib/components/home/HomeHub.svelte';
 	import MobileInspect from '$lib/components/inspector/MobileInspect.svelte';
+	import LibraryWorkspace from '$lib/components/library/LibraryWorkspace.svelte';
 	import ModeRail from '$lib/components/shell/ModeRail.svelte';
 	import MobileHeader from '$lib/components/shell/MobileHeader.svelte';
 	import TopBar from '$lib/components/shell/TopBar.svelte';
@@ -36,8 +39,10 @@
 		>
 			{#if appState.mode === 'home'}
 				<HomeHub />
-			{:else if appState.mode === 'library' || appState.mode === 'explore'}
-				<BrowseWorkspace mode={appState.mode} />
+			{:else if appState.mode === 'library'}
+				<LibraryWorkspace />
+			{:else if appState.mode === 'explore'}
+				<BrowseWorkspace mode="explore" />
 			{:else}
 				<section class="placeholder" aria-label={`${appState.mode} workspace placeholder`}>
 					<p>{appState.mode}</p>
@@ -60,6 +65,11 @@
 
 {#if appState.mobileState === 'inspecting'}
 	<MobileInspect asset={selectedAsset} onClose={closeMobileInspect} />
+{/if}
+
+{#if appState.filterOpen}
+	<FilterDrawer />
+	<FilterPanel />
 {/if}
 
 <BottomNav

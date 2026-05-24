@@ -12,9 +12,13 @@ Mobile Pastiche should feel like a fast visual browsing tool with archival intel
 
 - `docs/design/mockups/mobile/library-browse.png`
 - `docs/design/mockups/mobile/library-select-mode.png`
+- `docs/design/mockups/mobile/library-overview.png`
+- `docs/design/mockups/mobile/folder-contents.png`
 - `docs/design/mockups/mobile/add-to-library-drawer.png`
 - `docs/design/mockups/mobile/image-inspect.png`
 - `docs/design/mockups/mobile/explore-browse.png`
+- `docs/design/mockups/filters/mobile-filter-drawer.png`
+- `docs/design/mockups/filters/desktop-filter-panel.png`
 
 ## Naming Decision
 
@@ -24,13 +28,14 @@ Avoid labels such as **For You** because they imply an algorithmic social feed. 
 
 ## Mobile Surface Model
 
-The mobile app has five core states:
+The mobile app has six core states:
 
-1. Library Browse
-2. Selection Mode
-3. Add To Library Drawer
-4. Image Inspect
-5. Explore Browse
+1. Library Overview
+2. Folder Contents / Full Library
+3. Selection Mode
+4. Add To Library Drawer
+5. Image Inspect
+6. Explore Browse
 
 These states share:
 
@@ -55,11 +60,25 @@ Use a bottom navigation bar for primary modes:
 
 Home is intentionally unresolved on phone for now. It should remain reachable later, but the exact pattern needs a dedicated design decision rather than forcing a generic sixth bottom-nav item into the current shell.
 
+Until that dedicated design exists, mobile Library and Explore may show a small Home icon beside the wordmark. This is a temporary escape hatch, not the final navigation pattern.
+
 The center Add action opens an import drawer rather than switching to a permanent mode.
 
 The bottom nav should respect safe-area insets and remain visually secondary when another command surface is active, such as Selection Mode.
 
 Use Phosphor icons for mobile navigation and actions. Choose the same icon family across states so Library, Explore, Add, Canvas, Resources, filters, tags, folders, palette, import, and overflow actions do not drift into a mixed-icon system.
+
+## Library Overview
+
+Library Overview is the phone entry point for Library. It shows full library access, pinned projects, top-level folders, smart folders, and tags.
+
+It is an organization hub, not Home and not a folder tree. The first screen should orient the user to their archive and provide fast jumps into the global archive stream, projects, folders, smart folders, and tag destinations.
+
+## Folder Contents And Full Library
+
+Folder Contents shows direct assets in the current folder and direct child folders as navigation. It does not recursively show every descendant asset by default.
+
+View Full Library is the global archive stream. It includes every saved/imported asset regardless of folder or project assignment.
 
 ## Library Browse
 
@@ -85,7 +104,7 @@ bottom mode navigation
 - The image grid is the primary surface.
 - Breadcrumb/path shows location in the archive, such as `library / refs / artworks`.
 - Search supports artworks, tags, creators, colors, folders, and project names.
-- Tag/filter chips provide fast narrowing without opening a full filter screen.
+- Detailed filtering should move into a compact modal or drawer. Avoid persistent tag/filter strips on the browse surface once the filter drawer exists.
 - Tapping an image opens Image Inspect.
 - Long-pressing an image enters Selection Mode.
 - Favorite or quick-status controls may appear on cards when useful.
@@ -93,6 +112,8 @@ bottom mode navigation
 ### Design Notes
 
 Library can show richer cards than Explore because saved assets have metadata. Titles, creators, dates, favorite state, and primary tags are appropriate when card size allows.
+
+On narrow screens, the grid should keep a Pinterest-like masonry rhythm with visible variation and no internal empty columns. Cards should respect each asset's real dimensions within sensible clamps, with title and metadata baked into the image card over the bottom shadow.
 
 ## Selection Mode
 
@@ -210,6 +231,7 @@ bottom mode navigation
 
 - Opens as a separate screen on phone.
 - Back returns to the exact previous browse state.
+- Do not show carousel counters such as `1 / 1` unless the inspect surface can actually contain multiple images.
 - Browse state includes mode, path, query, filters, selected source, scroll position, and selection context.
 - The same inspect structure should work for Library and Explore images.
 - Available actions change based on whether the image is already saved.
