@@ -1,11 +1,11 @@
 <script lang="ts">
 	import FunnelIcon from 'phosphor-svelte/lib/FunnelIcon';
-	import MagnifyingGlassIcon from 'phosphor-svelte/lib/MagnifyingGlassIcon';
 	import SquaresFourIcon from 'phosphor-svelte/lib/SquaresFourIcon';
 	import ListBulletsIcon from 'phosphor-svelte/lib/ListBulletsIcon';
 	import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
+	import SearchBox from '$lib/components/shell/SearchBox.svelte';
 	import type { AppMode } from '$lib/types';
-	import { appState, openAdd, openFilter, setMode } from '$lib/state/app-state.svelte';
+	import { openAdd, openFilter, setMode } from '$lib/state/app-state.svelte';
 
 	type Props = {
 		mode: AppMode;
@@ -28,12 +28,14 @@
 		pastiche.
 	</button>
 	<div class="mode-pill">{labels[mode]}</div>
-	<label class="search">
-		<span class="sr-only">Search {labels[mode]}</span>
-		<MagnifyingGlassIcon size={20} />
-		<input bind:value={appState.query} placeholder="Search artwork, artists, or collections..." />
-		<kbd>⌘K</kbd>
-	</label>
+	<div class="search-slot">
+		<SearchBox
+			{mode}
+			label={`Search ${labels[mode]}`}
+			placeholder="Search artwork, artists, or collections..."
+			showShortcut
+		/>
+	</div>
 	<button class="tool" type="button" onclick={openFilter}>
 		<FunnelIcon size={20} />
 		<span>Filter</span>
@@ -76,8 +78,7 @@
 	.mode-pill,
 	.tool,
 	.view-toggle,
-	.add,
-	.search {
+	.add {
 		border: 1px solid var(--color-border);
 		background: var(--color-surface);
 		border-radius: var(--radius-lg);
@@ -93,39 +94,18 @@
 		font-size: 0.86rem;
 	}
 
-	.search {
+	.search-slot {
 		min-width: 16rem;
 		max-width: 38rem;
 		flex: 1;
-		height: 2.55rem;
-		display: flex;
-		align-items: center;
-		gap: var(--space-3);
-		padding: 0 var(--space-4);
-		color: var(--color-muted);
 	}
 
-	.search:focus-within,
 	.tool:hover,
 	.tool:focus-visible,
 	.add:hover,
 	.add:focus-visible {
 		border-color: var(--color-border-strong);
 		background: var(--color-surface-soft);
-	}
-
-	input {
-		min-width: 0;
-		flex: 1;
-		border: 0;
-		background: transparent;
-		color: var(--color-text);
-		outline: none;
-	}
-
-	kbd {
-		color: var(--color-dim);
-		font-size: 0.8rem;
 	}
 
 	.tool,

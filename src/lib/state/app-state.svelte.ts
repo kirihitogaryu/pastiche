@@ -1,4 +1,5 @@
 import type { AppMode, Asset, LibraryView, MobileState } from '$lib/types';
+import type { ExploreQuery, ExploreSuggestion } from '$lib/explore/types';
 
 export const appState = $state({
 	mode: 'home' as AppMode,
@@ -19,6 +20,10 @@ export const appState = $state({
 	shellScrolled: false,
 	focusedPreviewOpen: false,
 	query: '',
+	exploreCommittedQuery: '',
+	exploreSuggestions: [] as ExploreSuggestion[],
+	exploreQueryPatch: null as Partial<ExploreQuery> | null,
+	exploreSourceLabel: 'The Met',
 	activeTags: [] as string[],
 	folderPath: ['library', 'refs', 'artworks'],
 	lastBrowseScrollY: 0
@@ -36,11 +41,39 @@ export function setMode(mode: AppMode) {
 	appState.inspectorOpen = mode === 'explore';
 	appState.shellScrolled = false;
 	appState.focusedPreviewOpen = false;
+	appState.exploreQueryPatch = null;
 
 	if (mode === 'library') {
 		appState.libraryView = appState.lastLibraryView;
 		appState.inspectorOpen = false;
 	}
+}
+
+export function setSearchQuery(query: string) {
+	appState.query = query;
+}
+
+export function commitExploreSearch(query = appState.query) {
+	appState.exploreCommittedQuery = query.trim();
+	appState.exploreQueryPatch = null;
+}
+
+export function setExploreSuggestions(suggestions: ExploreSuggestion[]) {
+	appState.exploreSuggestions = suggestions;
+}
+
+export function setExploreSourceLabel(label: string) {
+	appState.exploreSourceLabel = label;
+}
+
+export function clearExploreQueryPatch() {
+	appState.exploreQueryPatch = null;
+}
+
+export function selectExploreSuggestion(suggestion: ExploreSuggestion) {
+	appState.query = suggestion.label;
+	appState.exploreCommittedQuery = suggestion.label;
+	appState.exploreQueryPatch = suggestion.queryPatch;
 }
 
 export function openLibraryOverview() {

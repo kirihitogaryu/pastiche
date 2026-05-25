@@ -9,7 +9,7 @@
 		setShellScrolled,
 		setMode
 	} from '$lib/state/app-state.svelte';
-	import BrowseWorkspace from '$lib/components/browse/BrowseWorkspace.svelte';
+	import ExploreWorkspace from '$lib/components/explore/ExploreWorkspace.svelte';
 	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
 	import FilterPanel from '$lib/components/filters/FilterPanel.svelte';
 	import HomeHub from '$lib/components/home/HomeHub.svelte';
@@ -42,7 +42,7 @@
 			{:else if appState.mode === 'library'}
 				<LibraryWorkspace />
 			{:else if appState.mode === 'explore'}
-				<BrowseWorkspace mode="explore" />
+				<ExploreWorkspace />
 			{:else}
 				<section class="placeholder" aria-label={`${appState.mode} workspace placeholder`}>
 					<p>{appState.mode}</p>

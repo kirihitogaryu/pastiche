@@ -1,8 +1,8 @@
 <script lang="ts">
 	import FunnelIcon from 'phosphor-svelte/lib/FunnelIcon';
 	import HouseIcon from 'phosphor-svelte/lib/HouseIcon';
-	import MagnifyingGlassIcon from 'phosphor-svelte/lib/MagnifyingGlassIcon';
 	import DotsThreeIcon from 'phosphor-svelte/lib/DotsThreeIcon';
+	import SearchBox from '$lib/components/shell/SearchBox.svelte';
 	import type { AppMode } from '$lib/types';
 	import { appState, openFilter, setMode } from '$lib/state/app-state.svelte';
 
@@ -51,11 +51,7 @@
 				>
 					<HouseIcon size={17} />
 				</button>
-				<label class="search">
-					<MagnifyingGlassIcon size={19} />
-					<span class="sr-only">{searchLabel}</span>
-					<input bind:value={appState.query} placeholder={searchPlaceholder} />
-				</label>
+				<SearchBox {mode} label={searchLabel} placeholder={searchPlaceholder} />
 			</div>
 		{/if}
 	</header>
@@ -76,7 +72,6 @@
 	.brand-cluster,
 	.crumbs,
 	.search-row,
-	.search,
 	.actions {
 		display: flex;
 		align-items: center;
@@ -156,33 +151,15 @@
 		text-overflow: ellipsis;
 	}
 
-	.search {
+	.search-row :global(.search-wrap) {
 		flex: 1;
+	}
+
+	.search-row :global(.search) {
 		height: 2.75rem;
-		gap: var(--space-2);
-		padding: 0 var(--space-3);
-		border: 1px solid var(--color-border);
 		border-radius: var(--radius-xl);
-		background: var(--color-surface);
-		color: var(--color-muted);
-		transition:
-			background var(--duration-fast) var(--ease-out),
-			border-color var(--duration-fast) var(--ease-out);
-	}
-
-	.search:focus-within {
-		border-color: var(--color-border-strong);
-		background: var(--color-surface-soft);
-	}
-
-	input {
-		min-width: 0;
-		flex: 1;
-		border: 0;
-		outline: 0;
-		background: transparent;
-		color: var(--color-text);
-		font-size: 0.84rem;
+		padding-inline: var(--space-3);
+		gap: var(--space-2);
 	}
 
 	.mobile-header.compact {
@@ -199,7 +176,7 @@
 		display: grid;
 	}
 
-	.mobile-header.compact .search {
+	.mobile-header.compact :global(.search) {
 		height: 2.55rem;
 	}
 

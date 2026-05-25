@@ -3,7 +3,7 @@
 	import CaretRightIcon from 'phosphor-svelte/lib/CaretRightIcon';
 	import MagnifyingGlassIcon from 'phosphor-svelte/lib/MagnifyingGlassIcon';
 	import XIcon from 'phosphor-svelte/lib/XIcon';
-	import { closeFilter } from '$lib/state/app-state.svelte';
+	import { appState, closeFilter } from '$lib/state/app-state.svelte';
 
 	const sortOptions = ['Recently added', 'Recently modified', 'Oldest', 'Artwork date'];
 	const tags = ['abstract', 'geometric', 'lighting', 'figure', 'architecture'];
@@ -40,6 +40,15 @@
 	];
 
 	let expandedMedium = $state('painting');
+	let sourceOptions = $derived(
+		appState.mode === 'explore' ? [appState.exploreSourceLabel] : sources
+	);
+	let keywordOptions = $derived(
+		appState.mode === 'explore' ? ['public domain', 'highlight'] : tags
+	);
+	let resultLabel = $derived(
+		appState.mode === 'explore' ? `${appState.exploreSourceLabel} results` : '126 results'
+	);
 </script>
 
 <button class="filter-scrim" type="button" aria-label="Close filters" onclick={closeFilter}
@@ -71,7 +80,7 @@
 				><MagnifyingGlassIcon size={18} /><input placeholder="Search tags..." /></label
 			>
 			<div class="chips">
-				{#each tags as tag (tag)}
+				{#each keywordOptions as tag (tag)}
 					<button type="button">{tag}</button>
 				{/each}
 			</div>
@@ -80,7 +89,7 @@
 		<section>
 			<h3>Source</h3>
 			<div class="chips">
-				{#each sources as source, index (source)}
+				{#each sourceOptions as source, index (source)}
 					<button class:active={index === 0} type="button">{source}</button>
 				{/each}
 			</div>
@@ -93,14 +102,17 @@
 			>
 		</section>
 
-		<section>
-			<h3>Approximate color</h3>
-			<div class="swatches">
-				{#each colors as color (color)}
-					<button type="button" style={`--swatch: ${color}`} aria-label={`Color ${color}`}></button>
-				{/each}
-			</div>
-		</section>
+		{#if appState.mode !== 'explore'}
+			<section>
+				<h3>Approximate color</h3>
+				<div class="swatches">
+					{#each colors as color (color)}
+						<button type="button" style={`--swatch: ${color}`} aria-label={`Color ${color}`}
+						></button>
+					{/each}
+				</div>
+			</section>
+		{/if}
 
 		<section>
 			<h3>Medium</h3>
@@ -134,7 +146,7 @@
 	</div>
 
 	<footer>
-		<span>126 results</span>
+		<span>{resultLabel}</span>
 		<button type="button">Reset</button>
 		<button class="apply" type="button" onclick={closeFilter}>Apply Filters</button>
 	</footer>
