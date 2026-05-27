@@ -17,11 +17,16 @@
 	let hoverTimer: number | null = null;
 	let ratio = $derived(Math.min(1.85, Math.max(0.58, measuredRatio)));
 	let sourceImage = $derived(item.thumbUrl ?? item.imageUrl);
+	let hasImage = $derived(sourceImage !== null);
 
 	$effect(() => {
 		const itemId = item.id;
 		const imageUrl = sourceImage;
 		let cancelled = false;
+		if (!imageUrl) {
+			displayedImage = '';
+			return;
+		}
 		displayedImage = imageUrl;
 
 		void getCachedThumbUrl(itemId, imageUrl).then((cachedUrl) => {
@@ -69,11 +74,18 @@
 	}
 
 	function sourceLabel(source: ExploreItem['source']) {
-		return source === 'artic' ? 'Art Institute' : 'The Met';
+		if (source === 'artic') return 'Art Institute';
+		if (source === 'wikidata') return 'Wikidata';
+		return 'The Met';
 	}
 </script>
 
-<article class:active class="explore-card" style={`--asset-ratio: ${ratio}`}>
+<article
+	class:active
+	class:no-image={!hasImage}
+	class="explore-card"
+	style={`--asset-ratio: ${ratio}`}
+>
 	<button
 		class="image-button"
 		type="button"
@@ -84,14 +96,21 @@
 		onfocus={schedulePrefetch}
 		onblur={cancelPrefetch}
 	>
-		<img
-			src={displayedImage}
-			alt={item.title}
-			loading="lazy"
-			fetchpriority={priority}
-			decoding="async"
-			onload={recordNaturalRatio}
-		/>
+		{#if hasImage}
+			<img
+				src={displayedImage}
+				alt={item.title}
+				loading="lazy"
+				fetchpriority={priority}
+				decoding="async"
+				onload={recordNaturalRatio}
+			/>
+		{:else}
+			<span class="image-placeholder" aria-hidden="true">
+				<strong>{item.title}</strong>
+				<small>{item.department ?? 'Wikidata metadata record'}</small>
+			</span>
+		{/if}
 		<span class="shade"></span>
 		<span class="source">{sourceLabel(item.source)}</span>
 		<span class="meta">
@@ -142,6 +161,7 @@
 	}
 
 	img,
+	.image-placeholder,
 	.shade {
 		position: absolute;
 		inset: 0;
@@ -152,6 +172,26 @@
 	img {
 		object-fit: cover;
 		background: var(--color-surface-raised);
+	}
+
+	.image-placeholder {
+		display: grid;
+		align-content: center;
+		gap: var(--space-2);
+		padding: var(--space-5);
+		background: linear-gradient(135deg, var(--color-surface), var(--color-surface-raised));
+		color: var(--color-text);
+	}
+
+	.image-placeholder strong {
+		font-family: var(--font-heading);
+		font-size: 1rem;
+		line-height: 1.15;
+	}
+
+	.image-placeholder small {
+		color: var(--color-muted);
+		line-height: 1.35;
 	}
 
 	.shade {

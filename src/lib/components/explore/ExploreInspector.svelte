@@ -4,6 +4,7 @@
 	import FolderPlusIcon from 'phosphor-svelte/lib/FolderPlusIcon';
 	import PaletteIcon from 'phosphor-svelte/lib/PaletteIcon';
 	import XIcon from 'phosphor-svelte/lib/XIcon';
+	import WikidataRelatedStrip from '$lib/components/explore/WikidataRelatedStrip.svelte';
 	import { getExploreDisplayImageUrl } from '$lib/explore/image-url';
 	import type { ExploreItem } from '$lib/explore/types';
 
@@ -12,13 +13,18 @@
 		mobile?: boolean;
 		onClose?: () => void;
 		onPreview?: (item: ExploreItem) => void;
+		onOpenRelated?: (item: ExploreItem) => void;
+		onOpenRelatedItem?: (item: ExploreItem) => void;
 	};
 
-	let { item, mobile = false, onClose, onPreview }: Props = $props();
+	let { item, mobile = false, onClose, onPreview, onOpenRelated, onOpenRelatedItem }: Props =
+		$props();
 	let displayImageUrl = $derived(item ? getExploreDisplayImageUrl(item) : '');
 
 	function sourceLabel(source: ExploreItem['source']) {
-		return source === 'artic' ? 'Art Institute' : 'The Met';
+		if (source === 'artic') return 'Art Institute';
+		if (source === 'wikidata') return 'Wikidata';
+		return 'The Met';
 	}
 </script>
 
@@ -41,14 +47,21 @@
 			{/if}
 		</header>
 
-		<button
-			class="preview-button"
-			type="button"
-			aria-label={`Open focused preview for ${item.title}`}
-			onclick={() => onPreview?.(item)}
-		>
-			<img src={displayImageUrl} alt={item.title} />
-		</button>
+		{#if displayImageUrl}
+			<button
+				class="preview-button"
+				type="button"
+				aria-label={`Open focused preview for ${item.title}`}
+				onclick={() => onPreview?.(item)}
+			>
+				<img src={displayImageUrl} alt={item.title} />
+			</button>
+		{:else}
+			<div class="preview-button metadata-only" aria-label={`${item.title} has no Commons image`}>
+				<strong>No Commons image attached</strong>
+				<span>Save the metadata now; image capture can come from the source later.</span>
+			</div>
+		{/if}
 
 		<dl class="facts">
 			<div>
@@ -99,6 +112,14 @@
 					{/each}
 				</div>
 			</section>
+		{/if}
+
+		{#if item.source === 'wikidata' && onOpenRelated && onOpenRelatedItem}
+			<WikidataRelatedStrip
+				{item}
+				onOpen={onOpenRelatedItem}
+				onOpenAll={onOpenRelated}
+			/>
 		{/if}
 
 		<div class="actions">
@@ -198,6 +219,22 @@
 		cursor: zoom-in;
 		line-height: 0;
 		overflow: hidden;
+	}
+
+	.metadata-only {
+		line-height: 1.35;
+		text-align: center;
+		cursor: default;
+	}
+
+	.metadata-only strong {
+		display: block;
+		color: var(--color-text);
+	}
+
+	.metadata-only span {
+		max-width: 18rem;
+		color: var(--color-muted);
 	}
 
 	.preview-button:focus-visible {

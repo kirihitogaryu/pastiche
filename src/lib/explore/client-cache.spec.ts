@@ -6,7 +6,9 @@ import {
 	CLIENT_SEARCH_TTL_MS,
 	exploreObjectKey,
 	exploreSearchKey,
-	exploreThumbKey
+	exploreThumbKey,
+	getCachedThumbUrl,
+	shouldSkipThumbBlobCache
 } from './client-cache';
 
 const idbStore = vi.hoisted(() => new Map<string, unknown>());
@@ -53,6 +55,24 @@ describe('Explore client cache keys', () => {
 		expect(first.startsWith('explore:search:met:')).toBe(true);
 	});
 
+	it('keeps Wikimedia artwork search modes in separate search keys', () => {
+		const entity = { id: 'Q33767', label: 'hand', description: null };
+		const depictsKey = exploreSearchKey('wikidata', {
+			wikidataMode: 'depicts',
+			wikidataEntities: [entity],
+			hasImageOnly: true,
+			limit: 40
+		});
+		const mainSubjectKey = exploreSearchKey('wikidata', {
+			wikidataMode: 'main_subject',
+			wikidataEntities: [entity],
+			hasImageOnly: true,
+			limit: 40
+		});
+
+		expect(depictsKey).not.toBe(mainSubjectKey);
+	});
+
 	it('marks cached search pages stale after the fresh TTL but keeps them readable', async () => {
 		vi.useFakeTimers();
 		await cacheSet('search', { total: 1 }, CLIENT_SEARCH_TTL_MS);
@@ -69,5 +89,16 @@ describe('Explore client cache keys', () => {
 		vi.advanceTimersByTime(CLIENT_SEARCH_TTL_MS + CLIENT_SEARCH_STALE_TTL_MS + 1);
 
 		await expect(cacheLookup('search', CLIENT_SEARCH_STALE_TTL_MS)).resolves.toBeNull();
+	});
+
+	it('does not blob-cache Wikimedia upload thumbnails', async () => {
+		const fetchMock = vi.fn();
+		vi.stubGlobal('fetch', fetchMock);
+
+		const url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Mona_Lisa.jpg';
+		await expect(getCachedThumbUrl('wikidata-Q12418', url)).resolves.toBe(url);
+
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(shouldSkipThumbBlobCache(url)).toBe(true);
 	});
 });

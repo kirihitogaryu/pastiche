@@ -13,19 +13,25 @@
 		exploreSearchKey
 	} from '$lib/explore/client-cache';
 	import { buildExploreSuggestions } from '$lib/explore/suggestions';
+	import { uniqueExploreItemsById } from '$lib/explore/items';
 	import {
 		appState,
 		clearExploreQueryPatch,
-		setExploreSourceLabel,
+		clearWikidataSubjects,
+		removeWikidataSubject,
+		setExploreSource,
 		setExploreSuggestions,
-		setShellScrolled
+		setShellScrolled,
+		setWikidataMode
 	} from '$lib/state/app-state.svelte';
 	import type {
 		ExploreItem,
 		ExplorePage,
 		ExploreQuery,
+		ExploreRelatedPage,
 		SourceDepartment,
-		SourceId
+		SourceId,
+		WikidataSearchMode
 	} from '$lib/explore/types';
 
 	const sources = [
@@ -34,7 +40,20 @@
 			id: 'artic' as const,
 			label: 'Art Institute of Chicago',
 			eyebrow: 'Art Institute Collection'
-		}
+		},
+	{
+		id: 'wikidata' as const,
+		label: 'Wikimedia',
+		eyebrow: 'Wikidata + Wikimedia Commons'
+	}
+];
+	const wikimediaModes: Array<{ id: WikidataSearchMode; label: string }> = [
+		{ id: 'depicts', label: 'Depicts' },
+		{ id: 'main_subject', label: 'Main subject' },
+		{ id: 'artist', label: 'Artist' },
+		{ id: 'title', label: 'Title' },
+		{ id: 'movement', label: 'Movement' },
+		{ id: 'genre', label: 'Genre' }
 	];
 
 	let activeSource = $state<SourceId>('met');
@@ -56,6 +75,8 @@
 	let previewItem = $state<ExploreItem | null>(null);
 	let loadMoreSentinel = $state<HTMLDivElement | null>(null);
 	let prefetchingSearchKey = $state<string | null>(null);
+	let relatedSeed = $state<ExploreItem | null>(null);
+	let relatedTitle = $state<string | null>(null);
 	const pendingSearches = new Map<string, Promise<ExplorePage>>();
 	const activeControllers = new Set<AbortController>();
 
@@ -63,18 +84,29 @@
 		sources.find((source) => source.id === activeSource) ?? sources[0]
 	);
 	let activeSourceLabel = $derived(activeSourceConfig.label);
-	let activeSourceResultLabel = $derived(activeSource === 'met' ? 'Met' : activeSourceLabel);
+	let activeSourceResultLabel = $derived(
+		activeSource === 'met' ? 'Met' : activeSource === 'wikidata' ? 'Wikidata' : activeSourceLabel
+	);
 	let draftKeyword = $derived(appState.query.trim());
 	let keyword = $derived(appState.exploreCommittedQuery.trim());
+	let subjectKey = $derived(appState.wikidataSubjects.map((subject) => subject.id).join('|'));
 	let queryPatchKey = $derived(JSON.stringify(appState.exploreQueryPatch ?? {}));
 	let queryKey = $derived(
-		`${activeSource}|${keyword}|${activeDepartment ?? ''}|${highlightOnly ? 'highlights' : 'all'}|${queryPatchKey}`
+		`${activeSource}|${appState.wikidataMode}|${keyword}|${subjectKey}|${activeDepartment ?? ''}|${highlightOnly ? 'highlights' : 'all'}|${queryPatchKey}|${relatedSeed?.id ?? ''}`
 	);
-	let hasSearched = $derived(keyword.length > 0 || activeDepartment !== null || highlightOnly);
+	let hasSearched = $derived(
+		keyword.length > 0 ||
+			appState.wikidataSubjects.length > 0 ||
+			activeDepartment !== null ||
+			highlightOnly
+	);
 	let resultSummary = $derived(
 		total === null
 			? `Showing ${items.length.toLocaleString()} results`
 			: `Showing ${items.length.toLocaleString()} of ${total.toLocaleString()} matches`
+	);
+	let activeWikimediaModeLabel = $derived(
+		wikimediaModes.find((mode) => mode.id === appState.wikidataMode)?.label ?? 'Depicts'
 	);
 
 	$effect(() => {
@@ -117,7 +149,14 @@
 	});
 
 	$effect(() => {
-		setExploreSourceLabel(activeSourceLabel);
+		setExploreSource(activeSource, activeSourceLabel);
+	});
+
+	$effect(() => {
+		if (relatedSeed && appState.wikidataSubjects.length > 0) {
+			relatedSeed = null;
+			relatedTitle = null;
+		}
 	});
 
 	$effect(() => {
@@ -146,7 +185,8 @@
 		const controller = createRequestController();
 		const source = activeSource;
 		const query = buildQuery();
-		const cacheKey = exploreSearchKey(source, query);
+		const seed = relatedSeed;
+		const cacheKey = seed ? relatedPageKey(seed.id, undefined, 40) : exploreSearchKey(source, query);
 		const cached = await cacheLookup<ExplorePage>(cacheKey, CLIENT_SEARCH_STALE_TTL_MS);
 		if (expectedKey !== queryKey || controller.signal.aborted) {
 			releaseRequestController(controller);
@@ -174,11 +214,16 @@
 		}
 
 		try {
-			const page = await fetchSearchPage(query, {
-				forceNetwork: Boolean(cached?.stale),
-				source,
-				signal: controller.signal
-			});
+			const page = seed
+				? await fetchRelatedPage(seed.id, {
+						forceNetwork: Boolean(cached?.stale),
+						signal: controller.signal
+					})
+				: await fetchSearchPage(query, {
+						forceNetwork: Boolean(cached?.stale),
+						source,
+						signal: controller.signal
+					});
 			if (expectedKey !== queryKey || controller.signal.aborted) return;
 			applyFirstPage(page);
 		} catch (searchError) {
@@ -206,13 +251,16 @@
 		if (pageError && !force) return;
 		const controller = createRequestController();
 		const source = activeSource;
+		const seed = relatedSeed;
 		loadingMore = true;
 		pageError = null;
 		const cursor = nextCursor;
 		const query = buildQuery(cursor);
 
 		try {
-			const page = await fetchSearchPage(query, { source, signal: controller.signal });
+			const page = seed
+				? await fetchRelatedPage(seed.id, { cursor, signal: controller.signal })
+				: await fetchSearchPage(query, { source, signal: controller.signal });
 			if (expectedKey !== queryKey || controller.signal.aborted) return;
 
 			const seen = new Set(items.map((item) => item.id));
@@ -268,6 +316,42 @@
 		return request;
 	}
 
+	async function fetchRelatedPage(
+		seedId: string,
+		options: { cursor?: string; forceNetwork?: boolean; signal?: AbortSignal } = {}
+	): Promise<ExploreRelatedPage> {
+		const limit = 40;
+		const cacheKey = relatedPageKey(seedId, options.cursor, limit);
+		if (!options.forceNetwork) {
+			const cached = await cacheLookup<ExploreRelatedPage>(cacheKey);
+			if (cached) return cached.value;
+		}
+
+		const pending = pendingSearches.get(cacheKey) as Promise<ExploreRelatedPage> | undefined;
+		if (pending) return pending;
+
+		const params = new URLSearchParams({ limit: String(limit) });
+		if (options.cursor) params.set('cursor', options.cursor);
+		const request = fetch(
+			`/explore/api/wikidata/related/${encodeURIComponent(seedId)}?${params.toString()}`,
+			{ signal: options.signal }
+		)
+			.then(async (response) => {
+				const data = (await response.json()) as ExploreRelatedPage | { error: string };
+				if (!response.ok) {
+					throw new Error('error' in data ? data.error : 'Related Wikidata works are unavailable.');
+				}
+				const page = data as ExploreRelatedPage;
+				await cacheSet(cacheKey, page, CLIENT_SEARCH_TTL_MS);
+				relatedTitle = page.title;
+				return page;
+			})
+			.finally(() => pendingSearches.delete(cacheKey));
+
+		pendingSearches.set(cacheKey, request);
+		return request;
+	}
+
 	async function prefetchNextPage(expectedKey: string) {
 		if (loading || loadingMore || pageError || !nextCursor) return;
 		const source = activeSource;
@@ -290,12 +374,16 @@
 	}
 
 	function applyFirstPage(page: ExplorePage) {
-		items = page.items;
+		items = uniqueExploreItemsById(page.items);
 		total = page.total;
 		nextCursor = page.nextCursor;
 		selectedItem = null;
 		inspectedOnMobile = false;
 		previewItem = null;
+	}
+
+	function relatedPageKey(seedId: string, cursor: string | undefined, limit: number): string {
+		return `explore:related:${seedId}:${cursor ?? '0'}:${limit}`;
 	}
 
 	function createRequestController(): AbortController {
@@ -324,6 +412,41 @@
 
 	function buildQuery(cursor?: string): ExploreQuery {
 		const patch = appState.exploreQueryPatch ?? {};
+		if (activeSource === 'wikidata') {
+			if (relatedSeed) {
+				return {
+					wikidataMode: appState.wikidataMode,
+					depicts: [],
+					workType: 'painting',
+					hasImageOnly: true,
+					cursor,
+					limit: 40
+				};
+			}
+			if (appState.wikidataMode === 'title') {
+				return {
+					wikidataMode: 'title',
+					keyword: keyword || undefined,
+					workType: 'painting',
+					yearFrom: patch.yearFrom,
+					yearTo: patch.yearTo,
+					hasImageOnly: true,
+					cursor,
+					limit: 40
+				};
+			}
+			return {
+				wikidataMode: appState.wikidataMode,
+				wikidataEntities: appState.wikidataSubjects,
+				depicts: appState.wikidataMode === 'depicts' ? appState.wikidataSubjects : undefined,
+				workType: 'painting',
+				yearFrom: patch.yearFrom,
+				yearTo: patch.yearTo,
+				hasImageOnly: true,
+				cursor,
+				limit: 40
+			};
+		}
 		return {
 			keyword: keyword || undefined,
 			...patch,
@@ -345,12 +468,39 @@
 		if (activeSource === source) return;
 		abortActiveRequests();
 		activeSource = source;
+		relatedSeed = null;
+		relatedTitle = null;
 		clearExploreQueryPatch();
 		activeDepartment = null;
 		highlightOnly = false;
+		appState.query = '';
+		appState.exploreCommittedQuery = '';
+		if (source !== 'wikidata') {
+			clearWikidataSubjects();
+		} else {
+			appState.wikidataEntitySuggestions = [];
+			appState.wikidataEntityError = null;
+		}
 		selectedItem = null;
 		inspectedOnMobile = false;
 		previewItem = null;
+		prefetchingSearchKey = null;
+	}
+
+	function selectWikimediaMode(mode: WikidataSearchMode) {
+		if (appState.wikidataMode === mode) return;
+		abortActiveRequests();
+		setWikidataMode(mode);
+		relatedSeed = null;
+		relatedTitle = null;
+		items = [];
+		selectedItem = null;
+		inspectedOnMobile = false;
+		previewItem = null;
+		total = null;
+		nextCursor = null;
+		error = null;
+		pageError = null;
 		prefetchingSearchKey = null;
 	}
 
@@ -378,6 +528,32 @@
 		}
 	}
 
+	function openRelatedPage(item: ExploreItem) {
+		abortActiveRequests();
+		activeSource = 'wikidata';
+		relatedSeed = item;
+		relatedTitle = `Similar to ${item.title}`;
+		clearExploreQueryPatch();
+		clearWikidataSubjects();
+		activeDepartment = null;
+		highlightOnly = false;
+		appState.query = '';
+		appState.exploreCommittedQuery = '';
+		selectedItem = null;
+		inspectedOnMobile = false;
+		previewItem = null;
+		prefetchingSearchKey = null;
+	}
+
+	function clearRelatedMode() {
+		relatedSeed = null;
+		relatedTitle = null;
+		items = [];
+		selectedItem = null;
+		inspectedOnMobile = false;
+		previewItem = null;
+	}
+
 	async function prefetchItem(item: ExploreItem) {
 		const cacheKey = exploreObjectKey(item.id);
 		if (await cacheGet<ExploreItem>(cacheKey)) return;
@@ -398,7 +574,7 @@
 		setShellScrolled(target.scrollTop > 12);
 		const scrollable = target.scrollHeight - target.clientHeight;
 		const progress = scrollable > 0 ? target.scrollTop / scrollable : 0;
-		if (progress > 0.7) {
+		if (activeSource !== 'wikidata' && progress > 0.7) {
 			void prefetchNextPage(queryKey);
 		}
 		if (target.scrollHeight - target.scrollTop - target.clientHeight < 720) {
@@ -413,9 +589,15 @@
 			<header class="source-header">
 				<div>
 					<p>{activeSourceConfig.eyebrow}</p>
-					<h1>Explore public-domain museum references</h1>
+					<h1>
+						{relatedSeed
+							? 'Similar works from Wikidata'
+							: activeSource === 'wikidata'
+							? 'Search Wikimedia artworks'
+							: 'Explore public-domain museum references'}
+					</h1>
 				</div>
-				<span>{total === null ? activeSourceLabel : `${total.toLocaleString()} matches`}</span>
+				<span>{relatedSeed ? 'Related works' : total === null ? activeSourceLabel : `${total.toLocaleString()} matches`}</span>
 			</header>
 
 			<div class="source-switcher" aria-label="Explore sources">
@@ -431,32 +613,70 @@
 				{/each}
 			</div>
 
-			<div class="department-strip" aria-label={`${activeSourceLabel} departments`}>
-				<button
-					class:active={!highlightOnly && activeDepartment === null}
-					type="button"
-					onclick={selectAllResults}
-				>
-					All {activeSourceLabel} images
-				</button>
-				<button
-					class:active={highlightOnly}
-					type="button"
-					aria-pressed={highlightOnly}
-					onclick={toggleHighlights}
-				>
-					Highlights
-				</button>
-				{#each departments.slice(0, 8) as department (department.id)}
+			{#if activeSource === 'wikidata' && relatedSeed}
+				<div class="related-context" aria-label="Current related works search">
+					<div>
+						<span>{relatedTitle ?? `Similar to ${relatedSeed.title}`}</span>
+						<small>Ranked by shared subjects, creator, genre, collection, material, date, and direct work relations.</small>
+					</div>
+					<button type="button" onclick={clearRelatedMode}>Return to subject search</button>
+				</div>
+			{:else if activeSource === 'wikidata'}
+				<div class="wikimedia-mode-strip" aria-label="Wikimedia artwork search modes">
+					{#each wikimediaModes as mode (mode.id)}
+						<button
+							class:active={appState.wikidataMode === mode.id}
+							type="button"
+							aria-pressed={appState.wikidataMode === mode.id}
+							onclick={() => selectWikimediaMode(mode.id)}
+						>
+							{mode.label}
+						</button>
+					{/each}
+				</div>
+				{#if appState.wikidataSubjects.length > 0}
+					<div class="subject-chip-row" aria-label="Selected Wikimedia entities">
+						{#each appState.wikidataSubjects as subject (subject.id)}
+							<button
+								class="subject-chip"
+								type="button"
+								aria-label={`Remove ${subject.label}`}
+								onclick={() => removeWikidataSubject(subject.id)}
+							>
+								<span>{subject.label}</span>
+								<small>{subject.id}</small>
+							</button>
+						{/each}
+					</div>
+				{/if}
+			{:else}
+				<div class="department-strip" aria-label={`${activeSourceLabel} departments`}>
 					<button
-						class:active={!highlightOnly && activeDepartment === department.id}
+						class:active={!highlightOnly && activeDepartment === null}
 						type="button"
-						onclick={() => selectDepartment(department.id)}
+						onclick={selectAllResults}
 					>
-						{department.label}
+						All {activeSourceLabel} images
 					</button>
-				{/each}
-			</div>
+					<button
+						class:active={highlightOnly}
+						type="button"
+						aria-pressed={highlightOnly}
+						onclick={toggleHighlights}
+					>
+						Highlights
+					</button>
+					{#each departments.slice(0, 8) as department (department.id)}
+						<button
+							class:active={!highlightOnly && activeDepartment === department.id}
+							type="button"
+							onclick={() => selectDepartment(department.id)}
+						>
+							{department.label}
+						</button>
+					{/each}
+				</div>
+			{/if}
 			{#if items.length > 0}
 				<p class="result-count" aria-live="polite">
 					<span>{resultSummary}</span>
@@ -475,9 +695,17 @@
 				<section class="message" role="status">
 					<h2>No {activeSourceLabel} images found</h2>
 					<p>
-						{hasSearched
-							? `No usable image records matched "${keyword || 'this department'}".`
-							: 'Try searching by artwork, artist, or collection.'}
+						{activeSource === 'wikidata'
+							? relatedSeed
+								? 'No related Wikidata works with images were found.'
+								: appState.wikidataSubjects.length > 0
+								? `No Wikimedia artworks matched that ${activeWikimediaModeLabel.toLowerCase()}.`
+								: appState.wikidataMode === 'title'
+									? 'Search for an artwork title to find Wikimedia records.'
+									: `Choose a ${activeWikimediaModeLabel.toLowerCase()} from the top search bar.`
+							: hasSearched
+								? `No usable image records matched "${keyword || 'this department'}".`
+								: 'Try searching by artwork, artist, or collection.'}
 					</p>
 				</section>
 			{:else}
@@ -517,6 +745,8 @@
 			item={selectedItem}
 			onClose={() => (selectedItem = null)}
 			onPreview={(item) => (previewItem = item)}
+			onOpenRelated={openRelatedPage}
+			onOpenRelatedItem={openItem}
 		/>
 	{/if}
 
@@ -526,6 +756,8 @@
 			mobile
 			onClose={() => (inspectedOnMobile = false)}
 			onPreview={(item) => (previewItem = item)}
+			onOpenRelated={openRelatedPage}
+			onOpenRelatedItem={openItem}
 		/>
 	{/if}
 
@@ -591,6 +823,7 @@
 	}
 
 	.source-switcher,
+	.wikimedia-mode-strip,
 	.department-strip {
 		display: flex;
 		gap: var(--space-2);
@@ -606,12 +839,18 @@
 		padding: 0 var(--space-5) var(--space-2);
 	}
 
+	.wikimedia-mode-strip {
+		padding: 0 var(--space-5) var(--space-2);
+	}
+
 	.source-switcher::-webkit-scrollbar,
+	.wikimedia-mode-strip::-webkit-scrollbar,
 	.department-strip::-webkit-scrollbar {
 		display: none;
 	}
 
 	.source-switcher button,
+	.wikimedia-mode-strip button,
 	.department-strip button {
 		flex: 0 0 auto;
 		min-height: 2.2rem;
@@ -626,12 +865,85 @@
 	.source-switcher button.active,
 	.source-switcher button:hover,
 	.source-switcher button:focus-visible,
+	.wikimedia-mode-strip button.active,
+	.wikimedia-mode-strip button:hover,
+	.wikimedia-mode-strip button:focus-visible,
 	.department-strip button.active,
 	.department-strip button:hover,
 	.department-strip button:focus-visible {
 		border-color: var(--color-border-strong);
 		background: var(--color-surface-soft);
 		color: var(--color-text);
+	}
+
+	.subject-chip-row {
+		display: flex;
+		gap: var(--space-2);
+		overflow-x: auto;
+		padding: 0 var(--space-5) var(--space-3);
+		scrollbar-width: none;
+	}
+
+	.subject-chip-row::-webkit-scrollbar {
+		display: none;
+	}
+
+	.subject-chip {
+		flex: 0 0 auto;
+		min-height: 2rem;
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-2);
+		padding: 0 var(--space-3);
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-pill);
+		background: var(--color-surface-raised);
+		color: var(--color-text);
+		cursor: pointer;
+	}
+
+	.subject-chip small {
+		color: var(--color-muted);
+		font-size: 0.72rem;
+	}
+
+	.related-context {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-4);
+		margin: 0 var(--space-5) var(--space-3);
+		padding: var(--space-3);
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-md);
+		background: var(--color-surface);
+	}
+
+	.related-context div {
+		min-width: 0;
+		display: grid;
+		gap: 0.2rem;
+	}
+
+	.related-context span {
+		color: var(--color-text);
+		font-weight: 650;
+	}
+
+	.related-context small {
+		color: var(--color-muted);
+		line-height: 1.35;
+	}
+
+	.related-context button {
+		flex: 0 0 auto;
+		min-height: 2.1rem;
+		padding: 0 var(--space-3);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-pill);
+		background: var(--color-surface-raised);
+		color: var(--color-text);
+		cursor: pointer;
 	}
 
 	.result-count {
@@ -761,8 +1073,22 @@
 		}
 
 		.source-switcher,
+		.wikimedia-mode-strip,
 		.department-strip {
 			padding: 0 var(--space-3) var(--space-2);
+		}
+
+		.subject-chip-row {
+			padding: 0 var(--space-3) var(--space-3);
+		}
+
+		.related-context {
+			display: grid;
+			margin: 0 var(--space-3) var(--space-3);
+		}
+
+		.related-context button {
+			justify-self: start;
 		}
 
 		.result-count {

@@ -2,13 +2,17 @@
 	import ArrowRightIcon from 'phosphor-svelte/lib/ArrowRightIcon';
 	import MagnifyingGlassIcon from 'phosphor-svelte/lib/MagnifyingGlassIcon';
 	import {
+		addWikidataSubject,
 		appState,
 		commitExploreSearch,
 		selectExploreSuggestion,
+		setWikidataEntityError,
+		setWikidataEntityLoading,
+		setWikidataEntitySuggestions,
 		setSearchQuery
 	} from '$lib/state/app-state.svelte';
 	import type { AppMode } from '$lib/types';
-	import type { ExploreSuggestion } from '$lib/explore/types';
+	import type { ExploreSubject, ExploreSuggestion, WikidataSearchMode } from '$lib/explore/types';
 
 	type Props = {
 		mode: AppMode;
@@ -20,11 +24,79 @@
 	let { mode, label, placeholder, showShortcut = false }: Props = $props();
 	let focused = $state(false);
 
-	let suggestions = $derived(mode === 'explore' ? appState.exploreSuggestions : []);
-	let open = $derived(focused && suggestions.length > 0);
-	let canCommitExploreSearch = $derived(
-		mode === 'explore' && appState.query.trim() !== appState.exploreCommittedQuery.trim()
+	let isWikidataMode = $derived(mode === 'explore' && appState.exploreSourceId === 'wikidata');
+	let wikidataMode = $derived(appState.wikidataMode);
+	let isWikidataEntityMode = $derived(isWikidataMode && wikidataMode !== 'title');
+	let suggestions = $derived(
+		mode === 'explore' && !isWikidataMode ? appState.exploreSuggestions : []
 	);
+	let entitySuggestions = $derived(isWikidataEntityMode ? appState.wikidataEntitySuggestions : []);
+	let open = $derived(focused && suggestions.length > 0);
+	let entityOpen = $derived(focused && entitySuggestions.length > 0);
+	let entityStatusOpen = $derived(
+		focused &&
+			isWikidataEntityMode &&
+			!entityOpen &&
+			appState.query.trim().length >= 2 &&
+			(appState.wikidataEntityLoading || appState.wikidataEntityError !== null)
+	);
+	let searchPlaceholder = $derived(
+		isWikidataMode
+			? wikidataPlaceholder(wikidataMode, appState.wikidataSubjects.length > 0)
+			: placeholder
+	);
+	let canCommitExploreSearch = $derived(
+		mode === 'explore' &&
+			(!isWikidataMode || wikidataMode === 'title') &&
+			appState.query.trim() !== appState.exploreCommittedQuery.trim()
+	);
+	let canAddWikidataSubject = $derived(isWikidataEntityMode && entitySuggestions.length > 0);
+
+	$effect(() => {
+		if (!isWikidataEntityMode) return;
+		const search = appState.query.trim();
+		if (search.length < 2) {
+			setWikidataEntitySuggestions([]);
+			setWikidataEntityLoading(false);
+			setWikidataEntityError(null);
+			return;
+		}
+
+		let cancelled = false;
+		setWikidataEntityLoading(true);
+		setWikidataEntityError(null);
+		const timeout = window.setTimeout(() => {
+			const params = new URLSearchParams({ search, mode: wikidataMode });
+			void fetch(`/explore/api/wikidata/entities?${params.toString()}`)
+				.then(async (response) => {
+					const data = (await response.json()) as
+						| { entities: ExploreSubject[] }
+						| { error: string; retryAfterSeconds?: number };
+					if (!response.ok) throw new Error('error' in data ? data.error : 'Entity search failed');
+					if (!('entities' in data)) throw new Error('Entity search failed');
+					if (!cancelled) {
+						const selectedIds = new Set(appState.wikidataSubjects.map((subject) => subject.id));
+						setWikidataEntitySuggestions(
+							data.entities.filter((subject) => !selectedIds.has(subject.id))
+						);
+					}
+				})
+				.catch((error) => {
+					if (!cancelled) {
+						setWikidataEntitySuggestions([]);
+						setWikidataEntityError(error instanceof Error ? error.message : 'Entity search failed');
+					}
+				})
+				.finally(() => {
+					if (!cancelled) setWikidataEntityLoading(false);
+				});
+		}, 220);
+
+		return () => {
+			cancelled = true;
+			window.clearTimeout(timeout);
+		};
+	});
 
 	function handleInput(event: Event) {
 		setSearchQuery((event.currentTarget as HTMLInputElement).value);
@@ -35,23 +107,61 @@
 		focused = false;
 	}
 
+	function applyEntity(subject: ExploreSubject) {
+		addWikidataSubject(subject);
+		focused = false;
+	}
+
 	function handleKeydown(event: KeyboardEvent) {
 		if (mode !== 'explore' || event.key !== 'Enter') return;
 		event.preventDefault();
+		if (isWikidataMode) {
+			if (wikidataMode === 'title') {
+				commitSearch();
+			} else if (entitySuggestions[0]) {
+				applyEntity(entitySuggestions[0]);
+			}
+			return;
+		}
 		commitSearch();
 	}
 
 	function commitSearch() {
+		if (isWikidataMode) {
+			if (wikidataMode === 'title') {
+				commitExploreSearch();
+				focused = false;
+			} else if (entitySuggestions[0]) {
+				applyEntity(entitySuggestions[0]);
+			}
+			return;
+		}
 		commitExploreSearch();
 		focused = false;
 	}
 
 	function sourceLabel(source: ExploreSuggestion['source']) {
-		return source === 'artic' ? 'Art Institute' : 'The Met';
+		if (source === 'artic') return 'Art Institute';
+		if (source === 'wikidata') return 'Wikidata';
+		return 'The Met';
 	}
 
 	function suggestionName(suggestion: ExploreSuggestion) {
 		return `${suggestion.label} ${suggestion.kind} ${sourceLabel(suggestion.source)}`;
+	}
+
+	function entityName(subject: ExploreSubject) {
+		return `${subject.label}${subject.description ? ` ${subject.description}` : ''}`;
+	}
+
+	function wikidataPlaceholder(mode: WikidataSearchMode, hasEntities: boolean) {
+		if (mode === 'title') return 'Search artwork titles...';
+		if (hasEntities) return 'Add another subject...';
+		if (mode === 'main_subject') return 'Search main subjects...';
+		if (mode === 'artist') return 'Search artists...';
+		if (mode === 'movement') return 'Search movements...';
+		if (mode === 'genre') return 'Search genres...';
+		return 'Search depicted subjects...';
 	}
 </script>
 
@@ -62,20 +172,28 @@
 		<input
 			aria-label={label}
 			value={appState.query}
-			{placeholder}
+			placeholder={searchPlaceholder}
 			oninput={handleInput}
 			onkeydown={handleKeydown}
 			onfocus={() => (focused = true)}
 			onblur={() => window.setTimeout(() => (focused = false), 120)}
 			aria-autocomplete={mode === 'explore' ? 'list' : undefined}
-			aria-expanded={mode === 'explore' ? open : undefined}
+			aria-expanded={mode === 'explore' ? open || entityOpen || entityStatusOpen : undefined}
 		/>
 		{#if mode === 'explore'}
 			<button
 				class="commit-search"
 				type="button"
-				aria-label={`Search ${appState.exploreSourceLabel}`}
-				disabled={!canCommitExploreSearch}
+				aria-label={isWikidataMode
+					? wikidataMode === 'title'
+						? 'Search Wikimedia'
+						: 'Add Wikimedia entity'
+					: `Search ${appState.exploreSourceLabel}`}
+				disabled={isWikidataMode
+					? wikidataMode === 'title'
+						? !canCommitExploreSearch
+						: !canAddWikidataSubject
+					: !canCommitExploreSearch}
 				onmousedown={(event) => event.preventDefault()}
 				onclick={commitSearch}
 			>
@@ -85,7 +203,33 @@
 			<kbd>⌘K</kbd>
 		{/if}
 	</div>
-	{#if open}
+	{#if entityOpen}
+		<div
+			class="suggestions entity-suggestions"
+			role="listbox"
+			aria-label="Wikimedia entity suggestions"
+		>
+			{#each entitySuggestions as subject (subject.id)}
+				<button
+					type="button"
+					role="option"
+					aria-selected="false"
+					aria-label={entityName(subject)}
+					onmousedown={(event) => event.preventDefault()}
+					onclick={() => applyEntity(subject)}
+				>
+					<span>{subject.label}</span>
+					<small>{subject.description ?? subject.id}</small>
+				</button>
+			{/each}
+		</div>
+	{:else if entityStatusOpen}
+		<div class="suggestions entity-status" role="status">
+			<span>
+				{appState.wikidataEntityError ?? 'Checking Wikimedia entities...'}
+			</span>
+		</div>
+	{:else if open}
 		<div class="suggestions" role="listbox" aria-label="Explore search suggestions">
 			{#each suggestions as suggestion (suggestion.id)}
 				<button
@@ -227,5 +371,25 @@
 		color: var(--color-muted);
 		font-size: 0.72rem;
 		text-transform: capitalize;
+	}
+
+	.entity-suggestions button {
+		display: grid;
+		align-items: start;
+		justify-content: stretch;
+		gap: 0.2rem;
+	}
+
+	.entity-suggestions small {
+		flex: initial;
+		line-height: 1.3;
+		text-transform: none;
+	}
+
+	.entity-status {
+		color: var(--color-muted);
+		font-size: 0.84rem;
+		line-height: 1.35;
+		padding: var(--space-3);
 	}
 </style>

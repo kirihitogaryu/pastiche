@@ -5,14 +5,17 @@ describe('Explore connector registry', () => {
 	it('recognizes supported source ids', () => {
 		expect(isSourceId('met')).toBe(true);
 		expect(isSourceId('artic')).toBe(true);
+		expect(isSourceId('wikidata')).toBe(true);
 		expect(isSourceId('wikiart')).toBe(false);
 	});
 
 	it('resolves connectors by source id and namespaced item id', () => {
 		expect(getExploreConnector('met').id).toBe('met');
 		expect(getExploreConnector('artic').id).toBe('artic');
+		expect(getExploreConnector('wikidata').id).toBe('wikidata');
 		expect(getExploreConnectorForItemId('met-437133').id).toBe('met');
 		expect(getExploreConnectorForItemId('artic-27992').id).toBe('artic');
+		expect(getExploreConnectorForItemId('wikidata-Q12418').id).toBe('wikidata');
 	});
 
 	it('rejects invalid namespaced item ids', () => {

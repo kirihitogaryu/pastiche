@@ -14,7 +14,21 @@ export type MediumCategory =
 	| 'mixed_media'
 	| 'other';
 
-export type SourceId = 'met' | 'artic';
+export type SourceId = 'met' | 'artic' | 'wikidata';
+
+export type ExploreSubject = {
+	id: string;
+	label: string;
+	description: string | null;
+};
+
+export type WikidataSearchMode =
+	| 'depicts'
+	| 'main_subject'
+	| 'artist'
+	| 'title'
+	| 'movement'
+	| 'genre';
 
 export type ExploreItem = {
 	id: string;
@@ -34,7 +48,7 @@ export type ExploreItem = {
 	culture: string | null;
 	period: string | null;
 	thumbUrl: string | null;
-	imageUrl: string;
+	imageUrl: string | null;
 	additionalImages: string[];
 	isIIIF: boolean;
 	description: string | null;
@@ -56,6 +70,10 @@ export type ExploreQuery = {
 	hasImageOnly?: boolean;
 	isHighlightOnly?: boolean;
 	color?: string;
+	depicts?: ExploreSubject[];
+	wikidataMode?: WikidataSearchMode;
+	wikidataEntities?: ExploreSubject[];
+	workType?: 'painting';
 	cursor?: string;
 	limit: number;
 };
@@ -64,6 +82,11 @@ export type ExplorePage = {
 	items: ExploreItem[];
 	total: number | null;
 	nextCursor: string | null;
+};
+
+export type ExploreRelatedPage = ExplorePage & {
+	seedId: string;
+	title: string;
 };
 
 export type FilterCapability =
@@ -75,6 +98,7 @@ export type FilterCapability =
 	| 'department'
 	| 'public_domain'
 	| 'has_image'
+	| 'depicts'
 	| 'color'
 	| 'is_highlight';
 

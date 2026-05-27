@@ -166,7 +166,9 @@
 	}
 
 	function sourceLabel(source: ExploreItem['source']) {
-		return source === 'artic' ? 'Art Institute' : 'The Met';
+		if (source === 'artic') return 'Art Institute';
+		if (source === 'wikidata') return 'Wikidata';
+		return 'The Met';
 	}
 </script>
 
@@ -225,12 +227,14 @@
 			onpointercancel={handlePointerUp}
 			ondblclick={handleDoubleClick}
 		>
-			<img
-				src={previewImageUrl}
-				alt={item.title}
-				style={`transform: ${imageTransform}`}
-				draggable="false"
-			/>
+			{#if previewImageUrl}
+				<img
+					src={previewImageUrl}
+					alt={item.title}
+					style={`transform: ${imageTransform}`}
+					draggable="false"
+				/>
+			{/if}
 		</div>
 	</div>
 </div>

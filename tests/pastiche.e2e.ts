@@ -50,6 +50,36 @@ const articResult = {
 	tags: ['Painting', 'Study']
 };
 
+const wikidataResult = {
+	...metResult,
+	id: 'wikidata-Q7559',
+	source: 'wikidata',
+	detailUrl: 'https://www.wikidata.org/wiki/Q7559',
+	title: 'Saint George and the Dragon',
+	artistRaw: 'Unknown artist',
+	dateDisplay: '1500',
+	yearStart: 1500,
+	yearEnd: 1500,
+	department: 'Wikidata',
+	tags: ['dragon']
+};
+
+const wikidataRelatedResult = {
+	...wikidataResult,
+	id: 'wikidata-Q999',
+	detailUrl: 'https://www.wikidata.org/wiki/Q999',
+	title: 'Dragon Pendant',
+	tags: ['pendant work']
+};
+
+function createWikidataResult(index: number) {
+	return {
+		...wikidataResult,
+		id: `wikidata-Q7559-${index}`,
+		title: `Wikidata Dragon Study ${index}`
+	};
+}
+
 function createMetResult(id: number, title: string) {
 	return {
 		...metResult,
@@ -66,6 +96,9 @@ async function mockExploreApi(page: import('@playwright/test').Page) {
 		cursor?: string;
 		keyword?: string;
 		tag?: string;
+		wikidataMode?: string;
+		wikidataEntities?: Array<{ id: string; label: string; description: string | null }>;
+		depicts?: Array<{ id: string; label: string; description: string | null }>;
 	}> = [];
 
 	await page.route('**/explore/api/departments**', async (route) => {
@@ -77,6 +110,32 @@ async function mockExploreApi(page: import('@playwright/test').Page) {
 			})
 		});
 	});
+	await page.route('**/explore/api/wikidata/entities**', async (route) => {
+		await route.fulfill({
+			contentType: 'application/json',
+			body: JSON.stringify({
+				entities: [
+					{
+						id: 'Q7559',
+						label: 'dragon',
+						description: 'legendary winged, fire-breathing reptile'
+					}
+				]
+			})
+		});
+	});
+	await page.route('**/explore/api/wikidata/related/**', async (route) => {
+		await route.fulfill({
+			contentType: 'application/json',
+			body: JSON.stringify({
+				seedId: 'wikidata-Q7559',
+				title: 'Similar to Saint George and the Dragon',
+				items: [wikidataRelatedResult],
+				total: null,
+				nextCursor: null
+			})
+		});
+	});
 	await page.route('**/explore/api/search', async (route) => {
 		await new Promise((resolve) => setTimeout(resolve, 120));
 		const body = route.request().postDataJSON() as {
@@ -85,13 +144,16 @@ async function mockExploreApi(page: import('@playwright/test').Page) {
 				cursor?: string;
 				keyword?: string;
 				tag?: string;
+				wikidataMode?: string;
+				wikidataEntities?: Array<{ id: string; label: string; description: string | null }>;
+				depicts?: Array<{ id: string; label: string; description: string | null }>;
 			};
 			cursor?: string;
 			keyword?: string;
 			tag?: string;
 		};
 		const source = body.source ?? 'met';
-		const request = { ...(body.query ?? body), source };
+		const request = { ...(body.query ?? body), source } as (typeof searchRequests)[number];
 		searchRequests.push(request);
 		if (source === 'artic') {
 			await route.fulfill({
@@ -99,6 +161,20 @@ async function mockExploreApi(page: import('@playwright/test').Page) {
 				body: JSON.stringify({
 					items: [articResult],
 					total: 1,
+					nextCursor: null
+				})
+			});
+			return;
+		}
+		if (source === 'wikidata') {
+			await route.fulfill({
+				contentType: 'application/json',
+				body: JSON.stringify({
+					items:
+						request.depicts?.length || request.wikidataEntities?.length || request.keyword
+							? [wikidataResult]
+							: [],
+					total: null,
 					nextCursor: null
 				})
 			});
@@ -237,15 +313,72 @@ test('desktop library and explore surfaces are navigable', async ({ page }) => {
 			)
 		)
 		.toBe(true);
-	const requestCountBeforeMetSwitch = exploreApi.searchRequests.length;
 	await page.getByRole('button', { name: 'The Met', exact: true }).click();
 	await expect(
 		page.getByRole('button', { name: 'Inspect Wheat Field with Cypresses' })
 	).toBeVisible();
-	const metSwitchRequests = exploreApi.searchRequests.slice(requestCountBeforeMetSwitch);
+	await page.getByRole('button', { name: 'Wikimedia' }).click();
+	await expect(page.getByRole('heading', { name: 'Search Wikimedia artworks' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Depicts' })).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.getByRole('button', { name: 'Main subject' })).toBeVisible();
+	await expect(page.getByLabel('Search depicted subjects')).toHaveCount(0);
+	const subjectSearch = page.getByRole('textbox', { name: 'Search Explore' });
+	await expect(subjectSearch).toHaveAttribute('placeholder', 'Search depicted subjects...');
+	await subjectSearch.fill('dragon');
+	await expect(
+		page.getByRole('option', { name: /dragon legendary winged, fire-breathing reptile/ })
+	).toBeVisible();
+	await page.getByRole('option', { name: /dragon legendary winged/ }).click();
+	await expect(page.getByRole('button', { name: 'Remove dragon' })).toBeVisible();
+	await expect(
+		page.getByRole('button', { name: /Inspect Saint George and the Dragon/ })
+	).toBeVisible();
+	await page.getByRole('button', { name: /Inspect Saint George and the Dragon/ }).click();
+	await expect(page.getByRole('button', { name: 'Inspect related work Dragon Pendant' })).toBeVisible();
+	await page
+		.getByRole('button', { name: 'Open all works related to Saint George and the Dragon' })
+		.click();
+	await expect(page.getByRole('heading', { name: 'Similar works from Wikidata' })).toBeVisible();
+	await expect(page.getByText('Similar to Saint George and the Dragon')).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Inspect Dragon Pendant' })).toBeVisible();
 	expect(
-		metSwitchRequests.some((request) => request.source === 'met' && request.tag === undefined)
+		exploreApi.searchRequests.some(
+			(request) => request.source === 'wikidata' && request.wikidataMode === 'depicts'
+		)
 	).toBe(true);
+	await page.getByRole('button', { name: 'Return to subject search' }).click();
+	await page.getByRole('button', { name: 'Main subject' }).click();
+	await expect(subjectSearch).toHaveAttribute('placeholder', 'Search main subjects...');
+	await expect(page.getByRole('button', { name: 'Remove dragon' })).toHaveCount(0);
+	await subjectSearch.fill('dragon');
+	await page.getByRole('option', { name: /dragon legendary winged/ }).click();
+	await expect(
+		page.getByRole('button', { name: /Inspect Saint George and the Dragon/ })
+	).toBeVisible();
+	expect(
+		exploreApi.searchRequests.some(
+			(request) =>
+				request.source === 'wikidata' &&
+				request.wikidataMode === 'main_subject' &&
+				request.wikidataEntities?.some((entity) => entity.id === 'Q7559')
+		)
+	).toBe(true);
+	await page.getByRole('button', { name: 'Title' }).click();
+	await expect(subjectSearch).toHaveAttribute('placeholder', 'Search artwork titles...');
+	await subjectSearch.fill('Saint George');
+	await page.getByRole('button', { name: 'Search Wikimedia' }).click();
+	await expect(
+		page.getByRole('button', { name: /Inspect Saint George and the Dragon/ })
+	).toBeVisible();
+	expect(
+		exploreApi.searchRequests.some(
+			(request) =>
+				request.source === 'wikidata' &&
+				request.wikidataMode === 'title' &&
+				request.keyword === 'Saint George'
+		)
+	).toBe(true);
+	await page.getByRole('button', { name: 'The Met', exact: true }).click();
 	await expect(page.getByRole('button', { name: /Add .* to library/i })).toHaveCount(0);
 	await expect(page.getByRole('complementary', { name: 'Explore detail' })).toHaveCount(0);
 	await page.locator('.scroll-area').evaluate((node) => {
@@ -320,6 +453,116 @@ test('desktop library and explore surfaces are navigable', async ({ page }) => {
 	await page.getByRole('banner').getByRole('button', { name: 'Add to Library' }).click();
 	await expect(page.getByRole('heading', { name: 'Add to Library' })).toBeVisible();
 	await expect(page.getByRole('button', { name: /From Gallery/ })).toBeVisible();
+});
+
+test('wikidata cooldown renders a stable message', async ({ page }) => {
+	await page.route('**/explore/api/departments**', async (route) => {
+		await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ departments: [] }) });
+	});
+	await page.route('**/explore/api/wikidata/entities**', async (route) => {
+		await route.fulfill({
+			contentType: 'application/json',
+			body: JSON.stringify({
+				entities: [{ id: 'Q7559', label: 'dragon', description: 'legendary creature' }]
+			})
+		});
+	});
+	await page.route('**/explore/api/search', async (route) => {
+		const body = route.request().postDataJSON() as { source?: string };
+		if (body.source === 'wikidata') {
+			await route.fulfill({
+				status: 503,
+				headers: { 'retry-after': '15' },
+				contentType: 'application/json',
+				body: JSON.stringify({
+					error: 'Wikidata is taking a breather. Try again in a moment.',
+					retryAfterSeconds: 15
+				})
+			});
+			return;
+		}
+		await route.fulfill({
+			contentType: 'application/json',
+			body: JSON.stringify({ items: [metResult], total: 1, nextCursor: null })
+		});
+	});
+
+	await page.goto('/');
+	await page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'Explore' }).click();
+	await page.getByRole('button', { name: 'Wikimedia' }).click();
+	const subjectSearch = page.getByRole('textbox', { name: 'Search Explore' });
+	await subjectSearch.fill('dragon');
+	await page.getByRole('option', { name: /dragon legendary creature/ }).click();
+
+	await expect(page.getByText('Wikidata is taking a breather. Try again in a moment.')).toBeVisible();
+	await expect(page.locator('.skeleton')).toHaveCount(0);
+});
+
+test('wikidata pagination waits for the normal load threshold', async ({ page }) => {
+	const wikidataRequests: Array<{ cursor?: string }> = [];
+	await page.route('**/explore/api/departments**', async (route) => {
+		await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ departments: [] }) });
+	});
+	await page.route('**/explore/api/wikidata/entities**', async (route) => {
+		await route.fulfill({
+			contentType: 'application/json',
+			body: JSON.stringify({
+				entities: [
+					{
+						id: 'Q7559',
+						label: 'dragon',
+						description: 'legendary winged, fire-breathing reptile'
+					}
+				]
+			})
+		});
+	});
+	await page.route('**/explore/api/search', async (route) => {
+		const body = route.request().postDataJSON() as {
+			source?: string;
+			query?: { cursor?: string; depicts?: Array<{ id: string }> };
+		};
+		if (body.source === 'wikidata') {
+			const request = body.query ?? {};
+			wikidataRequests.push({ cursor: request.cursor });
+			await route.fulfill({
+				contentType: 'application/json',
+				body: JSON.stringify({
+					items: request.cursor
+						? [createWikidataResult(41)]
+						: Array.from({ length: 40 }, (_, index) => createWikidataResult(index + 1)),
+					total: null,
+					nextCursor: request.cursor ? null : '40'
+				})
+			});
+			return;
+		}
+		await route.fulfill({
+			contentType: 'application/json',
+			body: JSON.stringify({ items: [metResult], total: 1, nextCursor: null })
+		});
+	});
+
+	await page.goto('/');
+	await page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'Explore' }).click();
+	await page.getByRole('button', { name: 'Wikimedia' }).click();
+	const subjectSearch = page.getByRole('textbox', { name: 'Search Explore' });
+	await subjectSearch.fill('dragon');
+	await page.getByRole('option', { name: /dragon legendary winged/ }).click();
+	await expect(
+		page.getByRole('button', { name: 'Inspect Wikidata Dragon Study 1', exact: true })
+	).toBeVisible();
+	await page.waitForTimeout(500);
+	expect(wikidataRequests.filter((request) => request.cursor === '40')).toHaveLength(0);
+
+	await page.locator('.scroll-area').evaluate((node) => {
+		node.scrollTop = node.scrollHeight;
+		node.dispatchEvent(new Event('scroll', { bubbles: true }));
+	});
+	await expect(
+		page.getByRole('button', { name: 'Inspect Wikidata Dragon Study 41', exact: true })
+	).toBeVisible();
+	expect(wikidataRequests.filter((request) => request.cursor === '40')).toHaveLength(1);
 });
 
 test('phone browse opens inspect and add sheet', async ({ page }) => {

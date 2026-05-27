@@ -1,14 +1,16 @@
 import type { SourceConnector, SourceId } from '../types';
 import { articConnector } from './artic';
 import { metConnector } from './met';
+import { wikidataConnector } from './wikidata';
 
 const connectors: Record<SourceId, SourceConnector> = {
 	met: metConnector,
-	artic: articConnector
+	artic: articConnector,
+	wikidata: wikidataConnector
 };
 
 export function isSourceId(value: string): value is SourceId {
-	return value === 'met' || value === 'artic';
+	return value === 'met' || value === 'artic' || value === 'wikidata';
 }
 
 export function getExploreConnector(source: SourceId = 'met'): SourceConnector {

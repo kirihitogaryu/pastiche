@@ -1,5 +1,11 @@
 import type { AppMode, Asset, LibraryView, MobileState } from '$lib/types';
-import type { ExploreQuery, ExploreSuggestion } from '$lib/explore/types';
+import type {
+	ExploreQuery,
+	ExploreSubject,
+	ExploreSuggestion,
+	SourceId,
+	WikidataSearchMode
+} from '$lib/explore/types';
 
 export const appState = $state({
 	mode: 'home' as AppMode,
@@ -23,7 +29,13 @@ export const appState = $state({
 	exploreCommittedQuery: '',
 	exploreSuggestions: [] as ExploreSuggestion[],
 	exploreQueryPatch: null as Partial<ExploreQuery> | null,
+	exploreSourceId: 'met' as SourceId,
 	exploreSourceLabel: 'The Met',
+	wikidataMode: 'depicts' as WikidataSearchMode,
+	wikidataSubjects: [] as ExploreSubject[],
+	wikidataEntitySuggestions: [] as ExploreSubject[],
+	wikidataEntityLoading: false,
+	wikidataEntityError: null as string | null,
 	activeTags: [] as string[],
 	folderPath: ['library', 'refs', 'artworks'],
 	lastBrowseScrollY: 0
@@ -62,6 +74,11 @@ export function setExploreSuggestions(suggestions: ExploreSuggestion[]) {
 	appState.exploreSuggestions = suggestions;
 }
 
+export function setExploreSource(source: SourceId, label: string) {
+	appState.exploreSourceId = source;
+	appState.exploreSourceLabel = label;
+}
+
 export function setExploreSourceLabel(label: string) {
 	appState.exploreSourceLabel = label;
 }
@@ -74,6 +91,45 @@ export function selectExploreSuggestion(suggestion: ExploreSuggestion) {
 	appState.query = suggestion.label;
 	appState.exploreCommittedQuery = suggestion.label;
 	appState.exploreQueryPatch = suggestion.queryPatch;
+}
+
+export function addWikidataSubject(subject: ExploreSubject) {
+	if (appState.wikidataSubjects.some((selected) => selected.id === subject.id)) return;
+	appState.wikidataSubjects = [...appState.wikidataSubjects, subject];
+	appState.query = '';
+	appState.exploreCommittedQuery = '';
+	appState.wikidataEntitySuggestions = [];
+	appState.wikidataEntityError = null;
+}
+
+export function removeWikidataSubject(id: string) {
+	appState.wikidataSubjects = appState.wikidataSubjects.filter((subject) => subject.id !== id);
+}
+
+export function clearWikidataSubjects() {
+	appState.wikidataSubjects = [];
+	appState.wikidataEntitySuggestions = [];
+	appState.wikidataEntityError = null;
+	appState.wikidataEntityLoading = false;
+}
+
+export function setWikidataMode(mode: WikidataSearchMode) {
+	appState.wikidataMode = mode;
+	clearWikidataSubjects();
+	appState.query = '';
+	appState.exploreCommittedQuery = '';
+}
+
+export function setWikidataEntitySuggestions(suggestions: ExploreSubject[]) {
+	appState.wikidataEntitySuggestions = suggestions;
+}
+
+export function setWikidataEntityLoading(loading: boolean) {
+	appState.wikidataEntityLoading = loading;
+}
+
+export function setWikidataEntityError(error: string | null) {
+	appState.wikidataEntityError = error;
 }
 
 export function openLibraryOverview() {

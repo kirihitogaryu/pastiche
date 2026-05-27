@@ -74,6 +74,7 @@ export function exploreThumbKey(itemId: string): string {
 
 export async function getCachedThumbUrl(itemId: string, sourceUrl: string): Promise<string> {
 	if (!canUseIndexedDb()) return sourceUrl;
+	if (shouldSkipThumbBlobCache(sourceUrl)) return sourceUrl;
 	const cacheKey = exploreThumbKey(itemId);
 	const cached = await cacheGet<CachedThumb>(cacheKey);
 	if (cached) return makeBlobUrl(cached);
@@ -92,6 +93,14 @@ export async function getCachedThumbUrl(itemId: string, sourceUrl: string): Prom
 
 export function revokeThumbUrl(url: string): void {
 	if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+}
+
+export function shouldSkipThumbBlobCache(sourceUrl: string): boolean {
+	try {
+		return new URL(sourceUrl).hostname === 'upload.wikimedia.org';
+	} catch {
+		return false;
+	}
 }
 
 function makeBlobUrl(cached: CachedThumb): string {

@@ -1,13 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ExploreItem } from '$lib/explore/types';
+import { WikimediaTemporaryError } from '$lib/explore/wikimedia-request';
 
 const search = vi.fn();
 const searchArtic = vi.fn();
+const searchWikidata = vi.fn();
 
 vi.mock('$lib/explore/connectors', () => ({
 	getExploreConnector: (source = 'met') =>
-		source === 'artic' ? { search: searchArtic } : { search },
-	isSourceId: (value: string) => value === 'met' || value === 'artic'
+		source === 'artic'
+			? { search: searchArtic }
+			: source === 'wikidata'
+				? { search: searchWikidata }
+				: { search },
+	isSourceId: (value: string) => value === 'met' || value === 'artic' || value === 'wikidata'
 }));
 
 const sampleItem: ExploreItem = {
@@ -42,6 +48,7 @@ describe('POST /explore/api/search', () => {
 	beforeEach(() => {
 		search.mockReset();
 		searchArtic.mockReset();
+		searchWikidata.mockReset();
 		vi.resetModules();
 	});
 
@@ -82,6 +89,119 @@ describe('POST /explore/api/search', () => {
 		expect(response.status).toBe(200);
 		expect(searchArtic).toHaveBeenCalledWith({ keyword: 'seurat', limit: 20 });
 		expect(search).not.toHaveBeenCalled();
+	});
+
+	it('accepts Wikidata subject search queries', async () => {
+		searchWikidata.mockResolvedValue({ items: [], total: null, nextCursor: null });
+		const { POST } = await import('./+server');
+
+		const query = {
+			depicts: [{ id: 'Q33767', label: 'hand', description: 'part of the forearm' }],
+			workType: 'painting',
+			limit: 20
+		};
+		const response = await POST({
+			request: new Request('http://localhost/explore/api/search', {
+				method: 'POST',
+				body: JSON.stringify({ source: 'wikidata', query })
+			})
+		});
+
+		expect(response.status).toBe(200);
+		expect(searchWikidata).toHaveBeenCalledWith(query);
+	});
+
+	it('accepts Wikimedia artwork mode queries', async () => {
+		searchWikidata.mockResolvedValue({ items: [], total: null, nextCursor: null });
+		const { POST } = await import('./+server');
+
+		const query = {
+			wikidataMode: 'movement',
+			wikidataEntities: [{ id: 'Q1404472', label: 'Renaissance', description: null }],
+			workType: 'painting',
+			limit: 20
+		};
+		const response = await POST({
+			request: new Request('http://localhost/explore/api/search', {
+				method: 'POST',
+				body: JSON.stringify({ source: 'wikidata', query })
+			})
+		});
+
+		expect(response.status).toBe(200);
+		expect(searchWikidata).toHaveBeenCalledWith(query);
+	});
+
+	it('rejects malformed Wikimedia artwork modes', async () => {
+		const { POST } = await import('./+server');
+
+		const response = await POST({
+			request: new Request('http://localhost/explore/api/search', {
+				method: 'POST',
+				body: JSON.stringify({
+					source: 'wikidata',
+					query: {
+						wikidataMode: 'collection',
+						wikidataEntities: [{ id: 'Q33767', label: 'hand', description: null }],
+						limit: 20
+					}
+				})
+			})
+		});
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'Invalid Explore query' });
+		expect(searchWikidata).not.toHaveBeenCalled();
+	});
+
+	it('returns retry-aware temporary errors for Wikimedia cooldowns', async () => {
+		searchWikidata.mockRejectedValue(
+			new WikimediaTemporaryError(
+				503,
+				'Wikidata is taking a breather. Try again in a moment.',
+				12,
+				'sparql'
+			)
+		);
+		const { POST } = await import('./+server');
+
+		const response = await POST({
+			request: new Request('http://localhost/explore/api/search', {
+				method: 'POST',
+				body: JSON.stringify({
+					source: 'wikidata',
+					query: {
+						depicts: [{ id: 'Q33767', label: 'hand', description: null }],
+						limit: 20
+					}
+				})
+			})
+		});
+
+		expect(response.status).toBe(503);
+		expect(response.headers.get('retry-after')).toBe('12');
+		await expect(response.json()).resolves.toEqual({
+			error: 'Wikidata is taking a breather. Try again in a moment.',
+			retryAfterSeconds: 12
+		});
+	});
+
+	it('rejects malformed Wikidata subject queries', async () => {
+		const { POST } = await import('./+server');
+
+		const response = await POST({
+			request: new Request('http://localhost/explore/api/search', {
+				method: 'POST',
+				body: JSON.stringify({
+					source: 'wikidata',
+					query: { depicts: [{ id: 'not-a-qid', label: 'hand', description: null }], limit: 20 }
+				})
+			})
+		});
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'Invalid Explore query' });
+		expect(searchWikidata).not.toHaveBeenCalled();
 	});
 
 	it('rejects source-aware search requests with unsupported sources', async () => {
