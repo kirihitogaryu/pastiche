@@ -44,10 +44,22 @@ export type ResolvedImage = {
  * because elementsFromPoint works in viewport space.
  */
 export function resolveAtPoint(x: number, y: number): ResolvedImage | null {
+	return resolveTargetAtPoint(x, y)?.resolved ?? null;
+}
+
+export function resolveTargetAtPoint(
+	x: number,
+	y: number
+): { element: Element; resolved: ResolvedImage } | null {
 	const elements = document.elementsFromPoint(x, y);
 	for (const el of elements) {
 		const result = resolveElement(el);
-		if (result) return result;
+		if (result) return { element: el, resolved: result };
+
+		const child = resolvableDescendantAtPoint(el, x, y);
+		if (!child) continue;
+		const childResult = resolveElement(child);
+		if (childResult) return { element: child, resolved: childResult };
 	}
 	return null;
 }
@@ -61,6 +73,17 @@ export function resolveElement(el: Element): ResolvedImage | null {
 	if (el instanceof HTMLVideoElement) return resolveVideo(el);
 	if (el instanceof HTMLCanvasElement) return resolveCanvas(el);
 	return resolveCssBackground(el);
+}
+
+function resolvableDescendantAtPoint(el: Element, x: number, y: number): Element | null {
+	const descendants = el.querySelectorAll(
+		'img, video, canvas, div[style*="background"], figure, a[style*="background"], section[style*="background"]'
+	);
+	return (
+		[...descendants].find((candidate) =>
+			rectContainsPoint(candidate.getBoundingClientRect(), x, y)
+		) ?? null
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -263,4 +286,8 @@ function applyArtsyUpsize(url: string): string {
 
 function rectsIntersect(a: DOMRect, b: DOMRect): boolean {
 	return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
+}
+
+function rectContainsPoint(rect: DOMRect, x: number, y: number): boolean {
+	return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 }

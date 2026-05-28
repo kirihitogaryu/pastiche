@@ -187,6 +187,7 @@ export type QueuedJob = {
 export type ExtensionMessage =
 	| { type: 'PASTICHE_GET_STATUS' }
 	| { type: 'PASTICHE_SMOKE_IMPORT' }
+	| { type: 'PASTICHE_CAPTURE_TAB_IMAGE'; url: string; pageTitle: string | null }
 	| { type: 'PASTICHE_ITEM_CAPTURED'; item: CapturedItemPayload }
 	| { type: 'PASTICHE_SWEEP_RESULTS'; items: CapturedItemPayload[] }
 	| { type: 'PASTICHE_LASSO_RESULTS'; items: CapturedItemPayload[] }

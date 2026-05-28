@@ -22,11 +22,12 @@
 import { getSettings } from '../shared/settings';
 import { getExtensionApi } from '../shared/browser';
 import { computeSourceHash, sourceKeyForUrls } from '../shared/source-hash';
-import { resolveCanonicalImage } from './canonical-image';
+import { normalizeImageQualityUrl, resolveCanonicalImage } from './canonical-image';
 import { policyForSource } from './storage-policy';
 import {
 	MESSAGE_GET_STATUS,
 	MESSAGE_SMOKE_IMPORT,
+	MESSAGE_CAPTURE_TAB_IMAGE,
 	MESSAGE_ITEM_CAPTURED,
 	MESSAGE_SWEEP_RESULTS,
 	MESSAGE_LASSO_RESULTS,
@@ -97,6 +98,9 @@ async function handleMessage(message: ExtensionMessage): Promise<unknown> {
 
 		case MESSAGE_SMOKE_IMPORT:
 			return smokeImport();
+
+		case MESSAGE_CAPTURE_TAB_IMAGE:
+			return handleTabImageCaptured(message.url, message.pageTitle);
 
 		case MESSAGE_ITEM_CAPTURED:
 			return handleItemCaptured(message.item);
@@ -254,6 +258,50 @@ async function handleBatchCaptured(captured: CapturedItemPayload[]): Promise<{ o
 	return { ok: true };
 }
 
+/**
+ * Direct image documents (for example a pbs.twimg.com/media URL opened in a
+ * tab) do not always have a page DOM that content scripts can inspect. Capture
+ * those from the service worker by treating the active tab URL as the image.
+ */
+async function handleTabImageCaptured(
+	tabUrl: string,
+	pageTitle: string | null
+): Promise<{ ok: boolean; error?: string }> {
+	const imageUrl = normalizeImageQualityUrl(tabUrl);
+
+	try {
+		const response = await fetch(imageUrl, { signal: AbortSignal.timeout(30_000) });
+		if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+		const blob = await response.blob();
+		const mimeType = blob.type || mimeTypeFromUrl(imageUrl);
+		if (!mimeType?.startsWith('image/')) {
+			throw new Error('Active tab is not an image URL.');
+		}
+
+		const dimensions = await dimensionsForImageBlob(blob);
+		const base64 = await blobToBase64(blob);
+
+		return handleItemCaptured({
+			url: imageUrl,
+			detailUrl: null,
+			naturalWidth: dimensions.width,
+			naturalHeight: dimensions.height,
+			mimeType,
+			inlineData: `data:${mimeType};base64,${base64}`,
+			altText: null,
+			sourceUrl: tabUrl,
+			pageTitle: pageTitle ?? tabUrl,
+			capturedAt: new Date().toISOString()
+		});
+	} catch (err) {
+		return {
+			ok: false,
+			error: err instanceof Error ? err.message : 'Active tab is not a selectable image.'
+		};
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Item enrichment
 // ---------------------------------------------------------------------------
@@ -272,6 +320,8 @@ async function enrichItem(captured: CapturedItemPayload): Promise<EnrichedItem> 
 	const resolvedUrl = canonical.url;
 	const previewUrl = resolvedUrl === captured.url ? null : captured.url;
 	const policy = policyForSource(resolvedUrl);
+	const storageMode = captured.inlineData ? 'download' : policy.mode;
+	const storageModeReason = captured.inlineData ? 'Captured image bytes' : policy.reason;
 	const sourceHash = await computeSourceHash(sourceKeyForUrls(resolvedUrl, captured.sourceUrl));
 	const id = sourceHash;
 
@@ -313,8 +363,8 @@ async function enrichItem(captured: CapturedItemPayload): Promise<EnrichedItem> 
 		sourceUrl: captured.sourceUrl,
 		pageTitle: captured.pageTitle,
 		capturedAt: captured.capturedAt,
-		storageMode: policy.mode,
-		storageModeReason: policy.reason,
+		storageMode,
+		storageModeReason,
 		fetchStatus,
 		destinationFolderId: null,
 		alreadyInLibrary
@@ -632,6 +682,32 @@ async function blobToBase64(blob: Blob): Promise<string> {
 		binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
 	}
 	return btoa(binary);
+}
+
+async function dimensionsForImageBlob(blob: Blob): Promise<{ width: number; height: number }> {
+	if (typeof createImageBitmap !== 'function') {
+		throw new Error('This browser cannot read active image dimensions.');
+	}
+
+	const bitmap = await createImageBitmap(blob);
+	try {
+		return { width: bitmap.width, height: bitmap.height };
+	} finally {
+		bitmap.close();
+	}
+}
+
+function mimeTypeFromUrl(url: string): string {
+	try {
+		const pathname = new URL(url).pathname.toLowerCase();
+		if (pathname.endsWith('.png')) return 'image/png';
+		if (pathname.endsWith('.webp')) return 'image/webp';
+		if (pathname.endsWith('.avif')) return 'image/avif';
+		if (pathname.endsWith('.gif')) return 'image/gif';
+	} catch {
+		// Fall through to the JPEG default.
+	}
+	return 'image/jpeg';
 }
 
 function hostnameFrom(url: string): string {

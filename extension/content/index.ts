@@ -39,8 +39,7 @@ import {
 	teardown
 } from './highlight';
 import {
-	resolveAtPoint,
-	resolveElement,
+	resolveTargetAtPoint,
 	sweepPage,
 	collectInRegion,
 	type ResolvedImage,
@@ -163,22 +162,15 @@ function onSingleMouseMove(event: MouseEvent): void {
 	// We suspend pointer events on the overlay briefly to let elementsFromPoint
 	// see through to the page — then restore immediately.
 	overlay!.style.pointerEvents = 'none';
-	const resolved = resolveAtPoint(event.clientX, event.clientY);
+	const target = resolveTargetAtPoint(event.clientX, event.clientY);
 	overlay!.style.pointerEvents = 'all';
 
-	if (!resolved) {
+	if (!target) {
 		hideRing();
 		return;
 	}
 
-	// Find the actual element that produced this resolution so we can pass it
-	// to showRing for accurate bounding rect.
-	const elements = document.elementsFromPoint(event.clientX, event.clientY);
-	const target = elements.find((el) => resolveElement(el) !== null) ?? null;
-
-	if (target) {
-		showRing(target, resolved.naturalWidth, resolved.naturalHeight);
-	}
+	showRing(target.element, target.resolved.naturalWidth, target.resolved.naturalHeight);
 }
 
 function onSingleClick(event: MouseEvent): void {
@@ -186,16 +178,14 @@ function onSingleClick(event: MouseEvent): void {
 	event.stopPropagation();
 
 	overlay!.style.pointerEvents = 'none';
-	const resolved = resolveAtPoint(event.clientX, event.clientY);
-	const elements = document.elementsFromPoint(event.clientX, event.clientY);
-	const target = elements.find((el) => resolveElement(el) !== null) ?? null;
+	const target = resolveTargetAtPoint(event.clientX, event.clientY);
 	overlay!.style.pointerEvents = 'all';
 
 	exitCapture();
 
-	if (!resolved || !target) return;
+	if (!target) return;
 
-	captureItem(resolved, target);
+	captureItem(target.resolved, target.element);
 }
 
 // ---------------------------------------------------------------------------

@@ -17,6 +17,7 @@
 		MESSAGE_CLEAR_SELECTION
 	} from '../shared/messages';
 	import type { ConnectionState, EnrichedItem, ImportResult } from '../shared/types';
+	import type { TabInfo } from '../shared/browser';
 	import StatusBar from './components/StatusBar.svelte';
 	import SelectionList from './components/SelectionList.svelte';
 	import FolderDropdown from './components/FolderDropdown.svelte';
@@ -127,9 +128,9 @@
 	// Capture activation (forwards to active tab's content script via SW)
 	// ---------------------------------------------------------------------------
 
-	async function activeTabId() {
+	async function activeTab() {
 		const [tab] = await api.tabs.query({ active: true, currentWindow: true });
-		return tab?.id ?? null;
+		return tab ?? null;
 	}
 
 	async function ensureContentScript(tabId: number) {
@@ -148,18 +149,45 @@
 		await api.tabs.sendMessage(tabId, { type: MESSAGE_CONTENT_PING });
 	}
 
-	async function sendActiveTabMessage(message: Record<string, unknown>) {
-		const tabId = await activeTabId();
-		if (!tabId) {
+	async function captureActiveTabImage(tab: TabInfo) {
+		if (!tab.url) throw new Error('No active tab URL found.');
+		const result = (await api.runtime.sendMessage({
+			type: MESSAGE_CAPTURE_TAB_IMAGE,
+			url: tab.url,
+			pageTitle: tab.title ?? null
+		})) as { ok?: boolean; error?: string };
+		if (!result?.ok) throw new Error(result?.error ?? 'Active tab is not a selectable image.');
+	}
+
+	async function sendActiveTabMessage(
+		message: Record<string, unknown>,
+		options: { directImageFallback?: boolean } = {}
+	) {
+		const tab = await activeTab();
+		if (!tab?.id) {
 			captureError = 'No active tab found.';
 			return;
 		}
 
 		try {
-			await ensureContentScript(tabId);
-			await api.tabs.sendMessage(tabId, message);
+			await ensureContentScript(tab.id);
+			await api.tabs.sendMessage(tab.id, message);
 			captureError = null;
 		} catch (error) {
+			if (options.directImageFallback) {
+				try {
+					await captureActiveTabImage(tab);
+					captureError = null;
+					return;
+				} catch (fallbackError) {
+					console.error(fallbackError);
+					captureError =
+						fallbackError instanceof Error
+							? fallbackError.message
+							: 'Could not capture this page as an image.';
+					return;
+				}
+			}
 			console.error(error);
 			captureError =
 				error instanceof Error
@@ -169,18 +197,24 @@
 	}
 
 	async function activateSingleCapture() {
-		await sendActiveTabMessage({ type: MESSAGE_CAPTURE_ACTIVATE });
+		await sendActiveTabMessage({ type: MESSAGE_CAPTURE_ACTIVATE }, { directImageFallback: true });
 	}
 
 	async function activateLasso() {
-		await sendActiveTabMessage({ type: MESSAGE_CAPTURE_ACTIVATE_LASSO });
+		await sendActiveTabMessage(
+			{ type: MESSAGE_CAPTURE_ACTIVATE_LASSO },
+			{ directImageFallback: true }
+		);
 	}
 
 	async function runSweep() {
-		await sendActiveTabMessage({
-			type: MESSAGE_SWEEP,
-			minDimension: 300
-		});
+		await sendActiveTabMessage(
+			{
+				type: MESSAGE_SWEEP,
+				minDimension: 300
+			},
+			{ directImageFallback: true }
+		);
 	}
 
 	// ---------------------------------------------------------------------------

@@ -28,6 +28,9 @@ export const MESSAGE_SWEEP_RESULTS = 'PASTICHE_SWEEP_RESULTS';
 /** Content → SW: lasso selection completed; batch of candidates. */
 export const MESSAGE_LASSO_RESULTS = 'PASTICHE_LASSO_RESULTS';
 
+/** Sidebar → SW: capture the active tab URL as a direct image fallback. */
+export const MESSAGE_CAPTURE_TAB_IMAGE = 'PASTICHE_CAPTURE_TAB_IMAGE';
+
 // ---------------------------------------------------------------------------
 // Capture activation (SW / sidebar → content script)
 // ---------------------------------------------------------------------------

@@ -48,7 +48,7 @@ type StorageArea = {
  * Note: chrome.tabs.query with { active, currentWindow } requires the "tabs"
  * permission in manifest.json — make sure it's present.
  */
-type TabInfo = {
+export type TabInfo = {
 	id?: number;
 	url?: string;
 	title?: string;
