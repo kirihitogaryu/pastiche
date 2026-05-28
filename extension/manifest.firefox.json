@@ -3,10 +3,10 @@
 	"name": "Pastiche Capture",
 	"description": "Capture references into the local Pastiche library.",
 	"version": "0.1.0",
-	"permissions": ["activeTab", "scripting", "storage", "sidePanel"],
+	"permissions": ["activeTab", "scripting", "storage", "tabs"],
 	"host_permissions": ["http://localhost:*/*", "http://127.0.0.1:*/*", "<all_urls>"],
 	"background": {
-		"service_worker": "background/service-worker.js",
+		"scripts": ["background/service-worker.js"],
 		"type": "module"
 	},
 	"content_scripts": [
@@ -16,8 +16,9 @@
 			"run_at": "document_idle"
 		}
 	],
-	"side_panel": {
-		"default_path": "sidebar/index.html"
+	"sidebar_action": {
+		"default_panel": "sidebar/index.html",
+		"default_title": "Pastiche Capture"
 	},
 	"options_page": "settings/index.html",
 	"action": {
@@ -26,6 +27,12 @@
 	"commands": {
 		"activate-capture": {
 			"description": "Activate Pastiche capture mode"
+		}
+	},
+	"browser_specific_settings": {
+		"gecko": {
+			"id": "pastiche-capture@pastiche",
+			"strict_min_version": "128.0"
 		}
 	}
 }

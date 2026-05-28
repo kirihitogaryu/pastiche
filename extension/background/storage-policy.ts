@@ -1,4 +1,4 @@
-import type { StorageMode } from '../../src/lib/library/types';
+import type { StorageMode } from '../shared/types';
 
 export type StoragePolicy = {
 	mode: StorageMode;
