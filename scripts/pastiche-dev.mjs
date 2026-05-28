@@ -2,6 +2,7 @@
 
 import { spawn } from 'node:child_process';
 import { realpathSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const DEFAULT_PORT = '5173';
@@ -51,9 +52,15 @@ export function isExecutedScript(argvPath, modulePath, realArgvPath = realpathSy
 	return realArgvPath === modulePath;
 }
 
+/** @param {string} modulePath */
+export function devWorkingDirectory(modulePath = fileURLToPath(import.meta.url)) {
+	return resolve(dirname(modulePath), '..');
+}
+
 function run() {
 	const options = parseArgs(process.argv.slice(2));
 	const commands = buildDevCommands(options);
+	const cwd = devWorkingDirectory();
 	const extensionPath = options.browser === 'firefox' ? 'extension/dist-firefox' : 'extension/dist';
 	const children = new Set();
 	let shuttingDown = false;
@@ -65,7 +72,7 @@ function run() {
 
 	for (const command of commands) {
 		const child = spawn(command.command, command.args, {
-			cwd: process.cwd(),
+			cwd,
 			env: process.env,
 			stdio: ['inherit', 'pipe', 'pipe']
 		});

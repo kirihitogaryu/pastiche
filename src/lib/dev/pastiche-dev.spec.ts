@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildDevCommands, isExecutedScript } from '../../../scripts/pastiche-dev.mjs';
+import {
+	buildDevCommands,
+	devWorkingDirectory,
+	isExecutedScript
+} from '../../../scripts/pastiche-dev.mjs';
 
 describe('pastiche dev command', () => {
 	it('starts the app server on the extension default port and watches the Chrome extension', () => {
@@ -39,5 +43,13 @@ describe('pastiche dev command', () => {
 				'/repo/scripts/pastiche-dev.mjs'
 			)
 		).toBe(true);
+	});
+
+	it('uses the repository root as the child process working directory', () => {
+		expect.assertions(1);
+
+		expect(devWorkingDirectory('/home/kristoph/Desktop/pastiche/scripts/pastiche-dev.mjs')).toBe(
+			'/home/kristoph/Desktop/pastiche'
+		);
 	});
 });
