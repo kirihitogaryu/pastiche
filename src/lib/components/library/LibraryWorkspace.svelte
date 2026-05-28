@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AssetInspector from '$lib/components/inspector/AssetInspector.svelte';
+	import FocusedAssetPreview from '$lib/components/inspector/FocusedAssetPreview.svelte';
 	import { emptyLibrarySnapshot, loadLibrarySnapshot } from '$lib/library/client';
 	import type { LibraryResponse } from '$lib/library/types';
 	import { appState, closeInspector } from '$lib/state/app-state.svelte';
@@ -11,6 +12,7 @@
 	let library = $state<LibraryResponse>(emptyLibrarySnapshot());
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+	let previewAsset = $state<Asset | null>(null);
 	let selectedAsset = $derived(
 		library.assets.find((asset) => asset.id === appState.selectedAssetId) ?? null
 	);
@@ -73,9 +75,18 @@
 	</div>
 
 	{#if showInspector}
-		<AssetInspector asset={selectedAsset} onClose={closeInspector} onDelete={deleteAsset} />
+		<AssetInspector
+			asset={selectedAsset}
+			onClose={closeInspector}
+			onDelete={deleteAsset}
+			onPreview={(asset) => (previewAsset = asset)}
+		/>
 	{/if}
 </div>
+
+{#if previewAsset}
+	<FocusedAssetPreview asset={previewAsset} onClose={() => (previewAsset = null)} />
+{/if}
 
 <style>
 	.library-workspace {

@@ -7,6 +7,8 @@
 		MESSAGE_ITEM_READY,
 		MESSAGE_BATCH_READY,
 		MESSAGE_FETCH_COMPLETE,
+		MESSAGE_CONTEXT_IMPORT_STARTED,
+		MESSAGE_CONTEXT_IMPORT_FINISHED,
 		MESSAGE_QUEUE_UPDATED,
 		MESSAGE_QUEUE_REPLAYED,
 		MESSAGE_CAPTURE_TAB_IMAGE,
@@ -23,6 +25,7 @@
 	import SelectionList from './components/SelectionList.svelte';
 	import FolderDropdown from './components/FolderDropdown.svelte';
 	import EmptyState from './components/EmptyState.svelte';
+	import { importNotificationFromMessage, type ImportNotification } from './import-notification';
 
 	const api = getExtensionApi();
 
@@ -35,7 +38,9 @@
 	let items = $state<EnrichedItem[]>([]);
 	let importing = $state(false);
 	let importResult = $state<ImportResult | null>(null);
+	let importNotification = $state<ImportNotification | null>(null);
 	let captureError = $state<string | null>(null);
+	let importNotificationTimer: ReturnType<typeof setTimeout> | null = null;
 
 	// Folder assignment
 	let selectedFolderId = $state<string | null>(null);
@@ -52,6 +57,7 @@
 		api.runtime.onMessage.addListener(handleIncomingMessage);
 		return () => {
 			api.runtime.onMessage.removeListener(handleIncomingMessage);
+			if (importNotificationTimer) clearTimeout(importNotificationTimer);
 		};
 	});
 
@@ -112,6 +118,43 @@
 				void reconnect();
 				break;
 			}
+
+			case MESSAGE_CONTEXT_IMPORT_STARTED: {
+				showImportNotification(
+					importNotificationFromMessage({
+						type: MESSAGE_CONTEXT_IMPORT_STARTED,
+						sourceImageUrl: message.sourceImageUrl as string
+					})
+				);
+				break;
+			}
+
+			case MESSAGE_CONTEXT_IMPORT_FINISHED: {
+				const result = message.result as ImportResult;
+				importResult = result;
+				showImportNotification(
+					importNotificationFromMessage({
+						type: MESSAGE_CONTEXT_IMPORT_FINISHED,
+						result
+					})
+				);
+				void reconnect();
+				break;
+			}
+		}
+	}
+
+	function showImportNotification(notification: ImportNotification) {
+		if (importNotificationTimer) {
+			clearTimeout(importNotificationTimer);
+			importNotificationTimer = null;
+		}
+		importNotification = notification;
+		if (notification.state !== 'working') {
+			importNotificationTimer = setTimeout(() => {
+				importNotification = null;
+				importNotificationTimer = null;
+			}, 6500);
 		}
 	}
 
@@ -447,6 +490,24 @@
 		<div class="capture-error">{captureError}</div>
 	{/if}
 
+	{#if importNotification}
+		<div
+			class="import-notification"
+			class:notification-error={importNotification.state === 'error'}
+		>
+			<span class={`notification-dot ${importNotification.state}`}></span>
+			<div>
+				<strong>{importNotification.title}</strong>
+				<span>{importNotification.detail}</span>
+			</div>
+			<button
+				type="button"
+				aria-label="Dismiss import notification"
+				onclick={() => (importNotification = null)}>×</button
+			>
+		</div>
+	{/if}
+
 	<!-- Selection list or empty state -->
 	{#if items.length > 0}
 		<SelectionList
@@ -568,6 +629,86 @@
 		line-height: 1.35;
 		background: rgb(224 108 117 / 9%);
 		flex-shrink: 0;
+	}
+
+	.import-notification {
+		display: grid;
+		grid-template-columns: auto 1fr auto;
+		align-items: center;
+		gap: 9px;
+		margin: 10px 12px 0;
+		padding: 10px;
+		border: 1px solid rgb(255 255 255 / 10%);
+		border-radius: 7px;
+		background: #28231d;
+		box-shadow: 0 10px 28px rgb(0 0 0 / 22%);
+		flex-shrink: 0;
+	}
+
+	.import-notification.notification-error {
+		border-color: rgb(224 108 117 / 28%);
+		background: rgb(224 108 117 / 9%);
+	}
+
+	.notification-dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: #8f7765;
+	}
+
+	.notification-dot.working {
+		background: #d0a85c;
+		animation: pulse 1s ease-in-out infinite;
+	}
+
+	.notification-dot.success {
+		background: #98c379;
+	}
+
+	.notification-dot.queued {
+		background: #b67aff;
+	}
+
+	.notification-dot.error {
+		background: #e06c75;
+	}
+
+	.import-notification div {
+		min-width: 0;
+		display: grid;
+		gap: 2px;
+	}
+
+	.import-notification strong {
+		color: #eee7dc;
+		font-size: 12px;
+		font-weight: 600;
+	}
+
+	.import-notification span:not(.notification-dot) {
+		min-width: 0;
+		color: #8f7765;
+		font-size: 11px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.import-notification button {
+		width: 24px;
+		height: 24px;
+		border: 0;
+		border-radius: 5px;
+		background: transparent;
+		color: #8f7765;
+		cursor: pointer;
+		font: inherit;
+	}
+
+	.import-notification button:hover {
+		background: rgb(255 255 255 / 7%);
+		color: #eee7dc;
 	}
 
 	/* Bottom zone */

@@ -88,6 +88,12 @@ export const MESSAGE_BATCH_READY = 'PASTICHE_BATCH_READY';
  */
 export const MESSAGE_FETCH_IMAGE = 'PASTICHE_FETCH_IMAGE';
 
+/** SW → sidebar: context-menu import has started fetching and saving a clicked image. */
+export const MESSAGE_CONTEXT_IMPORT_STARTED = 'PASTICHE_CONTEXT_IMPORT_STARTED';
+
+/** SW → sidebar: context-menu import finished, queued, or failed. Payload: ImportResult */
+export const MESSAGE_CONTEXT_IMPORT_FINISHED = 'PASTICHE_CONTEXT_IMPORT_FINISHED';
+
 // ---------------------------------------------------------------------------
 // Import (sidebar → SW)
 // ---------------------------------------------------------------------------

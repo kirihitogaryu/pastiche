@@ -3,6 +3,7 @@
 	import CopyIcon from 'phosphor-svelte/lib/CopyIcon';
 	import FolderPlusIcon from 'phosphor-svelte/lib/FolderPlusIcon';
 	import GridFourIcon from 'phosphor-svelte/lib/GridFourIcon';
+	import ArrowsOutSimpleIcon from 'phosphor-svelte/lib/ArrowsOutSimpleIcon';
 	import PaletteIcon from 'phosphor-svelte/lib/PaletteIcon';
 	import ShareIcon from 'phosphor-svelte/lib/ShareIcon';
 	import StarIcon from 'phosphor-svelte/lib/StarIcon';
@@ -14,9 +15,10 @@
 		asset: Asset | null;
 		onClose?: () => void;
 		onDelete?: (asset: Asset) => Promise<void> | void;
+		onPreview?: (asset: Asset) => void;
 	};
 
-	let { asset, onClose, onDelete }: Props = $props();
+	let { asset, onClose, onDelete, onPreview }: Props = $props();
 	let deleting = $state(false);
 
 	async function deleteAsset() {
@@ -49,7 +51,15 @@
 			</div>
 		</header>
 
-		<img src={asset.imageUrl} alt={asset.title} />
+		<button
+			class="image-preview"
+			type="button"
+			aria-label="Open zoom preview for {asset.title}"
+			onclick={() => onPreview?.(asset)}
+		>
+			<img src={asset.imageUrl} alt={asset.title} />
+			<span><ArrowsOutSimpleIcon size={18} /> Zoom</span>
+		</button>
 
 		<dl class="facts">
 			<div>
@@ -176,13 +186,45 @@
 		line-height: 1.45;
 	}
 
+	.image-preview {
+		position: relative;
+		display: block;
+		width: 100%;
+		padding: 0;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-md);
+		background: var(--color-surface);
+		overflow: hidden;
+		cursor: zoom-in;
+	}
+
+	.image-preview:hover span,
+	.image-preview:focus-visible span {
+		opacity: 1;
+	}
+
+	.image-preview span {
+		position: absolute;
+		right: var(--space-2);
+		bottom: var(--space-2);
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		padding: 0.35rem 0.55rem;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: oklch(8% 0.006 70 / 0.84);
+		color: var(--color-text);
+		font-size: 0.74rem;
+		opacity: 0;
+		transition: opacity var(--duration-fast) var(--ease-out);
+	}
+
 	img {
+		display: block;
 		width: 100%;
 		aspect-ratio: 1.24 / 1;
-		object-fit: cover;
-		border-radius: var(--radius-md);
-		border: 1px solid var(--color-border-soft);
-		background: var(--color-surface);
+		object-fit: contain;
 	}
 
 	.header-actions,

@@ -44,6 +44,8 @@ import {
 	MESSAGE_ITEM_READY,
 	MESSAGE_BATCH_READY,
 	MESSAGE_FETCH_COMPLETE,
+	MESSAGE_CONTEXT_IMPORT_STARTED,
+	MESSAGE_CONTEXT_IMPORT_FINISHED,
 	MESSAGE_QUEUE_UPDATED,
 	MESSAGE_QUEUE_REPLAYED
 } from '../shared/messages';
@@ -110,6 +112,11 @@ async function handleImageContextMenuClick(
 	const source = imageContextCaptureSource(info, tab);
 	if (!source) return;
 
+	broadcastToSidebar({
+		type: MESSAGE_CONTEXT_IMPORT_STARTED,
+		sourceImageUrl: source.imageUrl
+	});
+
 	try {
 		const settings = await getSettings();
 		const item = await enrichItem(await capturedPayloadForImageSource(source));
@@ -117,20 +124,22 @@ async function handleImageContextMenuClick(
 			destinationFolderId: settings.defaultDestinationId,
 			items: [item]
 		});
-		broadcastToSidebar({ type: MESSAGE_QUEUE_REPLAYED, ...result });
+		broadcastToSidebar({ type: MESSAGE_CONTEXT_IMPORT_FINISHED, result });
 	} catch (error) {
 		broadcastToSidebar({
-			type: MESSAGE_QUEUE_REPLAYED,
-			ok: false,
-			imported: [],
-			failed: [
-				{
-					index: 0,
-					ok: false,
-					error: error instanceof Error ? error.message : 'Context menu import failed'
-				}
-			],
-			error: error instanceof Error ? error.message : 'Context menu import failed'
+			type: MESSAGE_CONTEXT_IMPORT_FINISHED,
+			result: {
+				ok: false,
+				imported: [],
+				failed: [
+					{
+						index: 0,
+						ok: false,
+						error: error instanceof Error ? error.message : 'Context menu import failed'
+					}
+				],
+				error: error instanceof Error ? error.message : 'Context menu import failed'
+			}
 		});
 	}
 }
