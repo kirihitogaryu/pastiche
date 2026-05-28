@@ -96,6 +96,22 @@ const DEFAULT_LIMIT = 20;
 const SPARQL_GET_URL_LIMIT = 7500;
 const DEFAULT_SPARQL_TIMEOUT_MS = 12_000;
 const DEFAULT_ACTION_TIMEOUT_MS = 8_000;
+const WIKIDATA_ARTWORK_TYPES = [
+	'Q3305213', // painting
+	'Q860861', // sculpture
+	'Q93184', // drawing
+	'Q219423', // fresco
+	'Q22669139', // print
+	'Q179700', // statue
+	'Q179232', // relief
+	'Q570116', // altarpiece
+	'Q1183543', // sculpture series
+	'Q245117', // monument
+	'Q4989906', // bust
+	'Q18593264' // cycle of paintings
+];
+const WIKIDATA_VISUAL_ARTWORK_PATTERN = `?item wdt:P31 ?visualArtworkType.
+  VALUES ?visualArtworkType { ${WIKIDATA_ARTWORK_TYPES.map((qid) => `wd:${qid}`).join(' ')} }`;
 
 export const wikidataServerCache = new ServerCache(2000);
 
@@ -167,23 +183,26 @@ export function createWikidataConnector(options: WikidataConnectorOptions = {}):
 		);
 		const imageInfoByFile = parseCommonsImageInfo(response);
 
-		return items.map((item) => {
-			if (!item.imageUrl) return item;
-			const filename = extractCommonsFilename(item.imageUrl);
-			if (!filename) return item;
-			const imageInfo = imageInfoByFile.get(filename);
-			if (!imageInfo) return item;
-			return {
-				...item,
-				thumbUrl: stringOrNull(imageInfo.thumburl),
-				imageUrl: stringOrNull(imageInfo.url) ?? item.imageUrl,
-				isPublicDomain: commonsLicenseIsPublicDomain(imageInfo.extmetadata),
-				rawMetadata: {
-					...item.rawMetadata,
-					commons: imageInfo
-				}
-			};
-		});
+		return items
+			.map((item) => {
+				if (!item.imageUrl) return item;
+				const filename = extractCommonsFilename(item.imageUrl);
+				if (!filename) return item;
+				const imageInfo = imageInfoByFile.get(filename);
+				if (!imageInfo) return item;
+				if (!commonsImageLooksLikeArtwork(item, imageInfo)) return null;
+				return {
+					...item,
+					thumbUrl: stringOrNull(imageInfo.thumburl),
+					imageUrl: stringOrNull(imageInfo.url) ?? item.imageUrl,
+					isPublicDomain: commonsLicenseIsPublicDomain(imageInfo.extmetadata),
+					rawMetadata: {
+						...item.rawMetadata,
+						commons: imageInfo
+					}
+				};
+			})
+			.filter((item): item is ExploreItem => item !== null);
 	}
 
 	async function search(query: ExploreQuery) {
@@ -221,7 +240,12 @@ export function createWikidataConnector(options: WikidataConnectorOptions = {}):
 			.filter((item): item is ExploreItem => item !== null)
 			.map((item) => ({
 				...item,
-				tags: item.tags.length > 0 ? item.tags : selectedSubjectLabels
+				tags: item.tags.length > 0 ? item.tags : selectedSubjectLabels,
+				rawMetadata: {
+					...item.rawMetadata,
+					wikidataMode: normalizedQuery.mode,
+					selectedWikidataEntities: normalizedQuery.entities
+				}
 			}));
 		const resolvedItems = await resolveCommonsImages(items);
 		const offset = parseCursor(query.cursor);
@@ -403,8 +427,8 @@ function buildWikidataEntityModeQuery(
 	return `
 SELECT DISTINCT ?item ?itemLabel ?creatorLabel ?inception ?collectionLabel ?image
 WHERE {
-  ?item wdt:P31 wd:Q3305213.
 ${entityTriples}
+  ${WIKIDATA_VISUAL_ARTWORK_PATTERN}
   OPTIONAL { ?item wdt:P170 ?creator. }
   OPTIONAL { ?item wdt:P571 ?inception. BIND(YEAR(?inception) AS ?year) }
   OPTIONAL { ?item wdt:P195 ?collection. }
@@ -437,8 +461,8 @@ function buildWikidataTitleQuery(query: ExploreQuery, keyword: string): string {
 	return `
 SELECT DISTINCT ?item ?itemLabel ?creatorLabel ?inception ?collectionLabel ?image
 WHERE {
-  ?item wdt:P31 wd:Q3305213.
   ?item rdfs:label ?itemLabel.
+  ${WIKIDATA_VISUAL_ARTWORK_PATTERN}
   FILTER(LANG(?itemLabel) = "en")
   FILTER(CONTAINS(LCASE(STR(?itemLabel)), "${escapedKeyword}"))
   OPTIONAL { ?item wdt:P170 ?creator. }
@@ -474,7 +498,7 @@ export function buildWikidataTitleCandidateQuery(query: ExploreQuery, qids: stri
 SELECT DISTINCT ?item ?itemLabel ?creatorLabel ?inception ?collectionLabel ?image
 WHERE {
   VALUES ?item { ${values.map((qid) => `wd:${qid}`).join(' ')} }
-  ?item wdt:P31 wd:Q3305213.
+  ${WIKIDATA_VISUAL_ARTWORK_PATTERN}
   OPTIONAL { ?item wdt:P170 ?creator. }
   OPTIONAL { ?item wdt:P571 ?inception. BIND(YEAR(?inception) AS ?year) }
   OPTIONAL { ?item wdt:P195 ?collection. }
@@ -592,7 +616,7 @@ WHERE {
   {
 ${union}
   }
-  ?item wdt:P31 wd:Q3305213.
+  ${WIKIDATA_VISUAL_ARTWORK_PATTERN}
   ?item wdt:P18 ?imageValue.
   FILTER(?item != wd:${seed.qid})
   OPTIONAL { ?item wdt:P170 ?creator. }
@@ -709,10 +733,10 @@ function valuesBranches(
 
 function graphBranch(pattern: string): string {
 	return `  {
-    SELECT ?item ?score ?reason WHERE {
+    SELECT DISTINCT ?item ?score ?reason WHERE {
       hint:Query hint:optimizer "None".
       ${pattern}
-      ?item wdt:P31 wd:Q3305213.
+      ${WIKIDATA_VISUAL_ARTWORK_PATTERN}
       ?item wdt:P18 ?candidateImage.
     }
     LIMIT 80
@@ -785,8 +809,76 @@ function commonsLicenseIsPublicDomain(extmetadata: unknown): boolean | null {
 	return /public domain|cc0/i.test(license);
 }
 
+function commonsImageLooksLikeArtwork(item: ExploreItem, imageInfo: CommonsImageInfo): boolean {
+	const metadata = imageInfo.extmetadata;
+	if (!isRecord(metadata)) return true;
+	if (!commonsArtistMatchesSelectedArtist(item, metadata)) return false;
+	const text = [
+		item.title,
+		readExtMetadataValue(metadata.ObjectName),
+		readExtMetadataValue(metadata.ImageDescription),
+		readExtMetadataValue(metadata.Categories),
+		readExtMetadataValue(metadata.Artist),
+		readExtMetadataValue(metadata.Credit)
+	]
+		.map((value) => (typeof value === 'string' ? stripHtml(value).toLowerCase() : ''))
+		.join(' | ');
+	if (!text.trim()) return true;
+
+	const positiveArtworkSignal =
+		/\b(painting|paintings|portrait paintings|landscape painting|oil on canvas|watercolor|watercolour|tempera|fresco|drawing|print|engraving|lithograph|artwork|work of art)\b/i.test(
+			text
+		);
+	const photoOrContextSignal =
+		/\b(museum interiors?|art exhibitions?|gallery|galleries|visitors?|flickr images?|photographs?|taken with|mountains in|landscapes? in|streets? in|buildings? in|interiors? of)\b/i.test(
+			text
+		);
+	const artworkInContextSignal =
+		/\b(mural|public art|street art|sculpture|statue|installation)\b/i.test(text);
+
+	if (artworkInContextSignal) return true;
+	if (positiveArtworkSignal && !photoOrContextSignal) return true;
+	if (photoOrContextSignal) return false;
+	return true;
+}
+
+function commonsArtistMatchesSelectedArtist(
+	item: ExploreItem,
+	metadata: Record<string, unknown>
+): boolean {
+	if (item.rawMetadata.wikidataMode !== 'artist') return true;
+	const selected = Array.isArray(item.rawMetadata.selectedWikidataEntities)
+		? item.rawMetadata.selectedWikidataEntities
+		: [];
+	const selectedLabels = selected
+		.map((entity) => (isRecord(entity) ? stringOrNull(entity.label) : null))
+		.filter((label): label is string => label !== null)
+		.map((label) => label.toLowerCase());
+	if (selectedLabels.length === 0) return true;
+	const descriptiveText = [
+		item.title,
+		readExtMetadataValue(metadata.ObjectName),
+		readExtMetadataValue(metadata.ImageDescription),
+		readExtMetadataValue(metadata.Categories),
+		readExtMetadataValue(metadata.Credit)
+	]
+		.map((value) => (typeof value === 'string' ? stripHtml(value).toLowerCase() : ''))
+		.join(' | ');
+	if (selectedLabels.some((label) => descriptiveText.includes(label))) return true;
+	const commonsArtist = stringOrNull(readExtMetadataValue(metadata.Artist));
+	if (!commonsArtist) return true;
+	const normalizedArtist = stripHtml(commonsArtist).toLowerCase();
+	return selectedLabels.some(
+		(label) => normalizedArtist.includes(label) || label.includes(normalizedArtist)
+	);
+}
+
 function readExtMetadataValue(value: unknown): unknown {
 	return isRecord(value) ? value.value : null;
+}
+
+function stripHtml(value: string): string {
+	return value.replace(/<[^>]*>/g, ' ');
 }
 
 function parseWikidataYear(value: string | null): number | null {

@@ -334,6 +334,9 @@ test('desktop library and explore surfaces are navigable', async ({ page }) => {
 		page.getByRole('button', { name: /Inspect Saint George and the Dragon/ })
 	).toBeVisible();
 	await page.getByRole('button', { name: /Inspect Saint George and the Dragon/ }).click();
+	await page
+		.getByRole('complementary', { name: 'Explore detail' })
+		.evaluate((element) => element.scrollTo(0, element.scrollHeight));
 	await expect(page.getByRole('button', { name: 'Inspect related work Dragon Pendant' })).toBeVisible();
 	await page
 		.getByRole('button', { name: 'Open all works related to Saint George and the Dragon' })

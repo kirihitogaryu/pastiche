@@ -39,6 +39,8 @@ playwright-report/
 coverage/
 
 # Local archive/runtime data
+.pastiche/
+.pastiche/**
 workspace.sqlite
 workspace.sqlite-*
 originals/

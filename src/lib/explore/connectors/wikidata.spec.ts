@@ -37,7 +37,8 @@ describe('Wikidata connector helpers', () => {
 			cursor: '40'
 		});
 
-		expect(query).toContain('wdt:P31 wd:Q3305213');
+		expect(query).toContain('?item wdt:P31 ?visualArtworkType.');
+		expect(query).toContain('VALUES ?visualArtworkType');
 		expect(query).toContain('?item wdt:P180 wd:Q33767.');
 		expect(query).toContain('?item wdt:P180 wd:Q217042.');
 		expect(query).toContain('FILTER(?year >= 1500)');
@@ -74,6 +75,8 @@ describe('Wikidata connector helpers', () => {
 			});
 
 			expect(query).toContain(`?item ${property} wd:Q123.`);
+			expect(query).toContain('?item wdt:P31 ?visualArtworkType.');
+			expect(query).toContain('VALUES ?visualArtworkType');
 			expect(query).toContain('?item wdt:P18 ?image.');
 		}
 	});
@@ -93,7 +96,8 @@ describe('Wikidata connector helpers', () => {
 		expect(searchUrl.searchParams.get('action')).toBe('wbsearchentities');
 		expect(searchUrl.searchParams.get('search')).toBe('Mona Lisa');
 		expect(query).toContain('VALUES ?item { wd:Q12418 wd:Q999 }');
-		expect(query).toContain('?item wdt:P31 wd:Q3305213.');
+		expect(query).toContain('?item wdt:P31 ?visualArtworkType.');
+		expect(query).toContain('VALUES ?visualArtworkType');
 		expect(query).toContain('?item wdt:P18 ?image.');
 		expect(query).toContain('LIMIT 20');
 	});
@@ -210,7 +214,7 @@ describe('Wikidata connector helpers', () => {
 		expect(relatedQuery).toContain('?item wdt:P144 wd:Q12418');
 		expect(relatedQuery).toContain('?item wdt:P921 ?mainSubject');
 		expect(relatedQuery).toContain('BIND("same main subject" AS ?reason)');
-		expect(relatedQuery).toContain('SELECT ?item ?score ?reason WHERE');
+		expect(relatedQuery).toContain('SELECT DISTINCT ?item ?score ?reason WHERE');
 		expect(relatedQuery).toContain('LIMIT 80');
 		expect(relatedQuery).toContain('LIMIT 12');
 		expect(relatedQuery).toContain('OFFSET 24');
@@ -358,6 +362,149 @@ describe('Wikidata connector', () => {
 			id: 'wikidata-Q12418',
 			title: 'Mona Lisa'
 		});
+	});
+
+	it('filters Wikimedia artwork results whose Commons image is a gallery or location photo', async () => {
+		const directArtwork = {
+			...monaLisaBinding,
+			item: { value: 'http://www.wikidata.org/entity/Q111' },
+			itemLabel: { value: 'Direct Portrait' },
+			image: { value: 'http://commons.wikimedia.org/wiki/Special:FilePath/Direct.jpg' }
+		};
+		const wrongArtistArtwork = {
+			...monaLisaBinding,
+			item: { value: 'http://www.wikidata.org/entity/Q444' },
+			itemLabel: { value: 'Wrong Artist Portrait' },
+			image: { value: 'http://commons.wikimedia.org/wiki/Special:FilePath/WrongArtist.jpg' }
+		};
+		const photographedSculpture = {
+			...monaLisaBinding,
+			item: { value: 'http://www.wikidata.org/entity/Q555' },
+			itemLabel: { value: 'Picasso Sculpture' },
+			image: { value: 'http://commons.wikimedia.org/wiki/Special:FilePath/Sculpture.jpg' }
+		};
+		const galleryPhoto = {
+			...monaLisaBinding,
+			item: { value: 'http://www.wikidata.org/entity/Q222' },
+			itemLabel: { value: 'Gallery Portrait' },
+			image: { value: 'http://commons.wikimedia.org/wiki/Special:FilePath/Gallery.jpg' }
+		};
+		const locationPhoto = {
+			...monaLisaBinding,
+			item: { value: 'http://www.wikidata.org/entity/Q333' },
+			itemLabel: { value: 'Mountains of Málaga' },
+			image: { value: 'http://commons.wikimedia.org/wiki/Special:FilePath/Mountains.jpg' }
+		};
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			const url = new URL(input.toString());
+			if (url.hostname === 'query.wikidata.org') {
+				return Response.json({
+					results: {
+						bindings: [
+							directArtwork,
+							galleryPhoto,
+							locationPhoto,
+							wrongArtistArtwork,
+							photographedSculpture
+						]
+					}
+				});
+			}
+			if (url.hostname === 'commons.wikimedia.org') {
+				return Response.json({
+					query: {
+						pages: {
+							'1': {
+								title: 'File:Direct.jpg',
+								imageinfo: [
+									{
+										thumburl: 'https://upload.wikimedia.org/thumb/direct.jpg',
+										url: 'https://upload.wikimedia.org/direct.jpg',
+										extmetadata: {
+											ObjectName: { value: 'Direct Portrait' },
+											Categories: { value: 'Paintings by Pablo Picasso|Portrait paintings' },
+											Artist: { value: 'Pablo Picasso' },
+											LicenseShortName: { value: 'Public domain' }
+										}
+									}
+								]
+							},
+							'4': {
+								title: 'File:WrongArtist.jpg',
+								imageinfo: [
+									{
+										thumburl: 'https://upload.wikimedia.org/thumb/wrong-artist.jpg',
+										url: 'https://upload.wikimedia.org/wrong-artist.jpg',
+										extmetadata: {
+											ObjectName: { value: 'Wrong Artist Portrait' },
+											Categories: { value: 'Paintings by Claude Monet|Portrait paintings' },
+											Artist: { value: 'Claude Monet' },
+											LicenseShortName: { value: 'Public domain' }
+										}
+									}
+								]
+							},
+							'2': {
+								title: 'File:Gallery.jpg',
+								imageinfo: [
+									{
+										thumburl: 'https://upload.wikimedia.org/thumb/gallery.jpg',
+										url: 'https://upload.wikimedia.org/gallery.jpg',
+										extmetadata: {
+											ImageDescription: { value: 'Visitors looking at paintings in a gallery' },
+											Categories: { value: 'Museum interiors|Art exhibitions|Flickr images reviewed by FlickreviewR' },
+											Artist: { value: 'A museum visitor' },
+											LicenseShortName: { value: 'CC BY-SA 4.0' }
+										}
+									}
+								]
+							},
+							'5': {
+								title: 'File:Sculpture.jpg',
+								imageinfo: [
+									{
+										thumburl: 'https://upload.wikimedia.org/thumb/sculpture.jpg',
+										url: 'https://upload.wikimedia.org/sculpture.jpg',
+										extmetadata: {
+											ObjectName: { value: 'Picasso Sculpture' },
+											Categories: { value: 'Sculptures by Pablo Picasso|Statues in the Louvre' },
+											Artist: { value: 'A museum photographer' },
+											LicenseShortName: { value: 'CC BY-SA 4.0' }
+										}
+									}
+								]
+							},
+							'3': {
+								title: 'File:Mountains.jpg',
+								imageinfo: [
+									{
+										thumburl: 'https://upload.wikimedia.org/thumb/mountains.jpg',
+										url: 'https://upload.wikimedia.org/mountains.jpg',
+										extmetadata: {
+											ImageDescription: { value: 'Monte San Antón, Montes de Málaga, Spain' },
+											Categories: { value: 'Mountains in Andalusia|Flickr images reviewed by FlickreviewR' },
+											LicenseShortName: { value: 'CC BY 2.0' }
+										}
+									}
+								]
+							}
+						}
+					}
+				});
+			}
+			throw new Error(`Unexpected fetch: ${url}`);
+		});
+
+		const connector = createWikidataConnector({ fetch: fetchMock, requestsPerSecond: 1000 });
+		const page = await connector.search({
+			wikidataMode: 'artist',
+			wikidataEntities: [{ id: 'Q5593', label: 'Pablo Picasso', description: null }],
+			limit: 20
+		});
+
+		expect(page.items.map((item) => item.id)).toEqual(['wikidata-Q111', 'wikidata-Q555']);
+		expect(page.items[0]?.thumbUrl).toBe('https://upload.wikimedia.org/thumb/direct.jpg');
+		expect(page.items[1]?.thumbUrl).toBe('https://upload.wikimedia.org/thumb/sculpture.jpg');
 	});
 
 	it('deduplicates repeated Wikidata items before returning grid results', async () => {

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import ArrowRightIcon from 'phosphor-svelte/lib/ArrowRightIcon';
-	import { getExploreDisplayImageUrl } from '$lib/explore/image-url';
 	import type { ExploreItem, ExploreRelatedPage } from '$lib/explore/types';
 
 	type Props = {
@@ -13,9 +12,31 @@
 	let relatedItems = $state<ExploreItem[]>([]);
 	let loading = $state(false);
 	let error = $state<string | null>(null);
+	let stripElement = $state<HTMLElement | null>(null);
+	let shouldLoad = $state(false);
 
 	$effect(() => {
 		if (item.source !== 'wikidata') return;
+		const element = stripElement;
+		if (!element) return;
+		shouldLoad = false;
+
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries.some((entry) => entry.isIntersecting)) {
+					shouldLoad = true;
+					observer.disconnect();
+				}
+			},
+			{ rootMargin: '160px 0px' }
+		);
+		observer.observe(element);
+
+		return () => observer.disconnect();
+	});
+
+	$effect(() => {
+		if (item.source !== 'wikidata' || !shouldLoad) return;
 		const itemId = item.id;
 		let cancelled = false;
 		loading = true;
@@ -44,9 +65,13 @@
 			cancelled = true;
 		};
 	});
+
+	function relatedImageUrl(related: ExploreItem): string | null {
+		return related.thumbUrl ?? null;
+	}
 </script>
 
-<section class="related-strip" aria-label="Related Wikidata works">
+<section bind:this={stripElement} class="related-strip" aria-label="Related Wikidata works">
 	<header>
 		<div>
 			<h3>Related works</h3>
@@ -63,7 +88,9 @@
 		</button>
 	</header>
 
-	{#if loading}
+	{#if !shouldLoad}
+		<p class="related-note">Related works will load when you reach this section.</p>
+	{:else if loading}
 		<div class="related-grid" aria-hidden="true">
 			{#each [0, 1, 2, 3] as skeleton (skeleton)}
 				<div class="related-skeleton"></div>
@@ -78,8 +105,8 @@
 					aria-label={`Inspect related work ${related.title}`}
 					onclick={() => onOpen(related)}
 				>
-					{#if getExploreDisplayImageUrl(related)}
-						<img src={getExploreDisplayImageUrl(related) ?? ''} alt={related.title} />
+					{#if relatedImageUrl(related)}
+						<img src={relatedImageUrl(related) ?? ''} alt={related.title} loading="lazy" />
 					{:else}
 						<span>{related.title}</span>
 					{/if}

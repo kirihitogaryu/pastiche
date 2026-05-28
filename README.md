@@ -31,6 +31,16 @@ Start the development server:
 npm run dev
 ```
 
+By default, the local library sidecar is created at `.pastiche/`. To point Pastiche at a
+different archive location, set `PASTICHE_LIBRARY_DIR`:
+
+```sh
+PASTICHE_LIBRARY_DIR=/path/to/Pastiche npm run dev
+```
+
+The browser-extension import API depends on SvelteKit server routes, so production builds run
+through the Node adapter until a future desktop/Tauri backend owns the local HTTP server.
+
 Run checks and tests:
 
 ```sh
