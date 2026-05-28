@@ -24,7 +24,7 @@ describe('POST /api/import', () => {
 
 		expect(response.status).toBe(204);
 		expect(response.headers.get('access-control-allow-origin')).toBe('*');
-		expect(response.headers.get('access-control-allow-methods')).toBe('GET, POST, OPTIONS');
+		expect(response.headers.get('access-control-allow-methods')).toBe('GET, POST, DELETE, OPTIONS');
 		expect(response.headers.get('access-control-allow-headers')).toBe('Content-Type');
 	});
 

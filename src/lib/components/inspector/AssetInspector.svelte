@@ -6,15 +6,28 @@
 	import PaletteIcon from 'phosphor-svelte/lib/PaletteIcon';
 	import ShareIcon from 'phosphor-svelte/lib/ShareIcon';
 	import StarIcon from 'phosphor-svelte/lib/StarIcon';
+	import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
 	import XIcon from 'phosphor-svelte/lib/XIcon';
 	import type { Asset } from '$lib/types';
 
 	type Props = {
 		asset: Asset | null;
 		onClose?: () => void;
+		onDelete?: (asset: Asset) => Promise<void> | void;
 	};
 
-	let { asset, onClose }: Props = $props();
+	let { asset, onClose, onDelete }: Props = $props();
+	let deleting = $state(false);
+
+	async function deleteAsset() {
+		if (!asset || !onDelete || deleting) return;
+		deleting = true;
+		try {
+			await onDelete(asset);
+		} finally {
+			deleting = false;
+		}
+	}
 </script>
 
 <aside class="inspector" aria-label="Image inspector">
@@ -29,7 +42,9 @@
 					<StarIcon size={21} weight={asset.favorite ? 'fill' : 'regular'} />
 				</button>
 				{#if onClose}
-					<button type="button" aria-label="Close inspector" onclick={onClose}><XIcon size={20} /></button>
+					<button type="button" aria-label="Close inspector" onclick={onClose}
+						><XIcon size={20} /></button
+					>
 				{/if}
 			</div>
 		</header>
@@ -37,10 +52,22 @@
 		<img src={asset.imageUrl} alt={asset.title} />
 
 		<dl class="facts">
-			<div><dt>Source</dt><dd>{asset.sourceName}</dd></div>
-			<div><dt>Date</dt><dd>{asset.year}</dd></div>
-			<div><dt>Medium</dt><dd>{asset.medium}</dd></div>
-			<div><dt>Dimensions</dt><dd>{asset.width} × {asset.height}</dd></div>
+			<div>
+				<dt>Source</dt>
+				<dd>{asset.sourceName}</dd>
+			</div>
+			<div>
+				<dt>Date</dt>
+				<dd>{asset.year}</dd>
+			</div>
+			<div>
+				<dt>Medium</dt>
+				<dd>{asset.medium}</dd>
+			</div>
+			<div>
+				<dt>Dimensions</dt>
+				<dd>{asset.width} × {asset.height}</dd>
+			</div>
 		</dl>
 
 		<section>
@@ -84,6 +111,12 @@
 			<button type="button"><CopyIcon size={19} /> Copy Palette</button>
 			<button type="button"><ArrowSquareOutIcon size={19} /> Open Source</button>
 			<button type="button"><ShareIcon size={19} /> Share</button>
+			{#if onDelete}
+				<button class="danger" type="button" disabled={deleting} onclick={deleteAsset}>
+					<TrashIcon size={19} />
+					{deleting ? 'Deleting' : 'Delete'}
+				</button>
+			{/if}
 		</div>
 	{:else}
 		<div class="empty">
@@ -262,6 +295,11 @@
 		gap: var(--space-2);
 		padding: 0 var(--space-2);
 		font-size: 0.78rem;
+	}
+
+	.actions button.danger {
+		color: #f0a4a8;
+		border-color: rgb(224 108 117 / 35%);
 	}
 
 	.empty {

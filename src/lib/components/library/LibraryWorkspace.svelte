@@ -4,6 +4,7 @@
 	import type { LibraryResponse } from '$lib/library/types';
 	import { appState, closeInspector } from '$lib/state/app-state.svelte';
 	import { setLibrarySnapshot } from '$lib/state/library-state.svelte';
+	import type { Asset } from '$lib/types';
 	import FolderContents from './FolderContents.svelte';
 	import LibraryOverview from './LibraryOverview.svelte';
 
@@ -37,6 +38,25 @@
 			cancelled = true;
 		};
 	});
+
+	async function deleteAsset(asset: Asset) {
+		if (!window.confirm(`Delete "${asset.title}" from the library?`)) return;
+		try {
+			const response = await fetch(`/api/library/assets/${encodeURIComponent(asset.id)}`, {
+				method: 'DELETE'
+			});
+			if (!response.ok && response.status !== 404) {
+				throw new Error('Asset could not be deleted.');
+			}
+			const snapshot = await loadLibrarySnapshot();
+			library = snapshot;
+			setLibrarySnapshot(snapshot);
+			closeInspector();
+			error = null;
+		} catch (deleteError) {
+			error = deleteError instanceof Error ? deleteError.message : 'Asset could not be deleted.';
+		}
+	}
 </script>
 
 <div class="library-workspace">
@@ -53,7 +73,7 @@
 	</div>
 
 	{#if showInspector}
-		<AssetInspector asset={selectedAsset} onClose={closeInspector} />
+		<AssetInspector asset={selectedAsset} onClose={closeInspector} onDelete={deleteAsset} />
 	{/if}
 </div>
 
