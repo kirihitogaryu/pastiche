@@ -1,15 +1,15 @@
 <script lang="ts">
 	import DotsThreeIcon from 'phosphor-svelte/lib/DotsThreeIcon';
 	import PushPinIcon from 'phosphor-svelte/lib/PushPinIcon';
-	import { mockAssets } from '$lib/data/mock-assets';
-	import type { LibraryProjectSummary } from '$lib/types';
+	import type { Asset, LibraryProjectSummary } from '$lib/types';
 
 	type Props = {
 		projects: LibraryProjectSummary[];
+		assets: Asset[];
 		onOpen: (id: string) => void;
 	};
 
-	let { projects, onOpen }: Props = $props();
+	let { projects, assets, onOpen }: Props = $props();
 	let stripElement: HTMLDivElement | null = $state(null);
 	let isDragging = $state(false);
 	let didDrag = $state(false);
@@ -17,7 +17,7 @@
 	let startScrollLeft = 0;
 
 	function assetImage(id: string) {
-		return mockAssets.find((asset) => asset.id === id)?.imageUrl ?? mockAssets[0]?.imageUrl;
+		return assets.find((asset) => asset.id === id)?.imageUrl ?? assets[0]?.imageUrl ?? '';
 	}
 
 	function startDrag(event: PointerEvent) {
@@ -71,7 +71,11 @@
 >
 	{#each projects as project (project.id)}
 		<article role="listitem">
-			<button class="open-project" type="button" onclick={(event) => openProject(event, project.id)}>
+			<button
+				class="open-project"
+				type="button"
+				onclick={(event) => openProject(event, project.id)}
+			>
 				<img class="cover" src={assetImage(project.coverAssetIds[0])} alt="" />
 				<span class="project-body">
 					<strong>{project.name}</strong>

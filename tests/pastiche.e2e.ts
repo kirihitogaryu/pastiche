@@ -319,7 +319,10 @@ test('desktop library and explore surfaces are navigable', async ({ page }) => {
 	).toBeVisible();
 	await page.getByRole('button', { name: 'Wikimedia' }).click();
 	await expect(page.getByRole('heading', { name: 'Search Wikimedia artworks' })).toBeVisible();
-	await expect(page.getByRole('button', { name: 'Depicts' })).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.getByRole('button', { name: 'Depicts' })).toHaveAttribute(
+		'aria-pressed',
+		'true'
+	);
 	await expect(page.getByRole('button', { name: 'Main subject' })).toBeVisible();
 	await expect(page.getByLabel('Search depicted subjects')).toHaveCount(0);
 	const subjectSearch = page.getByRole('textbox', { name: 'Search Explore' });
@@ -337,7 +340,9 @@ test('desktop library and explore surfaces are navigable', async ({ page }) => {
 	await page
 		.getByRole('complementary', { name: 'Explore detail' })
 		.evaluate((element) => element.scrollTo(0, element.scrollHeight));
-	await expect(page.getByRole('button', { name: 'Inspect related work Dragon Pendant' })).toBeVisible();
+	await expect(
+		page.getByRole('button', { name: 'Inspect related work Dragon Pendant' })
+	).toBeVisible();
 	await page
 		.getByRole('button', { name: 'Open all works related to Saint George and the Dragon' })
 		.click();
@@ -433,8 +438,10 @@ test('desktop library and explore surfaces are navigable', async ({ page }) => {
 	await page.getByRole('button', { name: 'Inspect Wheat Field with Cypresses' }).click();
 	await expect(page.getByRole('heading', { name: 'Wheat Field with Cypresses' })).toBeVisible();
 	await expect(
-		page.getByRole('button', { name: 'Storage needed for Add to Library' })
-	).toBeDisabled();
+		page
+			.getByRole('complementary', { name: 'Explore detail' })
+			.getByRole('button', { name: 'Add to Library' })
+	).toBeEnabled();
 	await page
 		.getByRole('button', { name: 'Open focused preview for Wheat Field with Cypresses' })
 		.click();
@@ -460,7 +467,10 @@ test('desktop library and explore surfaces are navigable', async ({ page }) => {
 
 test('wikidata cooldown renders a stable message', async ({ page }) => {
 	await page.route('**/explore/api/departments**', async (route) => {
-		await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ departments: [] }) });
+		await route.fulfill({
+			contentType: 'application/json',
+			body: JSON.stringify({ departments: [] })
+		});
 	});
 	await page.route('**/explore/api/wikidata/entities**', async (route) => {
 		await route.fulfill({
@@ -491,20 +501,28 @@ test('wikidata cooldown renders a stable message', async ({ page }) => {
 	});
 
 	await page.goto('/');
-	await page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'Explore' }).click();
+	await page
+		.getByRole('navigation', { name: 'Primary' })
+		.getByRole('button', { name: 'Explore' })
+		.click();
 	await page.getByRole('button', { name: 'Wikimedia' }).click();
 	const subjectSearch = page.getByRole('textbox', { name: 'Search Explore' });
 	await subjectSearch.fill('dragon');
 	await page.getByRole('option', { name: /dragon legendary creature/ }).click();
 
-	await expect(page.getByText('Wikidata is taking a breather. Try again in a moment.')).toBeVisible();
+	await expect(
+		page.getByText('Wikidata is taking a breather. Try again in a moment.')
+	).toBeVisible();
 	await expect(page.locator('.skeleton')).toHaveCount(0);
 });
 
 test('wikidata pagination waits for the normal load threshold', async ({ page }) => {
 	const wikidataRequests: Array<{ cursor?: string }> = [];
 	await page.route('**/explore/api/departments**', async (route) => {
-		await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ departments: [] }) });
+		await route.fulfill({
+			contentType: 'application/json',
+			body: JSON.stringify({ departments: [] })
+		});
 	});
 	await page.route('**/explore/api/wikidata/entities**', async (route) => {
 		await route.fulfill({
@@ -547,7 +565,10 @@ test('wikidata pagination waits for the normal load threshold', async ({ page })
 	});
 
 	await page.goto('/');
-	await page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'Explore' }).click();
+	await page
+		.getByRole('navigation', { name: 'Primary' })
+		.getByRole('button', { name: 'Explore' })
+		.click();
 	await page.getByRole('button', { name: 'Wikimedia' }).click();
 	const subjectSearch = page.getByRole('textbox', { name: 'Search Explore' });
 	await subjectSearch.fill('dragon');
@@ -608,8 +629,10 @@ test('phone browse opens inspect and add sheet', async ({ page }) => {
 	await page.getByRole('button', { name: 'Inspect Wheat Field with Cypresses' }).click();
 	await expect(page.getByRole('heading', { name: 'Wheat Field with Cypresses' })).toBeVisible();
 	await expect(
-		page.getByRole('button', { name: 'Storage needed for Add to Library' })
-	).toBeDisabled();
+		page
+			.getByRole('complementary', { name: 'Explore detail' })
+			.getByRole('button', { name: 'Add to Library' })
+	).toBeEnabled();
 	await page
 		.getByRole('button', { name: 'Open focused preview for Wheat Field with Cypresses' })
 		.click();

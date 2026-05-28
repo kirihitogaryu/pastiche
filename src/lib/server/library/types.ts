@@ -1,4 +1,4 @@
-export type StorageMode = 'download' | 'url_reference' | 'lazy_download';
+import type { LibraryAsset, LibraryResponse, StorageMode } from '$lib/library/types';
 
 export type ImportRequest = {
 	destination_folder_id: string | null;
@@ -51,3 +51,5 @@ export type StatusResponse = {
 		source_url: string;
 	}>;
 };
+
+export type { LibraryAsset, LibraryResponse, StorageMode };

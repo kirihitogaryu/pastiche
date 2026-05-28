@@ -1,12 +1,11 @@
 <script lang="ts">
 	import SquaresFourIcon from 'phosphor-svelte/lib/SquaresFourIcon';
 	import {
-		libraryOverviewStats,
 		libraryPinnedProjects,
 		librarySectionChips,
-		librarySmartFolders,
-		libraryTopFolders
+		librarySmartFolders
 	} from '$lib/data/library-organization';
+	import type { LibraryResponse } from '$lib/library/types';
 	import {
 		openFullLibrary,
 		openLibraryFolder,
@@ -17,17 +16,31 @@
 	import LibrarySearch from './LibrarySearch.svelte';
 	import ProjectCarousel from './ProjectCarousel.svelte';
 
+	type Props = {
+		library: LibraryResponse;
+		loading?: boolean;
+		error?: string | null;
+	};
+
+	let { library, loading = false, error = null }: Props = $props();
 	let activeSection = $state('Overview');
+	let topFolders = $derived(library.folders.filter((folder) => !folder.parentId).slice(0, 8));
 </script>
 
 <section class="library-overview" aria-labelledby="library-overview-title">
 	<div class="page-title">
 		<h1 id="library-overview-title">Library</h1>
 		<p>
-			{libraryOverviewStats.assets.toLocaleString()} assets · {libraryOverviewStats.projects}
-			projects · {libraryOverviewStats.folders} folders
+			{library.stats.assets.toLocaleString()} assets · {library.stats.projects}
+			projects · {library.stats.folders} folders
 		</p>
 	</div>
+
+	{#if error}
+		<p class="status-message">{error}</p>
+	{:else if loading}
+		<p class="status-message">Loading library...</p>
+	{/if}
 
 	<LibrarySearch />
 
@@ -54,7 +67,11 @@
 			<h2 id="pinned-projects-heading">Pinned Projects</h2>
 			<button type="button">See all</button>
 		</header>
-		<ProjectCarousel projects={libraryPinnedProjects} onOpen={openProjectLibrary} />
+		<ProjectCarousel
+			projects={libraryPinnedProjects}
+			assets={library.assets}
+			onOpen={openProjectLibrary}
+		/>
 	</section>
 
 	<section class="overview-section" aria-labelledby="folders-heading">
@@ -64,14 +81,14 @@
 		</header>
 		<GroupedNavList
 			ariaLabel="Top-level folders"
-			rows={libraryTopFolders.map((folder) => ({
+			rows={topFolders.map((folder) => ({
 				id: folder.id,
 				label: folder.name,
 				count: folder.assetCount,
 				icon: 'folder'
 			}))}
 			onOpen={(id) => {
-				const folder = libraryTopFolders.find((item) => item.id === id);
+				const folder = topFolders.find((item) => item.id === id);
 				if (folder) openLibraryFolder(folder.path);
 			}}
 		/>
@@ -116,6 +133,11 @@
 
 	.page-title p {
 		margin: var(--space-2) 0 0;
+		color: var(--color-muted);
+	}
+
+	.status-message {
+		margin: 0;
 		color: var(--color-muted);
 	}
 

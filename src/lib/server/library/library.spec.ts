@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
@@ -21,7 +21,7 @@ describe('local library archive', () => {
 		rmSync(archiveRoot, { recursive: true, force: true });
 	});
 
-	it('resolves archive paths from PASTICHE_LIBRARY_DIR and creates runtime directories', () => {
+	it('resolves archive paths from PASTICHE_LIBRARY_DIR and creates runtime directories', async () => {
 		const paths = resolveLibraryPaths();
 		expect(paths.root).toBe(archiveRoot);
 		expect(paths.database).toBe(join(archiveRoot, 'workspace.sqlite'));
@@ -42,7 +42,7 @@ describe('local library archive', () => {
 		}
 	});
 
-	it('initializes the SQLite schema idempotently', () => {
+	it('initializes the SQLite schema idempotently', async () => {
 		initializeLibrary();
 		initializeLibrary();
 
@@ -56,10 +56,10 @@ describe('local library archive', () => {
 		expect(tables).toEqual(['asset_import_failures', 'assets', 'folders', 'lazy_download_jobs']);
 	});
 
-	it('imports downloaded image data to originals and records the asset', () => {
-		const imageData = Buffer.from('image bytes').toString('base64');
+	it('imports downloaded image data to originals and records the asset', async () => {
+		const imageData = tinyPngBase64();
 
-		const result = importLibraryItems({
+		const result = await importLibraryItems({
 			destination_folder_id: null,
 			items: [
 				{
@@ -85,16 +85,22 @@ describe('local library archive', () => {
 		const db = new Database(join(archiveRoot, 'workspace.sqlite'), { readonly: true });
 		const asset = db
 			.prepare('select * from assets where id = ?')
-			.get(result.imported[0].asset_id) as { original_path: string; storage_mode: string };
+			.get(result.imported[0].asset_id) as {
+			original_path: string;
+			thumbnail_path: string;
+			storage_mode: string;
+		};
 		db.close();
 
 		expect(asset.storage_mode).toBe('download');
 		expect(asset.original_path).toMatch(/^originals\/.+\.jpg$/);
-		expect(readFileSync(join(archiveRoot, asset.original_path), 'utf8')).toBe('image bytes');
+		expect(asset.thumbnail_path).toMatch(/^thumbnails\/.+\.webp$/);
+		expect(existsSync(join(archiveRoot, asset.original_path))).toBe(true);
+		expect(existsSync(join(archiveRoot, asset.thumbnail_path))).toBe(true);
 	});
 
-	it('imports URL references without writing originals', () => {
-		const result = importLibraryItems({
+	it('imports URL references without writing originals', async () => {
+		const result = await importLibraryItems({
 			destination_folder_id: null,
 			items: [
 				{
@@ -132,8 +138,8 @@ describe('local library archive', () => {
 		});
 	});
 
-	it('records lazy download jobs without fetching immediately', () => {
-		const result = importLibraryItems({
+	it('records lazy download jobs without fetching immediately', async () => {
+		const result = await importLibraryItems({
 			destination_folder_id: null,
 			items: [
 				{
@@ -167,7 +173,7 @@ describe('local library archive', () => {
 		});
 	});
 
-	it('allows duplicate source hashes while marking later imports as duplicates', () => {
+	it('allows duplicate source hashes while marking later imports as duplicates', async () => {
 		const item = {
 			filename: 'Reference ref',
 			storage_mode: 'url_reference' as const,
@@ -182,8 +188,8 @@ describe('local library archive', () => {
 			captured_at: '2026-05-27T12:00:00.000Z'
 		};
 
-		const first = importLibraryItems({ destination_folder_id: null, items: [item] });
-		const second = importLibraryItems({ destination_folder_id: null, items: [item] });
+		const first = await importLibraryItems({ destination_folder_id: null, items: [item] });
+		const second = await importLibraryItems({ destination_folder_id: null, items: [item] });
 
 		expect(first.imported[0].duplicate).toBe(false);
 		expect(second.imported[0].duplicate).toBe(true);
@@ -195,8 +201,8 @@ describe('local library archive', () => {
 		expect(count.count).toBe(2);
 	});
 
-	it('returns unassigned count, recent folders, and imported source index', () => {
-		const result = importLibraryItems({
+	it('returns unassigned count, recent folders, and imported source index', async () => {
+		const result = await importLibraryItems({
 			destination_folder_id: null,
 			create_folder_name: 'Character refs',
 			items: [
@@ -232,3 +238,7 @@ describe('local library archive', () => {
 		]);
 	});
 });
+
+function tinyPngBase64() {
+	return 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
+}

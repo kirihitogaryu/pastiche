@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { mockAssets } from '$lib/data/mock-assets';
 	import {
 		appState,
 		closeAdd,
@@ -21,9 +20,10 @@
 	import AddToLibrarySheet from '$lib/components/ui/AddToLibrarySheet.svelte';
 	import BottomNav from '$lib/components/ui/BottomNav.svelte';
 	import SelectionBar from '$lib/components/ui/SelectionBar.svelte';
+	import { libraryState } from '$lib/state/library-state.svelte';
 
 	let selectedAsset = $derived(
-		mockAssets.find((asset) => asset.id === appState.selectedAssetId) ?? mockAssets[0] ?? null
+		libraryState.snapshot.assets.find((asset) => asset.id === appState.selectedAssetId) ?? null
 	);
 </script>
 
@@ -63,7 +63,7 @@
 	<SelectionBar count={appState.selectedAssetIds.length} onClose={exitSelection} />
 {/if}
 
-{#if appState.mobileState === 'inspecting'}
+{#if appState.mobileState === 'inspecting' && selectedAsset}
 	<MobileInspect asset={selectedAsset} onClose={closeMobileInspect} />
 {/if}
 

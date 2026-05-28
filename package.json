@@ -6,6 +6,7 @@
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
+		"build:extension": "vite build --config extension/vite.config.ts && cp extension/manifest.json extension/dist/manifest.json",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -41,6 +42,7 @@
 	},
 	"dependencies": {
 		"better-sqlite3": "^12.10.0",
-		"idb-keyval": "^6.2.4"
+		"idb-keyval": "^6.2.4",
+		"sharp": "^0.34.5"
 	}
 }

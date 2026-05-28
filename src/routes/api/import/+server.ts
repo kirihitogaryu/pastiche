@@ -17,7 +17,7 @@ export async function POST({ request }: { request: Request }) {
 	}
 
 	try {
-		return json(importLibraryItems(body), { headers: EXTENSION_CORS_HEADERS });
+		return json(await importLibraryItems(body), { headers: EXTENSION_CORS_HEADERS });
 	} catch (error) {
 		return json(
 			{ error: error instanceof Error ? error.message : 'Import failed' },

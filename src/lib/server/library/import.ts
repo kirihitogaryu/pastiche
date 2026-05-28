@@ -1,12 +1,13 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import sharp from 'sharp';
 import { ensureLibraryArchive, resolveLibraryPaths } from './paths';
 import { resolveDestinationFolder } from './folders';
 import { openLibraryDatabase } from './schema';
 import { sourceDomain, sourceHash } from './source';
 import type { ImportItem, ImportRequest, ImportResponse } from './types';
 
-export function importLibraryItems(request: ImportRequest): ImportResponse {
+export async function importLibraryItems(request: ImportRequest): Promise<ImportResponse> {
 	const db = openLibraryDatabase();
 	const paths = ensureLibraryArchive(resolveLibraryPaths());
 	const imported: ImportResponse['imported'] = [];
@@ -21,7 +22,7 @@ export function importLibraryItems(request: ImportRequest): ImportResponse {
 			now
 		);
 
-		const importOne = db.transaction((item: ImportItem, index: number) => {
+		const importOne = async (item: ImportItem, index: number) => {
 			const validated = validateImportItem(item);
 			const hash = sourceHash(item.source_image_url, item.source_url);
 			if (validated) throw new ImportItemError(validated, hash, item.filename);
@@ -32,13 +33,15 @@ export function importLibraryItems(request: ImportRequest): ImportResponse {
 			const assetId = `asset-${crypto.randomUUID()}`;
 			const originalPath =
 				item.storage_mode === 'download' ? writeOriginal(paths.root, assetId, item) : null;
+			const thumbnailPath =
+				item.storage_mode === 'download' ? await writeThumbnail(paths.root, assetId, item) : null;
 
 			db.prepare(
 				`insert into assets (
 					id, filename, title, storage_mode, mime_type, width, height, original_path,
 					thumbnail_path, source_image_url, source_url, page_title, alt_text, source_domain,
 					source_hash, folder_id, imported_at, captured_at, modified_at
-				) values (?, ?, ?, ?, ?, ?, ?, ?, null, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+				) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 			).run(
 				assetId,
 				item.filename.trim(),
@@ -48,6 +51,7 @@ export function importLibraryItems(request: ImportRequest): ImportResponse {
 				item.natural_width,
 				item.natural_height,
 				originalPath,
+				thumbnailPath,
 				item.source_image_url,
 				item.source_url,
 				item.page_title,
@@ -69,11 +73,11 @@ export function importLibraryItems(request: ImportRequest): ImportResponse {
 			}
 
 			imported.push({ index, asset_id: assetId, source_hash: hash, duplicate });
-		});
+		};
 
-		request.items.forEach((item, index) => {
+		for (const [index, item] of request.items.entries()) {
 			try {
-				importOne(item, index);
+				await importOne(item, index);
 			} catch (error) {
 				const failure = itemFailure(error, item);
 				db.prepare(
@@ -88,7 +92,7 @@ export function importLibraryItems(request: ImportRequest): ImportResponse {
 				);
 				failed.push({ index, error: failure.error });
 			}
-		});
+		}
 	} catch (error) {
 		db.close();
 		throw error;
@@ -124,6 +128,15 @@ function writeOriginal(archiveRoot: string, assetId: string, item: ImportItem) {
 	const extension = extensionForMimeType(item.mime_type);
 	const relativePath = `originals/${assetId}.${extension}`;
 	writeFileSync(join(archiveRoot, relativePath), decodeBase64(item.image_data ?? ''));
+	return relativePath;
+}
+
+async function writeThumbnail(archiveRoot: string, assetId: string, item: ImportItem) {
+	const relativePath = `thumbnails/${assetId}.webp`;
+	await sharp(decodeBase64(item.image_data ?? ''))
+		.resize({ width: 512, height: 512, fit: 'inside', withoutEnlargement: true })
+		.webp({ quality: 82 })
+		.toFile(join(archiveRoot, relativePath));
 	return relativePath;
 }
 

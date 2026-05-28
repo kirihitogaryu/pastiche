@@ -1,24 +1,54 @@
 <script lang="ts">
-	import { mockAssets } from '$lib/data/mock-assets';
 	import AssetInspector from '$lib/components/inspector/AssetInspector.svelte';
+	import { emptyLibrarySnapshot, loadLibrarySnapshot } from '$lib/library/client';
+	import type { LibraryResponse } from '$lib/library/types';
 	import { appState, closeInspector } from '$lib/state/app-state.svelte';
+	import { setLibrarySnapshot } from '$lib/state/library-state.svelte';
 	import FolderContents from './FolderContents.svelte';
 	import LibraryOverview from './LibraryOverview.svelte';
 
-	let selectedAsset = $derived(mockAssets.find((asset) => asset.id === appState.selectedAssetId) ?? null);
+	let library = $state<LibraryResponse>(emptyLibrarySnapshot());
+	let loading = $state(true);
+	let error = $state<string | null>(null);
+	let selectedAsset = $derived(
+		library.assets.find((asset) => asset.id === appState.selectedAssetId) ?? null
+	);
 	let showInspector = $derived(appState.inspectorOpen && appState.libraryView !== 'overview');
+
+	$effect(() => {
+		let cancelled = false;
+		loading = true;
+		error = null;
+		void loadLibrarySnapshot()
+			.then((snapshot) => {
+				if (cancelled) return;
+				library = snapshot;
+				setLibrarySnapshot(snapshot);
+			})
+			.catch((loadError) => {
+				if (cancelled) return;
+				error = loadError instanceof Error ? loadError.message : 'Library could not be loaded.';
+			})
+			.finally(() => {
+				if (!cancelled) loading = false;
+			});
+
+		return () => {
+			cancelled = true;
+		};
+	});
 </script>
 
 <div class="library-workspace">
 	<div class="library-content">
 		{#if appState.libraryView === 'overview'}
-			<LibraryOverview />
+			<LibraryOverview {library} {loading} {error} />
 		{:else if appState.libraryView === 'all'}
-			<FolderContents scope="all" />
+			<FolderContents scope="all" {library} {loading} {error} />
 		{:else if appState.libraryView === 'folder'}
-			<FolderContents scope="folder" />
+			<FolderContents scope="folder" {library} {loading} {error} />
 		{:else}
-			<LibraryOverview />
+			<LibraryOverview {library} {loading} {error} />
 		{/if}
 	</div>
 

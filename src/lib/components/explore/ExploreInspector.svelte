@@ -6,6 +6,8 @@
 	import XIcon from 'phosphor-svelte/lib/XIcon';
 	import WikidataRelatedStrip from '$lib/components/explore/WikidataRelatedStrip.svelte';
 	import { getExploreDisplayImageUrl } from '$lib/explore/image-url';
+	import { loadLibrarySnapshot } from '$lib/library/client';
+	import { setLibrarySnapshot } from '$lib/state/library-state.svelte';
 	import type { ExploreItem } from '$lib/explore/types';
 
 	type Props = {
@@ -17,14 +19,56 @@
 		onOpenRelatedItem?: (item: ExploreItem) => void;
 	};
 
-	let { item, mobile = false, onClose, onPreview, onOpenRelated, onOpenRelatedItem }: Props =
-		$props();
+	let {
+		item,
+		mobile = false,
+		onClose,
+		onPreview,
+		onOpenRelated,
+		onOpenRelatedItem
+	}: Props = $props();
 	let displayImageUrl = $derived(item ? getExploreDisplayImageUrl(item) : '');
+	let saving = $state(false);
+	let saved = $state(false);
+	let saveError = $state<string | null>(null);
 
 	function sourceLabel(source: ExploreItem['source']) {
 		if (source === 'artic') return 'Art Institute';
 		if (source === 'wikidata') return 'Wikidata';
 		return 'The Met';
+	}
+
+	$effect(() => {
+		if (!item) return;
+		saving = false;
+		saved = false;
+		saveError = null;
+	});
+
+	async function saveToLibrary() {
+		if (!item || saving) return;
+		saving = true;
+		saveError = null;
+		try {
+			const response = await fetch('/api/library/save-explore', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ item_id: item.id, destination_folder_id: null })
+			});
+			const result = (await response.json()) as {
+				imported?: Array<{ asset_id: string }>;
+				failed?: Array<{ error: string }>;
+				error?: string;
+			};
+			if (!response.ok) throw new Error(result.error ?? 'Explore item could not be saved.');
+			if (result.failed?.length) throw new Error(result.failed[0].error);
+			saved = true;
+			setLibrarySnapshot(await loadLibrarySnapshot());
+		} catch (error) {
+			saveError = error instanceof Error ? error.message : 'Explore item could not be saved.';
+		} finally {
+			saving = false;
+		}
 	}
 </script>
 
@@ -115,17 +159,17 @@
 		{/if}
 
 		{#if item.source === 'wikidata' && onOpenRelated && onOpenRelatedItem}
-			<WikidataRelatedStrip
-				{item}
-				onOpen={onOpenRelatedItem}
-				onOpenAll={onOpenRelated}
-			/>
+			<WikidataRelatedStrip {item} onOpen={onOpenRelatedItem} onOpenAll={onOpenRelated} />
 		{/if}
 
 		<div class="actions">
-			<button class="disabled" type="button" disabled>
-				<FolderPlusIcon size={19} /> Storage needed for Add to Library
+			<button type="button" disabled={saving || saved} onclick={saveToLibrary}>
+				<FolderPlusIcon size={19} />
+				{saving ? 'Saving...' : saved ? 'Saved to Library' : 'Add to Library'}
 			</button>
+			{#if saveError}
+				<p class="save-error">{saveError}</p>
+			{/if}
 			<button type="button" disabled><PaletteIcon size={19} /> Open in Colors</button>
 			<button type="button" onclick={() => window.open(item.detailUrl, '_blank', 'noreferrer')}>
 				<ArrowSquareOutIcon size={19} /> Open {sourceLabel(item.source)} Source
@@ -311,6 +355,13 @@
 	.actions button:disabled {
 		color: var(--color-dim);
 		cursor: not-allowed;
+	}
+
+	.save-error {
+		flex-basis: 100%;
+		margin: 0;
+		color: var(--color-danger);
+		font-size: 0.84rem;
 	}
 
 	.icon,

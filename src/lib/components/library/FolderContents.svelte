@@ -2,12 +2,7 @@
 	import ListBulletsIcon from 'phosphor-svelte/lib/ListBulletsIcon';
 	import SquaresFourIcon from 'phosphor-svelte/lib/SquaresFourIcon';
 	import AssetGrid from '$lib/components/browse/AssetGrid.svelte';
-	import {
-		findFolderByPath,
-		getChildFolders,
-		getDirectFolderAssets,
-		getFullLibraryAssets
-	} from '$lib/data/library-organization';
+	import type { LibraryResponse } from '$lib/library/types';
 	import {
 		appState,
 		openLibraryFolder,
@@ -17,26 +12,39 @@
 		toggleSelection
 	} from '$lib/state/app-state.svelte';
 	import type { Asset } from '$lib/types';
+	import type { LibraryFolder } from '$lib/types';
 	import FolderCards from './FolderCards.svelte';
 	import LibrarySearch from './LibrarySearch.svelte';
 
 	type Props = {
 		scope: 'all' | 'folder';
+		library: LibraryResponse;
+		loading?: boolean;
+		error?: string | null;
 	};
 
-	let { scope }: Props = $props();
+	let { scope, library, loading = false, error = null }: Props = $props();
 
-	let folder = $derived(findFolderByPath(appState.activeLibraryFolderPath));
-	let childFolders = $derived(scope === 'folder' ? getChildFolders(folder.id) : []);
-	let assets = $derived(
-		scope === 'all' ? getFullLibraryAssets() : getDirectFolderAssets(folder.path)
+	let folder = $derived(findFolderByPath(library, appState.activeLibraryFolderPath));
+	let childFolders = $derived(
+		scope === 'folder' ? library.folders.filter((item) => item.parentId === folder?.id) : []
 	);
-	let title = $derived(scope === 'all' ? 'All Library' : folder.name);
+	let assets = $derived(
+		scope === 'all'
+			? library.assets
+			: library.assets.filter((asset) => asset.folderPath.join('/') === folder?.path.join('/'))
+	);
+	let title = $derived(scope === 'all' ? 'All Library' : (folder?.name ?? 'Folder'));
 	let stats = $derived(
 		scope === 'all'
 			? `${assets.length.toLocaleString()} assets`
-			: `${folder.assetCount.toLocaleString()} assets · ${folder.childFolderCount} subfolders`
+			: `${(folder?.assetCount ?? 0).toLocaleString()} assets · ${folder?.childFolderCount ?? 0} subfolders`
 	);
+
+	function findFolderByPath(source: LibraryResponse, path: string[]): LibraryFolder | null {
+		const key = path.join('/');
+		return source.folders.find((item) => item.path.join('/') === key) ?? null;
+	}
 
 	function openAsset(asset: Asset) {
 		selectAsset(asset);
@@ -49,14 +57,14 @@
 <section class="folder-view" aria-labelledby="folder-title">
 	{#if scope === 'folder'}
 		<nav class="breadcrumb" aria-label="Library breadcrumb">
-			{#each folder.path as segment, index (`${segment}-${index}`)}
+			{#each folder?.path ?? ['library'] as segment, index (`${segment}-${index}`)}
 				<button
-					class:current={index === folder.path.length - 1}
+					class:current={index === (folder?.path.length ?? 1) - 1}
 					type="button"
 					onclick={() =>
 						index === 0
 							? openLibraryOverview()
-							: openLibraryFolder(folder.path.slice(0, index + 1))}
+							: openLibraryFolder((folder?.path ?? ['library']).slice(0, index + 1))}
 				>
 					{segment}
 				</button>
@@ -67,6 +75,11 @@
 	<div class="folder-title">
 		<h1 id="folder-title">{title}</h1>
 		<p>{stats}</p>
+		{#if error}
+			<p class="status-message">{error}</p>
+		{:else if loading}
+			<p class="status-message">Loading library...</p>
+		{/if}
 	</div>
 
 	<div class="search-sort">
@@ -170,6 +183,11 @@
 	}
 
 	p {
+		margin-top: var(--space-2);
+		color: var(--color-muted);
+	}
+
+	.status-message {
 		margin-top: var(--space-2);
 		color: var(--color-muted);
 	}
