@@ -31,11 +31,29 @@ Start the development server:
 npm run dev
 ```
 
+For everyday extension work, install the local `pastiche` command once:
+
+```sh
+npm run install:pastiche
+```
+
+Then run:
+
+```sh
+pastiche
+```
+
+This starts the local Pastiche server at `http://127.0.0.1:5173` and watches the Chrome
+extension build at `extension/dist/`. Reload the unpacked extension in Chrome after extension
+source changes. For Firefox extension work, run `pastiche --firefox`.
+
 By default, the local library sidecar is created at `.pastiche/`. To point Pastiche at a
 different archive location, set `PASTICHE_LIBRARY_DIR`:
 
 ```sh
 PASTICHE_LIBRARY_DIR=/path/to/Pastiche npm run dev
+# or, after npm run install:pastiche:
+PASTICHE_LIBRARY_DIR=/path/to/Pastiche pastiche
 ```
 
 The browser-extension import API depends on SvelteKit server routes, so production builds run
