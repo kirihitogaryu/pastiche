@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveLibraryPaths } from './paths';
 import { openLibraryDatabase } from './schema';
-import type { LibraryAsset, LibraryResponse, StorageMode } from './types';
+import type { LibraryAsset, LibraryImportMetadata, LibraryResponse, StorageMode } from './types';
 import type { LibraryFolder } from '$lib/types';
 
 type AssetRow = {
@@ -23,6 +23,7 @@ type AssetRow = {
 	folder_id: string | null;
 	imported_at: string;
 	captured_at: string;
+	metadata_json: string | null;
 };
 
 type FolderRow = {
@@ -92,6 +93,7 @@ export function getAssetImageFile(id: string, variant: 'thumb' | 'original') {
 }
 
 function mapAsset(asset: AssetRow, folder: FolderRow | undefined): LibraryAsset {
+	const metadata = parseMetadata(asset.metadata_json);
 	const localImageUrl = asset.thumbnail_path
 		? `/api/library/assets/${encodeURIComponent(asset.id)}/image?variant=thumb`
 		: asset.original_path
@@ -102,16 +104,16 @@ function mapAsset(asset: AssetRow, folder: FolderRow | undefined): LibraryAsset 
 	return {
 		id: asset.id,
 		title: asset.title || asset.filename,
-		creator: '',
-		year: new Date(asset.captured_at).getUTCFullYear().toString(),
-		medium: '',
-		sourceName: domain,
-		sourceUrl: asset.source_url,
-		sourceType: asset.source_image_url ? 'web' : 'local',
+		creator: metadata?.creator ?? '',
+		year: metadata?.dateDisplay ?? new Date(asset.captured_at).getUTCFullYear().toString(),
+		medium: metadata?.medium ?? '',
+		sourceName: metadata?.sourceName ?? domain,
+		sourceUrl: metadata?.detailUrl ?? asset.source_url,
+		sourceType: metadata?.sourceType ?? (asset.source_image_url ? 'web' : 'local'),
 		imageUrl: localImageUrl ?? asset.source_image_url ?? '',
 		width: asset.width,
 		height: asset.height,
-		tags: ['imported'],
+		tags: metadata?.tags?.length ? metadata.tags : ['imported'],
 		palette: [],
 		description: asset.alt_text ?? asset.page_title ?? '',
 		notes: undefined,
@@ -124,6 +126,16 @@ function mapAsset(asset: AssetRow, folder: FolderRow | undefined): LibraryAsset 
 		importedAt: asset.imported_at,
 		capturedAt: asset.captured_at
 	};
+}
+
+function parseMetadata(value: string | null): LibraryImportMetadata | null {
+	if (!value) return null;
+	try {
+		const parsed = JSON.parse(value) as LibraryImportMetadata;
+		return parsed && typeof parsed === 'object' ? parsed : null;
+	} catch {
+		return null;
+	}
 }
 
 function mapFolder(folder: FolderRow): LibraryFolder {

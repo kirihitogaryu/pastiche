@@ -18,6 +18,24 @@ export type ImportItem = {
 	page_title: string | null;
 	alt_text: string | null;
 	captured_at: string;
+	metadata?: LibraryImportMetadata | null;
+};
+
+export type LibraryImportMetadata = {
+	sourceId?: string | null;
+	sourceName?: string | null;
+	sourceType?: 'local' | 'web' | 'museum' | 'collection' | null;
+	detailUrl?: string | null;
+	creator?: string | null;
+	dateDisplay?: string | null;
+	medium?: string | null;
+	objectName?: string | null;
+	department?: string | null;
+	culture?: string | null;
+	period?: string | null;
+	rights?: string | null;
+	tags?: string[];
+	rawMetadata?: Record<string, unknown>;
 };
 
 export type ImportedItem = {

@@ -40,8 +40,8 @@ export async function importLibraryItems(request: ImportRequest): Promise<Import
 				`insert into assets (
 					id, filename, title, storage_mode, mime_type, width, height, original_path,
 					thumbnail_path, source_image_url, source_url, page_title, alt_text, source_domain,
-					source_hash, folder_id, imported_at, captured_at, modified_at
-				) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+					source_hash, folder_id, imported_at, captured_at, modified_at, metadata_json
+				) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 			).run(
 				assetId,
 				item.filename.trim(),
@@ -61,7 +61,8 @@ export async function importLibraryItems(request: ImportRequest): Promise<Import
 				destinationFolder?.id ?? null,
 				now,
 				item.captured_at,
-				now
+				now,
+				serializeMetadata(item.metadata)
 			);
 
 			if (item.storage_mode === 'lazy_download' && item.source_image_url) {
@@ -158,6 +159,11 @@ function extensionForMimeType(mimeType: string | null) {
 		default:
 			return 'jpg';
 	}
+}
+
+function serializeMetadata(metadata: ImportItem['metadata']) {
+	if (!metadata) return null;
+	return JSON.stringify(metadata);
 }
 
 class ImportItemError extends Error {

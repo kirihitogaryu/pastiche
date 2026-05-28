@@ -35,7 +35,8 @@ export function openLibraryDatabase() {
 			folder_id text references folders(id),
 			imported_at text not null,
 			captured_at text not null,
-			modified_at text not null
+			modified_at text not null,
+			metadata_json text
 		);
 
 		create table if not exists asset_import_failures (
@@ -56,10 +57,17 @@ export function openLibraryDatabase() {
 			last_error text
 		);
 	`);
+	ensureColumn(db, 'assets', 'metadata_json', 'text');
 	return db;
 }
 
 export function initializeLibrary() {
 	const db = openLibraryDatabase();
 	db.close();
+}
+
+function ensureColumn(db: Database.Database, table: string, column: string, definition: string) {
+	const columns = db.prepare(`pragma table_info(${table})`).all() as Array<{ name: string }>;
+	if (columns.some((item) => item.name === column)) return;
+	db.prepare(`alter table ${table} add column ${column} ${definition}`).run();
 }
