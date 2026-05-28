@@ -3,7 +3,7 @@
 	"name": "Pastiche Capture",
 	"description": "Capture references into the local Pastiche library.",
 	"version": "0.1.0",
-	"permissions": ["activeTab", "scripting", "storage", "sidePanel", "tabs"],
+	"permissions": ["activeTab", "contextMenus", "scripting", "storage", "sidePanel", "tabs"],
 	"host_permissions": ["http://localhost:*/*", "http://127.0.0.1:*/*", "<all_urls>"],
 	"background": {
 		"service_worker": "background/service-worker.js",

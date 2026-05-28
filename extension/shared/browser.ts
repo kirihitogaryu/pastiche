@@ -17,6 +17,9 @@
 
 type RuntimeApi = {
 	sendMessage(message: unknown): Promise<unknown>;
+	onInstalled?: {
+		addListener(listener: () => void): void;
+	};
 	onMessage: {
 		addListener(
 			listener: (
@@ -77,6 +80,22 @@ type CommandsApi = {
 	};
 };
 
+export type ContextMenuInfo = {
+	menuItemId: string | number;
+	srcUrl?: string;
+	pageUrl?: string;
+	linkUrl?: string;
+	mediaType?: string;
+};
+
+type ContextMenusApi = {
+	create(options: { id: string; title: string; contexts: string[] }): Promise<unknown> | void;
+	remove(id: string): Promise<unknown> | void;
+	onClicked: {
+		addListener(listener: (info: ContextMenuInfo, tab?: TabInfo) => void): void;
+	};
+};
+
 type ScriptingApi = {
 	executeScript(options: { target: { tabId: number }; files: string[] }): Promise<unknown[]>;
 };
@@ -86,6 +105,7 @@ type ExtensionApi = {
 	storage: { local: StorageArea };
 	tabs: TabsApi;
 	commands: CommandsApi;
+	contextMenus?: ContextMenusApi;
 	scripting?: ScriptingApi;
 	sidePanel?: {
 		setPanelBehavior(options: { openPanelOnActionClick: boolean }): Promise<void>;

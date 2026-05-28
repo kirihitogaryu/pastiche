@@ -23,6 +23,12 @@ import { getSettings } from '../shared/settings';
 import { getExtensionApi } from '../shared/browser';
 import { computeSourceHash, sourceKeyForUrls } from '../shared/source-hash';
 import { normalizeImageQualityUrl, resolveCanonicalImage } from './canonical-image';
+import {
+	CONTEXT_MENU_SAVE_IMAGE_ID,
+	imageContextCaptureSource,
+	type ImageContextCaptureSource,
+	type ImageContextMenuInfo
+} from './context-menu';
 import { policyForSource } from './storage-policy';
 import {
 	MESSAGE_GET_STATUS,
@@ -54,6 +60,7 @@ import type {
 	FetchStatus,
 	StatusApiResponse
 } from '../shared/types';
+import type { TabInfo } from '../shared/browser';
 
 const api = getExtensionApi();
 
@@ -64,6 +71,69 @@ const api = getExtensionApi();
 api.sidePanel?.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {
 	// Firefox / older Chromium — sidePanel API not yet available.
 });
+
+api.runtime.onInstalled?.addListener(() => {
+	void registerContextMenus();
+});
+void registerContextMenus();
+
+api.contextMenus?.onClicked.addListener((info, tab) => {
+	void handleImageContextMenuClick(info as ImageContextMenuInfo, tab);
+});
+
+async function registerContextMenus(): Promise<void> {
+	if (!api.contextMenus) return;
+
+	try {
+		await Promise.resolve(api.contextMenus.remove(CONTEXT_MENU_SAVE_IMAGE_ID));
+	} catch {
+		// The menu does not exist yet, usually after install or extension reload.
+	}
+
+	try {
+		await Promise.resolve(
+			api.contextMenus.create({
+				id: CONTEXT_MENU_SAVE_IMAGE_ID,
+				title: 'Save image to Pastiche',
+				contexts: ['image']
+			})
+		);
+	} catch {
+		// Best effort: duplicate menu ids can happen during service-worker restarts.
+	}
+}
+
+async function handleImageContextMenuClick(
+	info: ImageContextMenuInfo,
+	tab?: TabInfo
+): Promise<void> {
+	const source = imageContextCaptureSource(info, tab);
+	if (!source) return;
+
+	try {
+		const settings = await getSettings();
+		const item = await enrichItem(await capturedPayloadForImageSource(source));
+		const result = await handleDoImport({
+			destinationFolderId: settings.defaultDestinationId,
+			items: [item]
+		});
+		broadcastToSidebar({ type: MESSAGE_QUEUE_REPLAYED, ...result });
+	} catch (error) {
+		broadcastToSidebar({
+			type: MESSAGE_QUEUE_REPLAYED,
+			ok: false,
+			imported: [],
+			failed: [
+				{
+					index: 0,
+					ok: false,
+					error: error instanceof Error ? error.message : 'Context menu import failed'
+				}
+			],
+			error: error instanceof Error ? error.message : 'Context menu import failed'
+		});
+	}
+}
 
 // ---------------------------------------------------------------------------
 // Keyboard command handler
@@ -267,39 +337,52 @@ async function handleTabImageCaptured(
 	tabUrl: string,
 	pageTitle: string | null
 ): Promise<{ ok: boolean; error?: string }> {
-	const imageUrl = normalizeImageQualityUrl(tabUrl);
-
 	try {
-		const response = await fetch(imageUrl, { signal: AbortSignal.timeout(30_000) });
-		if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-		const blob = await response.blob();
-		const mimeType = blob.type || mimeTypeFromUrl(imageUrl);
-		if (!mimeType?.startsWith('image/')) {
-			throw new Error('Active tab is not an image URL.');
-		}
-
-		const dimensions = await dimensionsForImageBlob(blob);
-		const base64 = await blobToBase64(blob);
-
-		return handleItemCaptured({
-			url: imageUrl,
-			detailUrl: null,
-			naturalWidth: dimensions.width,
-			naturalHeight: dimensions.height,
-			mimeType,
-			inlineData: `data:${mimeType};base64,${base64}`,
-			altText: null,
-			sourceUrl: tabUrl,
-			pageTitle: pageTitle ?? tabUrl,
-			capturedAt: new Date().toISOString()
-		});
+		return handleItemCaptured(
+			await capturedPayloadForImageSource({
+				imageUrl: tabUrl,
+				sourceUrl: tabUrl,
+				detailUrl: null,
+				pageTitle: pageTitle ?? tabUrl
+			})
+		);
 	} catch (err) {
 		return {
 			ok: false,
 			error: err instanceof Error ? err.message : 'Active tab is not a selectable image.'
 		};
 	}
+}
+
+async function capturedPayloadForImageSource(
+	source: ImageContextCaptureSource
+): Promise<CapturedItemPayload> {
+	const imageUrl = normalizeImageQualityUrl(source.imageUrl);
+
+	const response = await fetch(imageUrl, { signal: AbortSignal.timeout(30_000) });
+	if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+	const blob = await response.blob();
+	const mimeType = blob.type || mimeTypeFromUrl(imageUrl);
+	if (!mimeType?.startsWith('image/')) {
+		throw new Error('Selected URL is not an image.');
+	}
+
+	const dimensions = await dimensionsForImageBlob(blob);
+	const base64 = await blobToBase64(blob);
+
+	return {
+		url: imageUrl,
+		detailUrl: source.detailUrl,
+		naturalWidth: dimensions.width,
+		naturalHeight: dimensions.height,
+		mimeType,
+		inlineData: `data:${mimeType};base64,${base64}`,
+		altText: null,
+		sourceUrl: source.sourceUrl,
+		pageTitle: source.pageTitle,
+		capturedAt: new Date().toISOString()
+	};
 }
 
 // ---------------------------------------------------------------------------
