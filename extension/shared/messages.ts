@@ -32,6 +32,9 @@ export const MESSAGE_LASSO_RESULTS = 'PASTICHE_LASSO_RESULTS';
 // Capture activation (SW / sidebar → content script)
 // ---------------------------------------------------------------------------
 
+/** SW / sidebar → content: verify the content script is present in the tab. */
+export const MESSAGE_CONTENT_PING = 'PASTICHE_CONTENT_PING';
+
 /** SW / sidebar → content: enter single-click capture mode. */
 export const MESSAGE_CAPTURE_ACTIVATE = 'PASTICHE_CAPTURE_ACTIVATE';
 

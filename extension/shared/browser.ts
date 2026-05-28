@@ -77,11 +77,16 @@ type CommandsApi = {
 	};
 };
 
+type ScriptingApi = {
+	executeScript(options: { target: { tabId: number }; files: string[] }): Promise<unknown[]>;
+};
+
 type ExtensionApi = {
 	runtime: RuntimeApi;
 	storage: { local: StorageArea };
 	tabs: TabsApi;
 	commands: CommandsApi;
+	scripting?: ScriptingApi;
 	sidePanel?: {
 		setPanelBehavior(options: { openPanelOnActionClick: boolean }): Promise<void>;
 	};

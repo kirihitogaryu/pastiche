@@ -9,6 +9,7 @@
 		MESSAGE_FETCH_COMPLETE,
 		MESSAGE_QUEUE_UPDATED,
 		MESSAGE_QUEUE_REPLAYED,
+		MESSAGE_CONTENT_PING,
 		MESSAGE_CAPTURE_ACTIVATE,
 		MESSAGE_CAPTURE_ACTIVATE_LASSO,
 		MESSAGE_SWEEP,
@@ -32,6 +33,7 @@
 	let items = $state<EnrichedItem[]>([]);
 	let importing = $state(false);
 	let importResult = $state<ImportResult | null>(null);
+	let captureError = $state<string | null>(null);
 
 	// Folder assignment
 	let selectedFolderId = $state<string | null>(null);
@@ -125,22 +127,57 @@
 	// Capture activation (forwards to active tab's content script via SW)
 	// ---------------------------------------------------------------------------
 
-	async function activateSingleCapture() {
+	async function activeTabId() {
 		const [tab] = await api.tabs.query({ active: true, currentWindow: true });
-		if (!tab?.id) return;
-		await api.tabs.sendMessage(tab.id, { type: MESSAGE_CAPTURE_ACTIVATE });
+		return tab?.id ?? null;
+	}
+
+	async function ensureContentScript(tabId: number) {
+		try {
+			await api.tabs.sendMessage(tabId, { type: MESSAGE_CONTENT_PING });
+			return;
+		} catch {
+			// Existing tabs do not receive manifest content scripts after extension reload.
+		}
+
+		if (!api.scripting) throw new Error('Content script injection is unavailable.');
+		await api.scripting.executeScript({
+			target: { tabId },
+			files: ['content/index.js']
+		});
+		await api.tabs.sendMessage(tabId, { type: MESSAGE_CONTENT_PING });
+	}
+
+	async function sendActiveTabMessage(message: Record<string, unknown>) {
+		const tabId = await activeTabId();
+		if (!tabId) {
+			captureError = 'No active tab found.';
+			return;
+		}
+
+		try {
+			await ensureContentScript(tabId);
+			await api.tabs.sendMessage(tabId, message);
+			captureError = null;
+		} catch (error) {
+			console.error(error);
+			captureError =
+				error instanceof Error
+					? error.message
+					: 'Could not talk to this page. Refresh the tab and try again.';
+		}
+	}
+
+	async function activateSingleCapture() {
+		await sendActiveTabMessage({ type: MESSAGE_CAPTURE_ACTIVATE });
 	}
 
 	async function activateLasso() {
-		const [tab] = await api.tabs.query({ active: true, currentWindow: true });
-		if (!tab?.id) return;
-		await api.tabs.sendMessage(tab.id, { type: MESSAGE_CAPTURE_ACTIVATE_LASSO });
+		await sendActiveTabMessage({ type: MESSAGE_CAPTURE_ACTIVATE_LASSO });
 	}
 
 	async function runSweep() {
-		const [tab] = await api.tabs.query({ active: true, currentWindow: true });
-		if (!tab?.id) return;
-		await api.tabs.sendMessage(tab.id, {
+		await sendActiveTabMessage({
 			type: MESSAGE_SWEEP,
 			minDimension: 300
 		});
@@ -157,18 +194,12 @@
 		items = items.filter((i) => i.id !== id);
 
 		// Tell the content script to remove the badge from the page element.
-		const [tab] = await api.tabs.query({ active: true, currentWindow: true });
-		if (tab?.id) {
-			await api.tabs.sendMessage(tab.id, { type: MESSAGE_DESELECT_ITEM, url: item.url });
-		}
+		await sendActiveTabMessage({ type: MESSAGE_DESELECT_ITEM, url: item.url });
 	}
 
 	async function clearAll() {
 		items = [];
-		const [tab] = await api.tabs.query({ active: true, currentWindow: true });
-		if (tab?.id) {
-			await api.tabs.sendMessage(tab.id, { type: MESSAGE_CLEAR_SELECTION });
-		}
+		await sendActiveTabMessage({ type: MESSAGE_CLEAR_SELECTION });
 	}
 
 	function renameItem(id: string, name: string) {
@@ -246,7 +277,7 @@
 			// Clear badges for removed items.
 			const [tab] = await api.tabs.query({ active: true, currentWindow: true });
 			if (tab?.id && items.length === 0) {
-				await api.tabs.sendMessage(tab.id, { type: MESSAGE_CLEAR_SELECTION });
+				await sendActiveTabMessage({ type: MESSAGE_CLEAR_SELECTION });
 			}
 
 			// Refresh status so unassigned count updates.
@@ -334,6 +365,10 @@
 				<button class="clear-btn" type="button" onclick={clearAll}>Clear all</button>
 			{/if}
 		</div>
+	{/if}
+
+	{#if captureError}
+		<div class="capture-error">{captureError}</div>
 	{/if}
 
 	<!-- Selection list or empty state -->
@@ -447,6 +482,16 @@
 
 	.clear-btn:hover {
 		color: #e06c75;
+	}
+
+	.capture-error {
+		padding: 7px 12px;
+		border-bottom: 1px solid rgb(224 108 117 / 24%);
+		color: #e06c75;
+		font-size: 11px;
+		line-height: 1.35;
+		background: rgb(224 108 117 / 9%);
+		flex-shrink: 0;
 	}
 
 	/* Bottom zone */

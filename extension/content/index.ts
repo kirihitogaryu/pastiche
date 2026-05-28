@@ -66,6 +66,7 @@ const ext: typeof chrome = (globalThis as any).browser ?? (globalThis as any).ch
 
 const MSG_CAPTURE_ACTIVATE = 'PASTICHE_CAPTURE_ACTIVATE';
 const MSG_CAPTURE_ACTIVATE_LASSO = 'PASTICHE_CAPTURE_ACTIVATE_LASSO';
+const MSG_CONTENT_PING = 'PASTICHE_CONTENT_PING';
 const MSG_SWEEP = 'PASTICHE_SWEEP';
 const MSG_DESELECT_ITEM = 'PASTICHE_DESELECT_ITEM';
 const MSG_CLEAR_SELECTION = 'PASTICHE_CLEAR_SELECTION';
@@ -90,6 +91,7 @@ const selectedByUrl = new Map<string, Element>();
 
 // Lasso start coordinates (viewport space).
 let lassoStart: { x: number; y: number } | null = null;
+let lassoPointerId: number | null = null;
 
 // Invisible overlay div used during capture modes so we receive all pointer
 // events even on pages with aggressive event listeners.
@@ -134,7 +136,7 @@ function enterLassoMode(): void {
 	if (mode !== 'idle') exitCapture();
 	mode = 'lasso';
 	overlay = createOverlay();
-	overlay.addEventListener('mousedown', onLassoMouseDown);
+	overlay.addEventListener('pointerdown', onLassoPointerDown);
 }
 
 /**
@@ -144,15 +146,11 @@ function enterLassoMode(): void {
 function exitCapture(): void {
 	mode = 'idle';
 	lassoStart = null;
+	cleanupLassoDrag();
 
 	hideRing();
 	hideLasso();
 	removeOverlay();
-
-	// Remove any transient lasso listeners that might have been added to
-	// document during a drag.
-	document.removeEventListener('mousemove', onLassoMouseMove);
-	document.removeEventListener('mouseup', onLassoMouseUp);
 }
 
 // ---------------------------------------------------------------------------
@@ -204,29 +202,34 @@ function onSingleClick(event: MouseEvent): void {
 // Lasso capture
 // ---------------------------------------------------------------------------
 
-function onLassoMouseDown(event: MouseEvent): void {
+function onLassoPointerDown(event: PointerEvent): void {
 	if (event.button !== 0) return;
 	event.preventDefault();
+	event.stopPropagation();
 	lassoStart = { x: event.clientX, y: event.clientY };
+	lassoPointerId = event.pointerId;
 
-	document.addEventListener('mousemove', onLassoMouseMove);
-	document.addEventListener('mouseup', onLassoMouseUp);
+	overlay?.setPointerCapture(event.pointerId);
+	overlay?.addEventListener('pointermove', onLassoPointerMove);
+	overlay?.addEventListener('pointerup', onLassoPointerUp);
+	overlay?.addEventListener('pointercancel', onLassoPointerCancel);
 }
 
-function onLassoMouseMove(event: MouseEvent): void {
+function onLassoPointerMove(event: PointerEvent): void {
 	if (!lassoStart) return;
+	event.preventDefault();
 	showLasso(lassoStart.x, lassoStart.y, event.clientX, event.clientY);
 }
 
-function onLassoMouseUp(event: MouseEvent): void {
+function onLassoPointerUp(event: PointerEvent): void {
 	if (!lassoStart) return;
+	event.preventDefault();
+	event.stopPropagation();
 
 	const start = lassoStart;
 	const end = { x: event.clientX, y: event.clientY };
 
-	document.removeEventListener('mousemove', onLassoMouseMove);
-	document.removeEventListener('mouseup', onLassoMouseUp);
-
+	cleanupLassoDrag();
 	exitCapture();
 
 	const selectionRect = new DOMRect(
@@ -253,6 +256,20 @@ function onLassoMouseUp(event: MouseEvent): void {
 			items: newCandidates.map(candidateToPayload)
 		});
 	}
+}
+
+function onLassoPointerCancel(): void {
+	exitCapture();
+}
+
+function cleanupLassoDrag(): void {
+	if (lassoPointerId !== null && overlay?.hasPointerCapture(lassoPointerId)) {
+		overlay.releasePointerCapture(lassoPointerId);
+	}
+	lassoPointerId = null;
+	overlay?.removeEventListener('pointermove', onLassoPointerMove);
+	overlay?.removeEventListener('pointerup', onLassoPointerUp);
+	overlay?.removeEventListener('pointercancel', onLassoPointerCancel);
 }
 
 // ---------------------------------------------------------------------------
@@ -364,6 +381,10 @@ globalThis.addEventListener('resize', onScrollOrResize, { passive: true });
 ext.runtime.onMessage.addListener(
 	(message: { type?: string; url?: string; minDimension?: number }, _sender, sendResponse) => {
 		switch (message.type) {
+			case MSG_CONTENT_PING:
+				sendResponse({ ok: true });
+				break;
+
 			case MSG_CAPTURE_ACTIVATE:
 				enterSingleMode();
 				sendResponse({ ok: true });
