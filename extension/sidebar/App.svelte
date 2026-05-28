@@ -200,6 +200,23 @@
 		await sendActiveTabMessage({ type: MESSAGE_CAPTURE_ACTIVATE }, { directImageFallback: true });
 	}
 
+	async function captureCurrentTabImage() {
+		const tab = await activeTab();
+		if (!tab) {
+			captureError = 'No active tab found.';
+			return;
+		}
+
+		try {
+			await captureActiveTabImage(tab);
+			captureError = null;
+		} catch (error) {
+			console.error(error);
+			captureError =
+				error instanceof Error ? error.message : 'Could not capture this tab as an image.';
+		}
+	}
+
 	async function activateLasso() {
 		await sendActiveTabMessage(
 			{ type: MESSAGE_CAPTURE_ACTIVATE_LASSO },
@@ -357,6 +374,30 @@
 					<path d="M5.6 5.6l1.4 1.4M16.9 16.9l1.4 1.4M5.6 18.4l1.4-1.4M16.9 7.1l1.4-1.4" />
 				</svg>
 				Click
+			</button>
+			<button
+				class="capture-btn"
+				type="button"
+				onclick={captureCurrentTabImage}
+				title="Capture active tab image"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="14"
+					height="14"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.75"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<rect x="3" y="5" width="18" height="14" rx="2" />
+					<circle cx="8" cy="10" r="1.5" />
+					<path d="M21 16l-5-5L5 19" />
+				</svg>
+				Tab
 			</button>
 			<button class="capture-btn" type="button" onclick={activateLasso} title="Lasso selection">
 				<svg
