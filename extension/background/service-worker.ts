@@ -22,6 +22,7 @@
 import { getSettings } from '../shared/settings';
 import { getExtensionApi } from '../shared/browser';
 import { computeSourceHash, sourceKeyForUrls } from '../shared/source-hash';
+import { resolveCanonicalImage } from './canonical-image';
 import { policyForSource } from './storage-policy';
 import {
 	MESSAGE_GET_STATUS,
@@ -262,8 +263,16 @@ async function handleBatchCaptured(captured: CapturedItemPayload[]): Promise<{ o
  * EnrichedItem with storage policy applied and name inferred.
  */
 async function enrichItem(captured: CapturedItemPayload): Promise<EnrichedItem> {
-	const policy = policyForSource(captured.url);
-	const sourceHash = await computeSourceHash(sourceKeyForUrls(captured.url, captured.sourceUrl));
+	const canonical = captured.inlineData
+		? { url: captured.url, detailUrl: captured.detailUrl, candidates: [captured.url] }
+		: await resolveCanonicalImage({
+				imageUrl: captured.url,
+				detailUrl: captured.detailUrl
+			});
+	const resolvedUrl = canonical.url;
+	const previewUrl = resolvedUrl === captured.url ? null : captured.url;
+	const policy = policyForSource(resolvedUrl);
+	const sourceHash = await computeSourceHash(sourceKeyForUrls(resolvedUrl, captured.sourceUrl));
 	const id = sourceHash;
 
 	// Check the library index for duplicates (best-effort — status cache only).
@@ -294,7 +303,8 @@ async function enrichItem(captured: CapturedItemPayload): Promise<EnrichedItem> 
 
 	return {
 		id,
-		url: captured.url,
+		url: resolvedUrl,
+		previewUrl,
 		naturalWidth: captured.naturalWidth,
 		naturalHeight: captured.naturalHeight,
 		mimeType: captured.mimeType,

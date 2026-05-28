@@ -24,7 +24,7 @@
 		if (item.fetchStatus.state === 'done') {
 			return `data:${item.fetchStatus.mimeType};base64,${item.fetchStatus.base64}`;
 		}
-		if (item.storageMode !== 'download') return item.url;
+		if (item.storageMode !== 'download') return item.previewUrl ?? item.url;
 		return null; // Still fetching
 	});
 

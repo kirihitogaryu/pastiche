@@ -308,7 +308,7 @@ function captureItem(resolved: ResolvedImage, element: Element): void {
 
 	ext.runtime.sendMessage({
 		type: MSG_ITEM_CAPTURED,
-		item: resolvedToPayload(resolved)
+		item: resolvedToPayload(resolved, element)
 	});
 }
 
@@ -318,6 +318,7 @@ function captureItem(resolved: ResolvedImage, element: Element): void {
 
 type CapturedItemPayload = {
 	url: string;
+	detailUrl: string | null;
 	naturalWidth: number;
 	naturalHeight: number;
 	mimeType: string | null;
@@ -328,9 +329,10 @@ type CapturedItemPayload = {
 	capturedAt: string;
 };
 
-function resolvedToPayload(resolved: ResolvedImage): CapturedItemPayload {
+function resolvedToPayload(resolved: ResolvedImage, element: Element): CapturedItemPayload {
 	return {
 		url: resolved.url,
+		detailUrl: detailUrlForElement(element),
 		naturalWidth: resolved.naturalWidth,
 		naturalHeight: resolved.naturalHeight,
 		mimeType: resolved.mimeType,
@@ -343,7 +345,19 @@ function resolvedToPayload(resolved: ResolvedImage): CapturedItemPayload {
 }
 
 function candidateToPayload(c: SweepCandidate): CapturedItemPayload {
-	return resolvedToPayload(c);
+	return resolvedToPayload(c, c.element);
+}
+
+function detailUrlForElement(element: Element): string | null {
+	const link = element.closest<HTMLAnchorElement>('a[href]');
+	const href = link?.href;
+	if (!href) return null;
+	if (href.startsWith('javascript:') || href.startsWith('mailto:')) return null;
+	try {
+		return new URL(href, window.location.href).toString();
+	} catch {
+		return null;
+	}
 }
 
 // ---------------------------------------------------------------------------

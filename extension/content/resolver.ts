@@ -111,7 +111,10 @@ export function collectInRegion(rect: DOMRect, minDimension: number): SweepCandi
 	const candidates: Element[] = [
 		...document.querySelectorAll('img'),
 		...document.querySelectorAll('video'),
-		...document.querySelectorAll('canvas')
+		...document.querySelectorAll('canvas'),
+		...document.querySelectorAll(
+			'div[style*="background"], figure, a[style*="background"], section[style*="background"]'
+		)
 	];
 
 	for (const el of candidates) {

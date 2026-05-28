@@ -69,6 +69,8 @@ export type SmokeImportResponse = {
 export type CapturedItemPayload = {
 	/** Resolved image URL (already Artsy-upsized). */
 	url: string;
+	/** Linked detail/canonical page for gallery thumbnails, when one is available. */
+	detailUrl: string | null;
 	naturalWidth: number;
 	naturalHeight: number;
 	/** MIME type when known from canvas/video export. */
@@ -104,6 +106,8 @@ export type EnrichedItem = {
 	id: string;
 	/** Resolved image URL. For url_reference/lazy_download this is what gets stored. */
 	url: string;
+	/** Visible image captured on the page. Used as a sidebar preview when canonical URL differs. */
+	previewUrl: string | null;
 	naturalWidth: number;
 	naturalHeight: number;
 	mimeType: string | null;
