@@ -8,12 +8,13 @@
 	type Props = {
 		library: LibraryResponse;
 		projectId: string;
+		purpose?: 'add' | 'cover';
 		anchor?: { left: number; top: number } | null;
 		onClose: () => void;
 		onSnapshot: (snapshot: LibraryResponse) => void;
 	};
 
-	let { library, projectId, anchor = null, onClose, onSnapshot }: Props = $props();
+	let { library, projectId, purpose = 'add', anchor = null, onClose, onSnapshot }: Props = $props();
 	let query = $state('');
 	let savingId = $state<string | null>(null);
 	let error = $state<string | null>(null);
@@ -22,7 +23,7 @@
 	);
 	let availableAssets = $derived(
 		library.assets.filter((asset) => {
-			if (asset.projects.includes(projectId)) return false;
+			if (purpose === 'add' && asset.projects.includes(projectId)) return false;
 			const normalized = query.trim().toLowerCase();
 			if (!normalized) return true;
 			return [asset.title, asset.creator, asset.sourceName, asset.medium]
@@ -31,21 +32,35 @@
 		})
 	);
 
-	async function addAsset(asset: Asset) {
+	async function submitAsset(asset: Asset) {
 		if (savingId) return;
 		savingId = asset.id;
 		error = null;
 		try {
-			const response = await fetch(`/api/library/projects/${encodeURIComponent(projectId)}/assets`, {
+			const endpoint =
+				purpose === 'cover'
+					? `/api/library/projects/${encodeURIComponent(projectId)}/cover`
+					: `/api/library/projects/${encodeURIComponent(projectId)}/assets`;
+			const response = await fetch(endpoint, {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ asset_id: asset.id })
 			});
 			const body = (await response.json()) as { error?: string; snapshot?: LibraryResponse };
-			if (!response.ok || !body.snapshot) throw new Error(body.error ?? 'Could not add image');
+			if (!response.ok || !body.snapshot) {
+				throw new Error(
+					body.error ?? (purpose === 'cover' ? 'Could not set project cover' : 'Could not add image')
+				);
+			}
 			onSnapshot(body.snapshot);
+			if (purpose === 'cover') onClose();
 		} catch (addError) {
-			error = addError instanceof Error ? addError.message : 'Could not add image';
+			error =
+				addError instanceof Error
+					? addError.message
+					: purpose === 'cover'
+						? 'Could not set project cover'
+						: 'Could not add image';
 		} finally {
 			savingId = null;
 		}
@@ -62,15 +77,23 @@
 	}}
 />
 
-<section class="add-project-assets" style={popoverStyle} aria-label="Add images to project">
+<section
+	class="add-project-assets"
+	style={popoverStyle}
+	aria-label={purpose === 'cover' ? 'Choose project cover' : 'Add images to project'}
+>
 	<header>
 		<ImageSquareIcon size={18} />
-		<strong>Add Images</strong>
+		<strong>{purpose === 'cover' ? 'Choose Cover' : 'Add Images'}</strong>
 	</header>
 
 	<label>
 		<span>Find images</span>
-		<input bind:value={query} placeholder="Search library images" autocomplete="off" />
+		<input
+			bind:value={query}
+			placeholder={purpose === 'cover' ? 'Search cover image' : 'Search library images'}
+			autocomplete="off"
+		/>
 	</label>
 
 	{#if error}
@@ -92,13 +115,21 @@
 						<strong>{asset.title}</strong>
 						<span>{asset.sourceName}</span>
 					</div>
-					<button type="button" disabled={savingId === asset.id} onclick={() => addAsset(asset)}>
-						{savingId === asset.id ? 'Adding' : 'Add'}
+					<button type="button" disabled={savingId === asset.id} onclick={() => submitAsset(asset)}>
+						{#if savingId === asset.id}
+							{purpose === 'cover' ? 'Setting' : 'Adding'}
+						{:else}
+							{purpose === 'cover' ? 'Use Cover' : 'Add'}
+						{/if}
 					</button>
 				</article>
 			{/each}
 		{:else}
-			<p class="empty">No available images match this search.</p>
+			<p class="empty">
+				{purpose === 'cover'
+					? 'No library images match this search.'
+					: 'No available images match this search.'}
+			</p>
 		{/if}
 	</div>
 

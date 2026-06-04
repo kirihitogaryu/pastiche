@@ -32,6 +32,7 @@
 
 	let { scope, library, loading = false, error = null }: Props = $props();
 	let addImagesOpen = $state(false);
+	let coverPickerOpen = $state(false);
 	let subfolderOpen = $state(false);
 	let actionAnchor = $state<{ left: number; top: number } | null>(null);
 	let coverSavingId = $state<string | null>(null);
@@ -91,14 +92,20 @@
 		}
 	}
 
-	function openAnchored(kind: 'images' | 'subfolder', event: MouseEvent) {
+	function openAnchored(kind: 'images' | 'cover' | 'subfolder', event: MouseEvent) {
 		actionAnchor = anchorFrom(event.currentTarget);
 		if (kind === 'images') {
 			addImagesOpen = !addImagesOpen;
+			coverPickerOpen = false;
+			subfolderOpen = false;
+		} else if (kind === 'cover') {
+			coverPickerOpen = !coverPickerOpen;
+			addImagesOpen = false;
 			subfolderOpen = false;
 		} else {
 			subfolderOpen = !subfolderOpen;
 			addImagesOpen = false;
+			coverPickerOpen = false;
 		}
 	}
 
@@ -199,6 +206,10 @@
 					<ImageSquareIcon size={17} />
 					<span>Add Images</span>
 				</button>
+				<button class="sort" type="button" onclick={(event) => openAnchored('cover', event)}>
+					<ImageSquareIcon size={17} />
+					<span>Choose Cover</span>
+				</button>
 			{/if}
 			<button class="sort" type="button">Newest</button>
 		</div>
@@ -248,8 +259,20 @@
 	<AddProjectAssetsPopover
 		{library}
 		projectId={project.id}
+		purpose="add"
 		anchor={actionAnchor}
 		onClose={() => (addImagesOpen = false)}
+		onSnapshot={setLibrarySnapshot}
+	/>
+{/if}
+
+{#if coverPickerOpen && scope === 'project' && project}
+	<AddProjectAssetsPopover
+		{library}
+		projectId={project.id}
+		purpose="cover"
+		anchor={actionAnchor}
+		onClose={() => (coverPickerOpen = false)}
 		onSnapshot={setLibrarySnapshot}
 	/>
 {/if}
