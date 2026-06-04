@@ -6,7 +6,7 @@
 	import SlidersHorizontalIcon from 'phosphor-svelte/lib/SlidersHorizontalIcon';
 	import StackIcon from 'phosphor-svelte/lib/StackIcon';
 	import type { LibraryResponse } from '$lib/library/types';
-	import { appState, openFilter } from '$lib/state/app-state.svelte';
+	import { appState, openFilter, setSearchQuery } from '$lib/state/app-state.svelte';
 	import type { Asset } from '$lib/types';
 	import { searchLibrary } from './libraryOverviewModel';
 
@@ -44,6 +44,39 @@
 		}, 120);
 	}
 
+	function handleInput(event: Event) {
+		setSearchQuery((event.currentTarget as HTMLInputElement).value);
+		focused = true;
+	}
+
+	function handleKeydown(event: KeyboardEvent) {
+		if (event.key !== 'Enter') return;
+		event.preventDefault();
+		commitFirstResult();
+	}
+
+	function commitFirstResult() {
+		if (results.projects[0]) {
+			onOpenProject(results.projects[0].id);
+			focused = false;
+			return;
+		}
+		if (results.folders[0]) {
+			onOpenFolder(results.folders[0].path);
+			focused = false;
+			return;
+		}
+		if (results.tags[0]) {
+			onOpenTag(results.tags[0].id);
+			focused = false;
+			return;
+		}
+		if (results.assets[0]) {
+			openAsset(results.assets[0]);
+			focused = false;
+		}
+	}
+
 	function openAsset(asset: Asset) {
 		if (onOpenAsset) {
 			onOpenAsset(asset);
@@ -62,9 +95,11 @@
 			<span class="scope-label">{scopeLabel}</span>
 		{/if}
 		<input
-			bind:value={appState.query}
+			value={appState.query}
 			{placeholder}
 			autocomplete="off"
+			oninput={handleInput}
+			onkeydown={handleKeydown}
 			onfocus={() => (focused = true)}
 			onblur={closeSoon}
 		/>
@@ -79,7 +114,11 @@
 				<p class="empty-result">No matches for "{appState.query.trim()}".</p>
 			{:else}
 				{#each results.projects as project (project.id)}
-					<button type="button" onclick={() => onOpenProject(project.id)}>
+					<button
+						type="button"
+						onmousedown={(event) => event.preventDefault()}
+						onclick={() => onOpenProject(project.id)}
+					>
 						<StackIcon size={17} />
 						<span>Project</span>
 						<strong>{project.name}</strong>
@@ -87,7 +126,11 @@
 					</button>
 				{/each}
 				{#each results.folders as folder (folder.id)}
-					<button type="button" onclick={() => onOpenFolder(folder.path)}>
+					<button
+						type="button"
+						onmousedown={(event) => event.preventDefault()}
+						onclick={() => onOpenFolder(folder.path)}
+					>
 						<FolderIcon size={17} />
 						<span>Folder</span>
 						<strong>{folder.name}</strong>
@@ -95,7 +138,11 @@
 					</button>
 				{/each}
 				{#each results.tags as tag (tag.id)}
-					<button type="button" onclick={() => onOpenTag(tag.id)}>
+					<button
+						type="button"
+						onmousedown={(event) => event.preventDefault()}
+						onclick={() => onOpenTag(tag.id)}
+					>
 						<HashIcon size={17} />
 						<span>Tag</span>
 						<strong>{tag.value}</strong>
@@ -103,7 +150,11 @@
 					</button>
 				{/each}
 				{#each results.assets as asset (asset.id)}
-					<button type="button" onclick={() => openAsset(asset)}>
+					<button
+						type="button"
+						onmousedown={(event) => event.preventDefault()}
+						onclick={() => openAsset(asset)}
+					>
 						<ImageSquareIcon size={17} />
 						<span>Image</span>
 						<strong>{asset.title}</strong>
