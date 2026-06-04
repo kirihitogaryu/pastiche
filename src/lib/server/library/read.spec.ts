@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { importLibraryItems } from './import';
+import { addProjectAssetRef, createProject, createTag } from './organization';
 import { getLibrarySnapshot } from './read';
 
 describe('library read service', () => {
@@ -254,6 +255,53 @@ describe('library read service', () => {
 			localThumbnailAvailable: true
 		});
 		expect(asset.imageUrl).toBe(asset.record!.image.previewUrl);
+	});
+
+	it('returns General tags before grouped tags with tag values', () => {
+		createTag({ value: 'favorite' });
+		createTag({ facet: 'Subject', value: 'hands' });
+
+		const snapshot = getLibrarySnapshot();
+		const general = snapshot.tagFacets[0];
+
+		expect(general.slug).toBe('general');
+		expect(general.kind).toBe('general');
+		expect(general.tags).toEqual([
+			expect.objectContaining({ value: 'favorite', facetSlug: 'general' })
+		]);
+		expect(snapshot.tagFacets.find((group) => group.slug === 'subject')?.tags).toEqual([
+			expect.objectContaining({ value: 'hands', facetSlug: 'subject' })
+		]);
+	});
+
+	it('returns project cover preview urls when the cover asset exists', async () => {
+		const imported = await importLibraryItems({
+			destination_folder_id: null,
+			items: [
+				{
+					filename: 'Cover ref',
+					storage_mode: 'download',
+					image_data: tinyPngBase64(),
+					source_image_url: 'https://example.com/cover.jpg',
+					mime_type: 'image/png',
+					natural_width: 1,
+					natural_height: 1,
+					source_url: 'https://example.com/page',
+					page_title: 'Cover Reference',
+					alt_text: null,
+					captured_at: '2026-05-27T12:00:00.000Z'
+				}
+			]
+		});
+		const project = createProject({ name: 'Cover board' });
+		addProjectAssetRef(project.id, imported.imported[0].asset_id);
+
+		const snapshot = getLibrarySnapshot();
+		const coverProject = snapshot.projects.find((item) => item.id === project.id);
+
+		expect(coverProject?.coverPreviewUrl).toMatch(
+			/^\/api\/library\/assets\/.+\/image\?variant=thumb$/
+		);
 	});
 
 	it('reports missing local image files without falling back to a missing archive URL', async () => {

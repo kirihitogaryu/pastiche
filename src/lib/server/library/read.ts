@@ -117,6 +117,22 @@ export function getLibrarySnapshot(): LibraryResponse {
 			 order by tag_facets.slug`
 		)
 		.all() as TagFacetRow[];
+	const allTags = db
+		.prepare(
+			`select
+				tags.id,
+				tags.facet_id,
+				tag_facets.name as facet_name,
+				tag_facets.slug as facet_slug,
+				tags.value,
+				tags.name,
+				tags.slug,
+				(select count(*) from asset_tags where asset_tags.tag_id = tags.id) as asset_count
+			 from tags
+			 join tag_facets on tag_facets.id = tags.facet_id
+			 order by tag_facets.slug, lower(tags.value)`
+		)
+		.all() as TagRow[];
 	const projects = db.prepare('select * from projects order by updated_at desc').all() as ProjectRow[];
 	const projectAssetRefs = db
 		.prepare('select project_id, asset_id from project_asset_refs')
@@ -132,6 +148,7 @@ export function getLibrarySnapshot(): LibraryResponse {
 		projectFolderRefs
 	);
 	const projectAssetCounts = projectCountsById(projectMembership);
+	const assetPreviewById = new Map(assets.map((asset) => [asset.id, mapImage(asset).previewUrl]));
 
 	return {
 		assets: assets.map((asset) =>
@@ -144,9 +161,9 @@ export function getLibrarySnapshot(): LibraryResponse {
 		),
 		folders: folders.map(mapFolder),
 		projects: projects.map((project) =>
-			mapProject(project, projectAssetCounts.get(project.id) ?? 0, projectFolderRefs)
+			mapProject(project, projectAssetCounts.get(project.id) ?? 0, projectFolderRefs, assetPreviewById)
 		),
-		tagFacets: tagFacets.map(mapTagFacet),
+		tagFacets: mapTagFacets(tagFacets, allTags),
 		stats: {
 			assets: assets.length,
 			projects: projects.length,
@@ -524,7 +541,8 @@ function projectCountsById(membership: Map<string, string[]>) {
 function mapProject(
 	project: ProjectRow,
 	assetCount: number,
-	folderRefs: ProjectFolderRefRow[]
+	folderRefs: ProjectFolderRefRow[],
+	assetPreviewById: Map<string, string | null>
 ): LibraryProject {
 	return {
 		id: project.id,
@@ -532,6 +550,9 @@ function mapProject(
 		description: project.description,
 		pinned: Boolean(project.pinned),
 		coverAssetId: project.cover_asset_id,
+		coverPreviewUrl: project.cover_asset_id
+			? (assetPreviewById.get(project.cover_asset_id) ?? null)
+			: null,
 		assetCount,
 		folderCount: folderRefs.filter((ref) => ref.project_id === project.id).length,
 		createdAt: project.created_at,
@@ -539,13 +560,28 @@ function mapProject(
 	};
 }
 
-function mapTagFacet(row: TagFacetRow): LibraryTagFacet {
-	return {
-		id: row.id,
-		name: row.name,
-		slug: row.slug,
-		tagCount: row.tag_count
-	};
+function mapTagFacets(facets: TagFacetRow[], tags: TagRow[]): LibraryTagFacet[] {
+	const tagsByFacet = new Map<string, LibraryTag[]>();
+	for (const tag of tags) {
+		const list = tagsByFacet.get(tag.facet_id) ?? [];
+		list.push(mapTag(tag));
+		tagsByFacet.set(tag.facet_id, list);
+	}
+
+	return facets
+		.map((facet) => ({
+			id: facet.id,
+			name: facet.name,
+			slug: facet.slug,
+			tagCount: facet.tag_count,
+			kind: facet.slug === 'general' ? ('general' as const) : ('facet' as const),
+			tags: tagsByFacet.get(facet.id) ?? []
+		}))
+		.sort((a, b) => {
+			if (a.slug === 'general') return -1;
+			if (b.slug === 'general') return 1;
+			return a.name.localeCompare(b.name);
+		});
 }
 
 function mapTag(row: TagRow): LibraryTag {

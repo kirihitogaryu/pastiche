@@ -39,11 +39,15 @@ export type LibraryAssetFacts = {
 	rights?: string;
 };
 
+export type LibraryTagFacetKind = 'general' | 'facet';
+
 export type LibraryTagFacet = {
 	id: string;
 	name: string;
 	slug: string;
 	tagCount: number;
+	kind: LibraryTagFacetKind;
+	tags: LibraryTag[];
 };
 
 export type LibraryTag = {
@@ -73,6 +77,7 @@ export type LibraryProject = {
 	description: string | null;
 	pinned: boolean;
 	coverAssetId: string | null;
+	coverPreviewUrl: string | null;
 	assetCount: number;
 	folderCount: number;
 	createdAt: string;

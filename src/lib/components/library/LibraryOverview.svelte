@@ -1,20 +1,20 @@
 <script lang="ts">
 	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
 	import HashIcon from 'phosphor-svelte/lib/HashIcon';
-	import SquaresFourIcon from 'phosphor-svelte/lib/SquaresFourIcon';
 	import StackIcon from 'phosphor-svelte/lib/StackIcon';
-	import { librarySectionChips, librarySmartFolders } from '$lib/data/library-organization';
+	import { librarySmartFolders } from '$lib/data/library-organization';
 	import type { LibraryResponse } from '$lib/library/types';
-	import {
-		openFullLibrary,
-		openLibraryFolder,
-		openProjectLibrary,
-		openSmartFolder
-	} from '$lib/state/app-state.svelte';
+	import { openLibraryFolder, openProjectLibrary, openSmartFolder } from '$lib/state/app-state.svelte';
 	import { setLibrarySnapshot } from '$lib/state/library-state.svelte';
 	import CreateOrganizationPopover from './CreateOrganizationPopover.svelte';
-	import GroupedNavList from './GroupedNavList.svelte';
+	import FolderTree from './FolderTree.svelte';
 	import LibrarySearch from './LibrarySearch.svelte';
+	import ProjectCardGrid from './ProjectCardGrid.svelte';
+	import SmartFolderList from './SmartFolderList.svelte';
+	import TagGroupList from './TagGroupList.svelte';
+	import { buildFolderTree, sortHubTagGroups } from './libraryOverviewModel';
+
+	type CreateKind = 'folder' | 'project' | 'tag' | 'tag-group';
 
 	type Props = {
 		library: LibraryResponse;
@@ -23,12 +23,17 @@
 	};
 
 	let { library, loading = false, error = null }: Props = $props();
-	let activeSection = $state('Overview');
-	let createOpen = $state<'folder' | 'project' | 'tag' | null>(null);
+	let createOpen = $state<CreateKind | null>(null);
 	let createAnchor = $state<{ left: number; top: number } | null>(null);
-	let topFolders = $derived(library.folders.filter((folder) => !folder.parentId).slice(0, 8));
+	let expandedFolders = $state(new Set<string>(loadExpanded('pastiche.library.expandedFolders')));
+	let expandedTagGroups = $state(new Set<string>(['general']));
+	let folderTree = $derived(buildFolderTree(library.folders));
+	let tagGroups = $derived(sortHubTagGroups(library.tagFacets));
+	let hubProjects = $derived(
+		library.projects.filter((project) => project.pinned || library.projects.length <= 4)
+	);
 
-	function openCreate(kind: 'folder' | 'project' | 'tag', event: MouseEvent) {
+	function openCreate(kind: CreateKind, event: MouseEvent) {
 		if (createOpen === kind) {
 			createOpen = null;
 			createAnchor = null;
@@ -46,6 +51,33 @@
 			left: Math.max(12, Math.min(rect.left, window.innerWidth - width - 12)),
 			top: rect.bottom + 8
 		};
+	}
+
+	function toggleFolder(id: string) {
+		const next = new Set(expandedFolders);
+		next.has(id) ? next.delete(id) : next.add(id);
+		expandedFolders = next;
+		saveExpanded('pastiche.library.expandedFolders', next);
+	}
+
+	function toggleTagGroup(slug: string) {
+		const next = new Set(expandedTagGroups);
+		next.has(slug) ? next.delete(slug) : next.add(slug);
+		expandedTagGroups = next;
+	}
+
+	function loadExpanded(key: string) {
+		if (typeof sessionStorage === 'undefined') return [];
+		try {
+			return JSON.parse(sessionStorage.getItem(key) ?? '[]') as string[];
+		} catch {
+			return [];
+		}
+	}
+
+	function saveExpanded(key: string, values: Set<string>) {
+		if (typeof sessionStorage === 'undefined') return;
+		sessionStorage.setItem(key, JSON.stringify([...values]));
 	}
 </script>
 
@@ -67,160 +99,89 @@
 	<LibrarySearch />
 
 	<div class="create-actions" aria-label="Create library organization">
-		<div class="create-wrap">
-			<button type="button" onclick={(event) => openCreate('project', event)}>
-				<StackIcon size={18} />
-				<span>New Project</span>
-			</button>
-			{#if createOpen === 'project'}
-				<CreateOrganizationPopover
-					kind="project"
-					{library}
-					anchor={createAnchor}
-					onClose={() => (createOpen = null)}
-					onSnapshot={setLibrarySnapshot}
-				/>
-			{/if}
-		</div>
-		<div class="create-wrap">
-			<button type="button" onclick={(event) => openCreate('folder', event)}>
-				<FolderIcon size={18} />
-				<span>New Folder</span>
-			</button>
-			{#if createOpen === 'folder'}
-				<CreateOrganizationPopover
-					kind="folder"
-					{library}
-					anchor={createAnchor}
-					onClose={() => (createOpen = null)}
-					onSnapshot={setLibrarySnapshot}
-				/>
-			{/if}
-		</div>
-		<div class="create-wrap">
-			<button type="button" onclick={(event) => openCreate('tag', event)}>
-				<HashIcon size={18} />
-				<span>New Tag</span>
-			</button>
-			{#if createOpen === 'tag'}
-				<CreateOrganizationPopover
-					kind="tag"
-					{library}
-					anchor={createAnchor}
-					onClose={() => (createOpen = null)}
-					onSnapshot={setLibrarySnapshot}
-				/>
-			{/if}
-		</div>
+		<button type="button" onclick={(event) => openCreate('project', event)}>
+			<StackIcon size={18} />
+			<span>New Project</span>
+		</button>
+		<button type="button" onclick={(event) => openCreate('folder', event)}>
+			<FolderIcon size={18} />
+			<span>New Folder</span>
+		</button>
+		<button type="button" onclick={(event) => openCreate('tag', event)}>
+			<HashIcon size={18} />
+			<span>New Tag</span>
+		</button>
 	</div>
 
-	<nav class="section-chips" aria-label="Library sections">
-		{#each librarySectionChips as section (section)}
-			<button
-				class:active={activeSection === section}
-				type="button"
-				onclick={() => (activeSection = section)}
-			>
-				{section}
-			</button>
-		{/each}
-	</nav>
-
-	<button class="full-library" type="button" onclick={openFullLibrary}>
-		<SquaresFourIcon size={21} />
-		<span>View Full Library</span>
-		<span aria-hidden="true">></span>
-	</button>
-
-	<section class="overview-section" aria-labelledby="pinned-projects-heading">
-		<header>
-			<h2 id="pinned-projects-heading">Pinned Projects</h2>
-			<button type="button" onclick={(event) => openCreate('project', event)}>+ New Project</button>
-		</header>
-		<GroupedNavList
-			ariaLabel="Projects"
-			rows={library.projects.map((project) => ({
-				id: project.id,
-				label: project.name,
-				count: project.assetCount,
-				icon: 'project'
-			}))}
-			onOpen={openProjectLibrary}
-		/>
-	</section>
+	<ProjectCardGrid
+		projects={hubProjects}
+		onOpen={openProjectLibrary}
+		onCreate={(event) => openCreate('project', event)}
+	/>
 
 	<section class="overview-section" aria-labelledby="folders-heading">
 		<header>
-			<h2 id="folders-heading">Folders</h2>
+			<h2 id="folders-heading">
+				<FolderIcon size={20} />
+				<span>Folders</span>
+			</h2>
 			<button type="button" onclick={(event) => openCreate('folder', event)}>+ New Folder</button>
 		</header>
-		<GroupedNavList
-			ariaLabel="Top-level folders"
-			rows={topFolders.map((folder) => ({
-				id: folder.id,
-				label: folder.name,
-				count: folder.assetCount,
-				icon: 'folder'
-			}))}
-			onOpen={(id) => {
-				const folder = topFolders.find((item) => item.id === id);
-				if (folder) openLibraryFolder(folder.path);
-			}}
-		/>
+		{#if folderTree.length}
+			<FolderTree
+				nodes={folderTree}
+				expanded={expandedFolders}
+				onToggle={toggleFolder}
+				onOpen={(folder) => openLibraryFolder(folder.path)}
+			/>
+		{:else}
+			<button class="empty-row" type="button" onclick={(event) => openCreate('folder', event)}>
+				<FolderIcon size={18} />
+				<span>Create your first folder</span>
+			</button>
+		{/if}
 	</section>
 
-	<section class="overview-section" aria-labelledby="smart-folders-heading">
-		<header>
-			<h2 id="smart-folders-heading">Smart Folders</h2>
-			<button type="button">See all</button>
-		</header>
-		<GroupedNavList
-			ariaLabel="Smart folders"
-			rows={librarySmartFolders.map((folder) => ({
-				id: folder.id,
-				label: folder.label,
-				count: folder.count,
-				icon: folder.icon
-			}))}
-			onOpen={openSmartFolder}
-		/>
-	</section>
+	<TagGroupList
+		groups={tagGroups}
+		expanded={expandedTagGroups}
+		onToggle={toggleTagGroup}
+		onCreateTag={(event) => openCreate('tag', event)}
+		onCreateGroup={(event) => openCreate('tag-group', event)}
+	/>
 
-	<section class="overview-section" aria-labelledby="tags-heading">
-		<header>
-			<h2 id="tags-heading">Tags</h2>
-			<button type="button" onclick={(event) => openCreate('tag', event)}>+ New Tag</button>
-		</header>
-		<GroupedNavList
-			ariaLabel="Tag facets"
-			rows={library.tagFacets.map((facet) => ({
-				id: facet.id,
-				label: facet.name,
-				count: facet.tagCount,
-				icon: 'tag'
-			}))}
-			onOpen={() => undefined}
-		/>
-	</section>
+	<SmartFolderList items={librarySmartFolders} onOpen={openSmartFolder} />
 </section>
+
+{#if createOpen}
+	<CreateOrganizationPopover
+		kind={createOpen}
+		{library}
+		anchor={createAnchor}
+		onClose={() => (createOpen = null)}
+		onSnapshot={setLibrarySnapshot}
+	/>
+{/if}
 
 <style>
 	.library-overview {
+		width: min(100%, 64rem);
 		height: 100%;
+		margin-inline: auto;
 		display: grid;
 		align-content: start;
-		gap: var(--space-5);
+		gap: var(--space-6);
 		overflow: auto;
 		overscroll-behavior: contain;
-		padding: var(--space-5) var(--space-4) calc(var(--bottom-nav-height) + var(--space-8));
+		padding: var(--space-6) var(--space-5) calc(var(--bottom-nav-height) + var(--space-8));
 	}
 
 	.page-title h1 {
 		margin: 0;
 		font-family: var(--font-heading);
-		font-size: 2.35rem;
+		font-size: 2.85rem;
 		font-weight: 600;
-		line-height: 1;
+		line-height: 0.98;
 	}
 
 	.page-title p {
@@ -233,84 +194,38 @@
 		color: var(--color-muted);
 	}
 
-	.section-chips {
-		display: flex;
-		gap: var(--space-2);
-		overflow-x: auto;
-		scrollbar-width: none;
-	}
-
 	.create-actions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--space-2);
-	}
-
-	.create-wrap {
-		position: relative;
-	}
-
-	.section-chips::-webkit-scrollbar {
-		display: none;
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: var(--space-3);
 	}
 
 	.create-actions button,
-	.section-chips button,
-	.full-library,
-	header button {
+	.empty-row {
+		min-width: 0;
+		min-height: 3rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-2);
+		padding: 0 var(--space-4);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-pill);
 		background: var(--color-surface);
 		color: var(--color-text);
+		font: inherit;
 		cursor: pointer;
-	}
-
-	.create-actions button,
-	.section-chips button {
-		min-height: 2.45rem;
-		display: inline-flex;
-		align-items: center;
-		gap: var(--space-2);
-		padding: 0 var(--space-4);
-		white-space: nowrap;
-	}
-
-	.section-chips button.active {
-		background: var(--color-surface-raised);
-	}
-
-	.create-actions button,
-	.section-chips button,
-	.full-library,
-	header button {
 		transition:
 			background var(--duration-fast) var(--ease-out),
-			border-color var(--duration-fast) var(--ease-out),
-			color var(--duration-fast) var(--ease-out),
-			transform var(--duration-fast) var(--ease-out);
+			border-color var(--duration-fast) var(--ease-out);
 	}
 
 	.create-actions button:hover,
 	.create-actions button:focus-visible,
-	.section-chips button:hover,
-	.full-library:hover {
+	.empty-row:hover,
+	.empty-row:focus-visible {
 		border-color: var(--color-border-strong);
 		background: var(--color-surface-soft);
-	}
-
-	.full-library {
-		min-height: 3.25rem;
-		display: grid;
-		grid-template-columns: auto 1fr auto;
-		align-items: center;
-		gap: var(--space-3);
-		padding: 0 var(--space-4);
-		border-radius: var(--radius-lg);
-		text-align: left;
-	}
-
-	.full-library:hover {
-		transform: translateY(-1px);
 	}
 
 	.overview-section {
@@ -322,32 +237,52 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
+		gap: var(--space-3);
 	}
 
 	h2 {
 		margin: 0;
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-2);
 		font-family: var(--font-heading);
-		font-size: 1.2rem;
+		font-size: 1.45rem;
 		font-weight: 600;
+		line-height: 1.1;
 	}
 
 	header button {
 		border: 0;
 		background: transparent;
+		color: var(--color-accent);
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.empty-row {
+		justify-content: flex-start;
+		border-style: dashed;
 		color: var(--color-muted);
 	}
 
-	@media (min-width: 760px) {
+	@media (min-width: 1024px) {
 		.library-overview {
-			padding: var(--space-6);
+			width: min(100%, 58rem);
 		}
 	}
 
 	@media (max-width: 759px) {
 		.library-overview {
+			width: 100%;
 			height: auto;
 			min-height: 100%;
+			margin: 0;
 			overflow: visible;
+			padding: var(--space-5) var(--space-4) calc(var(--bottom-nav-height) + var(--space-8));
+		}
+
+		.create-actions {
+			grid-template-columns: 1fr;
 		}
 	}
 </style>

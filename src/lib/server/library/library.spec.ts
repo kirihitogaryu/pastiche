@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ensureLibraryArchive, resolveLibraryPaths } from './paths';
-import { initializeLibrary } from './schema';
+import { initializeLibrary, openLibraryDatabase } from './schema';
 import { getLibraryStatus } from './status';
 import { importLibraryItems } from './import';
 import {
@@ -81,6 +81,18 @@ describe('local library archive', () => {
 		expect(projectColumns).not.toContain('path');
 	});
 
+	it('creates the reserved General tag group first', () => {
+		const db = openLibraryDatabase();
+		const groups = db
+			.prepare('select slug, name from tag_facets order by rowid')
+			.all() as Array<{ slug: string; name: string }>;
+		db.close();
+
+		expect(groups[0]).toEqual({ slug: 'general', name: 'General' });
+		expect(groups.map((group) => group.slug)).toContain('subject');
+		expect(groups.map((group) => group.slug)).toContain('medium');
+	});
+
 	it('creates empty folder directories with collision-safe slugged paths', async () => {
 		initializeLibrary();
 
@@ -99,7 +111,7 @@ describe('local library archive', () => {
 		]);
 	});
 
-	it('creates empty faceted tags and attaches them to assets', async () => {
+	it('creates empty grouped tags and attaches them to assets', async () => {
 		const result = await importLibraryItems({
 			destination_folder_id: null,
 			items: [
@@ -127,7 +139,7 @@ describe('local library archive', () => {
 		expect(snapshot.stats.tags).toBeGreaterThanOrEqual(2);
 		expect(snapshot.tagFacets.find((facet) => facet.slug === 'usage-intent')?.tagCount).toBe(1);
 		expect(snapshot.assets[0].record?.organization.tags).toEqual([
-			expect.objectContaining({ name: 'subject: hands', assetCount: 1 })
+			expect.objectContaining({ name: 'Subject: hands', assetCount: 1 })
 		]);
 		expect(loose.assetCount).toBe(0);
 	});

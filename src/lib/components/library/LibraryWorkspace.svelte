@@ -68,6 +68,8 @@
 			<FolderContents scope="folder" {library} {loading} {error} />
 		{:else if appState.libraryView === 'project'}
 			<FolderContents scope="project" {library} {loading} {error} />
+		{:else if appState.libraryView === 'smart'}
+			<FolderContents scope="smart" {library} {loading} {error} />
 		{:else}
 			<LibraryOverview {library} {loading} {error} />
 		{/if}

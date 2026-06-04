@@ -6,6 +6,7 @@ import { importLibraryItems } from '$lib/server/library/import';
 import { createFolder, createProject } from '$lib/server/library/organization';
 import { POST as createFolderPost } from './folders/+server';
 import { POST as createProjectPost } from './projects/+server';
+import { POST as createTagGroupPost } from './tag-groups/+server';
 import { POST as createTagPost } from './tags/+server';
 import { POST as attachTagPost } from './assets/[id]/tags/+server';
 import { POST as acceptSourceTagPost } from './assets/[id]/source-tags/+server';
@@ -47,11 +48,27 @@ describe('library organization routes', () => {
 		const tagBody = await tagResponse.json();
 		expect(tagResponse.status).toBe(200);
 		expect(tagBody.tag).toMatchObject({
-			name: 'usage intent: lighting study',
-			facetName: 'usage intent',
+			name: 'Usage Intent: lighting study',
+			facetName: 'Usage Intent',
 			assetCount: 0
 		});
 		expect(tagBody.snapshot.stats.tags).toBe(1);
+	});
+
+	it('creates an empty user tag group without creating a tag', async () => {
+		const response = await createTagGroupPost({
+			request: jsonRequest({ name: 'Texture' })
+		});
+		const body = await response.json();
+
+		expect(response.status).toBe(201);
+		expect(body.snapshot.tagFacets.some((group: { slug: string }) => group.slug === 'texture')).toBe(
+			true
+		);
+		expect(
+			body.snapshot.tagFacets.find((group: { slug: string }) => group.slug === 'texture')?.tagCount
+		).toBe(0);
+		expect(body.snapshot.stats.tags).toBe(0);
 	});
 
 	it('attaches tags and accepts source tag suggestions for assets', async () => {
@@ -68,7 +85,7 @@ describe('library organization routes', () => {
 		const attachBody = await attachResponse.json();
 		expect(attachResponse.status).toBe(200);
 		expect(attachBody.snapshot.assets[0].record.organization.tags).toEqual([
-			expect.objectContaining({ name: 'subject: hands' })
+			expect.objectContaining({ name: 'Subject: hands' })
 		]);
 
 		const acceptResponse = await acceptSourceTagPost({
@@ -78,8 +95,8 @@ describe('library organization routes', () => {
 		const acceptBody = await acceptResponse.json();
 		expect(acceptResponse.status).toBe(200);
 		expect(acceptBody.snapshot.assets[0].record.organization.tags).toEqual(expect.arrayContaining([
-			expect.objectContaining({ name: 'subject: hands' }),
-			expect.objectContaining({ name: 'source: The Met' })
+			expect.objectContaining({ name: 'Subject: hands' }),
+			expect.objectContaining({ name: 'Source: The Met' })
 		]));
 		expect(
 			acceptBody.snapshot.assets[0].record.organization.sourceTagSuggestions.find(

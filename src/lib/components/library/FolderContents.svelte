@@ -3,6 +3,7 @@
 	import ListBulletsIcon from 'phosphor-svelte/lib/ListBulletsIcon';
 	import SquaresFourIcon from 'phosphor-svelte/lib/SquaresFourIcon';
 	import AssetGrid from '$lib/components/browse/AssetGrid.svelte';
+	import { librarySmartFolders } from '$lib/data/library-organization';
 	import type { LibraryResponse } from '$lib/library/types';
 	import {
 		appState,
@@ -18,7 +19,7 @@
 	import LibrarySearch from './LibrarySearch.svelte';
 
 	type Props = {
-		scope: 'all' | 'folder' | 'project';
+		scope: 'all' | 'folder' | 'project' | 'smart';
 		library: LibraryResponse;
 		loading?: boolean;
 		error?: string | null;
@@ -35,22 +36,37 @@
 			? library.projects.find((item) => item.id === appState.activeProjectId) ?? null
 			: null
 	);
+	let smartFolder = $derived(
+		scope === 'smart'
+			? librarySmartFolders.find((item) => item.id === appState.activeSmartFolderId) ?? null
+			: null
+	);
 	let assets = $derived(
 		scope === 'all'
 			? library.assets
 			: scope === 'project'
 				? library.assets.filter((asset) => asset.projects.includes(appState.activeProjectId ?? ''))
-				: library.assets.filter((asset) => asset.folderPath.join('/') === folder?.path.join('/'))
+				: scope === 'smart'
+					? smartFolderAssets(library.assets, appState.activeSmartFolderId)
+					: library.assets.filter((asset) => asset.folderPath.join('/') === folder?.path.join('/'))
 	);
 	let title = $derived(
-		scope === 'all' ? 'All Library' : scope === 'project' ? (project?.name ?? 'Project') : (folder?.name ?? 'Folder')
+		scope === 'all'
+			? 'All Library'
+			: scope === 'project'
+				? (project?.name ?? 'Project')
+				: scope === 'smart'
+					? (smartFolder?.label ?? 'Smart Folder')
+					: (folder?.name ?? 'Folder')
 	);
 	let stats = $derived(
 		scope === 'all'
 			? `${assets.length.toLocaleString()} assets`
 			: scope === 'project'
 				? `${assets.length.toLocaleString()} assets · ${project?.folderCount ?? 0} folders`
-				: `${(folder?.assetCount ?? 0).toLocaleString()} assets · ${folder?.childFolderCount ?? 0} subfolders`
+				: scope === 'smart'
+					? `${assets.length.toLocaleString()} assets`
+					: `${(folder?.assetCount ?? 0).toLocaleString()} assets · ${folder?.childFolderCount ?? 0} subfolders`
 	);
 
 	function findFolderByPath(source: LibraryResponse, path: string[]): LibraryFolder | null {
@@ -63,6 +79,20 @@
 		if (window.matchMedia('(max-width: 759px)').matches) {
 			openMobileInspect(asset, window.scrollY);
 		}
+	}
+
+	function smartFolderAssets(assets: Asset[], id: string | null) {
+		if (id === 'favorites') return assets.filter((asset) => asset.favorite);
+		if (id === 'untagged') return assets.filter((asset) => asset.tags.length === 0);
+		if (id === 'missing-source') return assets.filter((asset) => !asset.sourceUrl);
+		if (id === 'recently-added') {
+			return [...assets].sort((a, b) => {
+				const aImported = 'importedAt' in a && typeof a.importedAt === 'string' ? a.importedAt : '';
+				const bImported = 'importedAt' in b && typeof b.importedAt === 'string' ? b.importedAt : '';
+				return bImported.localeCompare(aImported);
+			});
+		}
+		return assets;
 	}
 </script>
 

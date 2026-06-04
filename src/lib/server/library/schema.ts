@@ -122,15 +122,16 @@ function ensureColumn(db: Database.Database, table: string, column: string, defi
 }
 
 const DEFAULT_TAG_FACETS = [
-	{ slug: 'subject', name: 'subject' },
-	{ slug: 'medium', name: 'medium' },
-	{ slug: 'style-era', name: 'style/era' },
-	{ slug: 'source', name: 'source' },
-	{ slug: 'location', name: 'location' },
-	{ slug: 'department', name: 'department' },
-	{ slug: 'culture', name: 'culture' },
-	{ slug: 'usage-intent', name: 'usage intent' },
-	{ slug: 'color-mood', name: 'color mood' }
+	{ slug: 'general', name: 'General' },
+	{ slug: 'subject', name: 'Subject' },
+	{ slug: 'medium', name: 'Medium' },
+	{ slug: 'style-era', name: 'Style / Era' },
+	{ slug: 'source', name: 'Source' },
+	{ slug: 'location', name: 'Location' },
+	{ slug: 'department', name: 'Department' },
+	{ slug: 'culture', name: 'Culture' },
+	{ slug: 'usage-intent', name: 'Usage Intent' },
+	{ slug: 'color-mood', name: 'Color Mood' }
 ];
 
 function ensureDefaultTagFacets(db: Database.Database) {

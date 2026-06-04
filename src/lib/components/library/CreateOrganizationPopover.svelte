@@ -5,7 +5,7 @@
 	import type { LibraryResponse } from '$lib/library/types';
 	import { appState } from '$lib/state/app-state.svelte';
 
-	type Kind = 'folder' | 'project' | 'tag';
+	type Kind = 'folder' | 'project' | 'tag' | 'tag-group';
 
 	type Props = {
 		kind: Kind;
@@ -18,7 +18,7 @@
 
 	let { kind, library, asset = null, anchor = null, onClose, onSnapshot }: Props = $props();
 	let name = $state('');
-	let facet = $state('subject');
+	let facet = $state('General');
 	let startWithCurrentFolder = $state(true);
 	let saving = $state(false);
 	let error = $state<string | null>(null);
@@ -28,14 +28,22 @@
 			null
 	);
 	let title = $derived(
-		kind === 'folder' ? 'New Folder' : kind === 'project' ? 'New Project' : 'New Tag'
+		kind === 'folder'
+			? 'New Folder'
+			: kind === 'project'
+				? 'New Project'
+				: kind === 'tag-group'
+					? 'New Tag Group'
+					: 'New Tag'
 	);
 	let placeholder = $derived(
 		kind === 'folder'
 			? 'Character poses'
 			: kind === 'project'
 				? 'Comic chapter studies'
-				: 'subject:hands'
+				: kind === 'tag-group'
+					? 'Texture'
+					: 'hands'
 	);
 	let Icon = $derived(kind === 'folder' ? FolderIcon : kind === 'project' ? StackIcon : HashIcon);
 	let popoverStyle = $derived(
@@ -68,6 +76,7 @@
 	function endpoint() {
 		if (kind === 'folder') return '/api/library/folders';
 		if (kind === 'project') return '/api/library/projects';
+		if (kind === 'tag-group') return '/api/library/tag-groups';
 		if (asset) return `/api/library/assets/${encodeURIComponent(asset.id)}/tags`;
 		return '/api/library/tags';
 	}
@@ -86,9 +95,16 @@
 					startWithCurrentFolder && appState.libraryView === 'folder' ? currentFolder?.id ?? null : null
 			};
 		}
+		if (kind === 'tag-group') return { name };
 		return name.includes(':') ? { label: name } : { facet, value: name };
 	}
 </script>
+
+<svelte:window
+	onkeydown={(event) => {
+		if (event.key === 'Escape') onClose();
+	}}
+/>
 
 <form class="create-popover" style={popoverStyle} aria-label={title} onsubmit={(event) => { event.preventDefault(); submit(); }}>
 	<header>
@@ -101,7 +117,7 @@
 	</label>
 	{#if kind === 'tag' && !name.includes(':')}
 		<label>
-			<span>Facet</span>
+			<span>Tag Group</span>
 			<select bind:value={facet}>
 				{#each library.tagFacets as item (item.id)}
 					<option value={item.name}>{item.name}</option>

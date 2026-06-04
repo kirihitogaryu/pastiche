@@ -59,6 +59,17 @@ export function createTag(input: CreateTagInput): LibraryTag {
 	}
 }
 
+export function createTagGroup(input: { name: string; now?: string }) {
+	const db = openLibraryDatabase();
+	try {
+		const name = cleanString(input.name);
+		if (!name) throw new Error('Tag group name is required');
+		return findOrCreateFacet(db, name, input.now);
+	} finally {
+		db.close();
+	}
+}
+
 export function attachTagToAsset(assetId: string, tagId: string) {
 	const db = openLibraryDatabase();
 	try {
@@ -137,6 +148,11 @@ export function addProjectAssetRef(projectId: string, assetId: string) {
 			`insert or ignore into project_asset_refs (project_id, asset_id, created_at)
 			 values (?, ?, ?)`
 		).run(projectId, assetId, now);
+		db.prepare(
+			`update projects
+			 set cover_asset_id = coalesce(cover_asset_id, ?), updated_at = ?
+			 where id = ?`
+		).run(assetId, now, projectId);
 		return projectById(db, projectId);
 	} finally {
 		db.close();
@@ -186,8 +202,8 @@ export function parseTagInput(input: CreateTagInput) {
 		const value = rest.join(':').trim();
 		if (facet.trim() && value) return { facet: facet.trim(), value };
 	}
-	if (explicitValue) return { facet: explicitFacet ?? 'subject', value: explicitValue };
-	if (label) return { facet: explicitFacet ?? 'subject', value: label };
+	if (explicitValue) return { facet: explicitFacet ?? 'General', value: explicitValue };
+	if (label) return { facet: explicitFacet ?? 'General', value: label };
 	throw new Error('Tag value is required');
 }
 
@@ -204,7 +220,7 @@ export function inferSuggestionFacet(name: string) {
 
 function findOrCreateFacet(db: Database.Database, name: string, nowInput?: string): FacetRow {
 	const slug = slugify(name);
-	if (!slug) throw new Error('Facet name is required');
+	if (!slug) throw new Error('Tag group name is required');
 	const existing = db.prepare('select id, name, slug from tag_facets where slug = ?').get(slug) as
 		| FacetRow
 		| undefined;
@@ -299,6 +315,7 @@ function mapProject(row: ProjectRow): LibraryProject {
 		description: row.description,
 		pinned: Boolean(row.pinned),
 		coverAssetId: row.cover_asset_id,
+		coverPreviewUrl: null,
 		assetCount: row.asset_count,
 		folderCount: row.folder_count,
 		createdAt: row.created_at,
