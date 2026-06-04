@@ -159,6 +159,27 @@ export function addProjectAssetRef(projectId: string, assetId: string) {
 	}
 }
 
+export function setProjectCoverAsset(projectId: string, assetId: string) {
+	const db = openLibraryDatabase();
+	try {
+		assertProjectExists(db, projectId);
+		assertAssetExists(db, assetId);
+		const now = new Date().toISOString();
+		db.prepare(
+			`insert or ignore into project_asset_refs (project_id, asset_id, created_at)
+			 values (?, ?, ?)`
+		).run(projectId, assetId, now);
+		db.prepare('update projects set cover_asset_id = ?, updated_at = ? where id = ?').run(
+			assetId,
+			now,
+			projectId
+		);
+		return projectById(db, projectId);
+	} finally {
+		db.close();
+	}
+}
+
 export function addProjectFolderRef(
 	projectId: string,
 	folderId: string,

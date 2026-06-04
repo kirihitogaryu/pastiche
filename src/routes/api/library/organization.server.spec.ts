@@ -12,6 +12,7 @@ import { POST as attachTagPost } from './assets/[id]/tags/+server';
 import { POST as acceptSourceTagPost } from './assets/[id]/source-tags/+server';
 import { POST as addProjectAssetPost } from './projects/[id]/assets/+server';
 import { POST as addProjectFolderPost } from './projects/[id]/folders/+server';
+import { POST as setProjectCoverPost } from './projects/[id]/cover/+server';
 
 describe('library organization routes', () => {
 	let archiveRoot: string;
@@ -129,6 +130,29 @@ describe('library organization routes', () => {
 		expect(assetRefResponse.status).toBe(200);
 		expect(assetRefBody.snapshot.projects[0]).toMatchObject({ assetCount: 1 });
 		expect(assetRefBody.snapshot.assets[0].projects).toEqual([project.id]);
+	});
+
+	it('sets a project cover and adds the asset to the project when needed', async () => {
+		const imported = await importLibraryItems({
+			destination_folder_id: null,
+			items: [referenceImport('Cover hand', 'https://example.com/cover.jpg')]
+		});
+		const project = createProject({ name: 'Cover board' });
+
+		const response = await setProjectCoverPost({
+			params: { id: project.id },
+			request: jsonRequest({ asset_id: imported.imported[0].asset_id })
+		});
+		const body = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(body.snapshot.projects[0]).toMatchObject({
+			id: project.id,
+			coverAssetId: imported.imported[0].asset_id,
+			coverPreviewUrl: 'https://example.com/cover.jpg',
+			assetCount: 1
+		});
+		expect(body.snapshot.assets[0].projects).toEqual([project.id]);
 	});
 });
 

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CheckCircleIcon from 'phosphor-svelte/lib/CheckCircleIcon';
+	import ImageSquareIcon from 'phosphor-svelte/lib/ImageSquareIcon';
 	import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
 	import StarIcon from 'phosphor-svelte/lib/StarIcon';
 	import type { LibraryAssetRecord } from '$lib/library/types';
@@ -12,11 +13,22 @@
 		active?: boolean;
 		selected?: boolean;
 		mode?: 'library' | 'explore';
+		projectCover?: boolean;
 		onOpen: (asset: Asset) => void;
 		onSelect: (asset: Asset) => void;
+		onSetProjectCover?: (asset: Asset) => void;
 	};
 
-	let { asset, active = false, selected = false, mode = 'library', onOpen, onSelect }: Props = $props();
+	let {
+		asset,
+		active = false,
+		selected = false,
+		mode = 'library',
+		projectCover = false,
+		onOpen,
+		onSelect,
+		onSetProjectCover
+	}: Props = $props();
 	let displayRatio = $derived(Math.min(1.65, Math.max(0.72, asset.width / asset.height)));
 	let imageUrl = $derived(asset.record?.image.previewUrl || asset.imageUrl || null);
 	let menuOpen = $state(false);
@@ -60,11 +72,18 @@
 		menuOpen = false;
 		onSelect(asset);
 	}
+
+	function setProjectCover(event: MouseEvent) {
+		event.stopPropagation();
+		menuOpen = false;
+		onSetProjectCover?.(asset);
+	}
 </script>
 
 <article
 	class:active
 	class:selected
+	class:project-cover={projectCover}
 	class:explore={mode === 'explore'}
 	class="asset-card"
 	style={`--asset-ratio: ${displayRatio}`}
@@ -110,6 +129,8 @@
 		>
 			{#if selected}
 				<CheckCircleIcon size={22} weight="fill" />
+			{:else if projectCover}
+				<ImageSquareIcon size={20} weight="fill" />
 			{:else}
 				<StarIcon size={20} weight={asset.favorite ? 'fill' : 'regular'} />
 			{/if}
@@ -117,6 +138,11 @@
 	{/if}
 	{#if menuOpen && mode === 'library'}
 		<div class="card-menu" role="menu" aria-label={`${asset.title} actions`}>
+			{#if onSetProjectCover}
+				<button type="button" role="menuitem" onclick={setProjectCover}>
+					{projectCover ? 'Project Cover' : 'Set Project Cover'}
+				</button>
+			{/if}
 			<button type="button" role="menuitem" onclick={chooseMenuAction}>
 				{asset.favorite ? 'Remove favorite' : 'Favorite'}
 			</button>
@@ -147,6 +173,10 @@
 
 	.asset-card.selected {
 		border-color: var(--color-text);
+	}
+
+	.asset-card.project-cover {
+		border-color: var(--color-accent);
 	}
 
 	.asset-card:hover {
@@ -287,6 +317,12 @@
 
 	.quick-action.favorite {
 		color: var(--color-accent);
+	}
+
+	.asset-card.project-cover .quick-action {
+		color: var(--color-accent);
+		opacity: 1;
+		pointer-events: auto;
 	}
 
 	.card-menu {

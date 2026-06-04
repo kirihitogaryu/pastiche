@@ -7,8 +7,10 @@
 		activeId?: string | null;
 		selectedIds?: string[];
 		mode?: 'library' | 'explore';
+		projectCoverId?: string | null;
 		onOpen: (asset: Asset) => void;
 		onSelect: (asset: Asset) => void;
+		onSetProjectCover?: (asset: Asset) => void;
 	};
 
 	let {
@@ -16,8 +18,10 @@
 		activeId = null,
 		selectedIds = [],
 		mode = 'library',
+		projectCoverId = null,
 		onOpen,
-		onSelect
+		onSelect,
+		onSetProjectCover
 	}: Props = $props();
 </script>
 
@@ -28,8 +32,10 @@
 			{mode}
 			active={mode !== 'library' && asset.id === activeId}
 			selected={selectedIds.includes(asset.id)}
+			projectCover={asset.id === projectCoverId}
 			{onOpen}
 			{onSelect}
+			{onSetProjectCover}
 		/>
 	{/each}
 </section>

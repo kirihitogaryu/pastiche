@@ -1,5 +1,7 @@
 <script lang="ts">
 	import ArrowLeftIcon from 'phosphor-svelte/lib/ArrowLeftIcon';
+	import FolderPlusIcon from 'phosphor-svelte/lib/FolderPlusIcon';
+	import ImageSquareIcon from 'phosphor-svelte/lib/ImageSquareIcon';
 	import ListBulletsIcon from 'phosphor-svelte/lib/ListBulletsIcon';
 	import SquaresFourIcon from 'phosphor-svelte/lib/SquaresFourIcon';
 	import AssetGrid from '$lib/components/browse/AssetGrid.svelte';
@@ -13,8 +15,11 @@
 		selectAsset,
 		toggleSelection
 	} from '$lib/state/app-state.svelte';
+	import { setLibrarySnapshot } from '$lib/state/library-state.svelte';
 	import type { Asset } from '$lib/types';
 	import type { LibraryFolder } from '$lib/types';
+	import AddProjectAssetsPopover from './AddProjectAssetsPopover.svelte';
+	import CreateOrganizationPopover from './CreateOrganizationPopover.svelte';
 	import FolderCards from './FolderCards.svelte';
 	import LibrarySearch from './LibrarySearch.svelte';
 
@@ -26,6 +31,11 @@
 	};
 
 	let { scope, library, loading = false, error = null }: Props = $props();
+	let addImagesOpen = $state(false);
+	let subfolderOpen = $state(false);
+	let actionAnchor = $state<{ left: number; top: number } | null>(null);
+	let coverSavingId = $state<string | null>(null);
+	let localError = $state<string | null>(null);
 
 	let folder = $derived(findFolderByPath(library, appState.activeLibraryFolderPath));
 	let childFolders = $derived(
@@ -81,6 +91,50 @@
 		}
 	}
 
+	function openAnchored(kind: 'images' | 'subfolder', event: MouseEvent) {
+		actionAnchor = anchorFrom(event.currentTarget);
+		if (kind === 'images') {
+			addImagesOpen = !addImagesOpen;
+			subfolderOpen = false;
+		} else {
+			subfolderOpen = !subfolderOpen;
+			addImagesOpen = false;
+		}
+	}
+
+	function anchorFrom(target: EventTarget | null) {
+		if (!(target instanceof HTMLElement)) return null;
+		const rect = target.getBoundingClientRect();
+		const width = 368;
+		return {
+			left: Math.max(12, Math.min(rect.left, window.innerWidth - width - 12)),
+			top: rect.bottom + 8
+		};
+	}
+
+	async function setProjectCover(asset: Asset) {
+		if (!project || coverSavingId) return;
+		coverSavingId = asset.id;
+		localError = null;
+		try {
+			const response = await fetch(`/api/library/projects/${encodeURIComponent(project.id)}/cover`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ asset_id: asset.id })
+			});
+			const body = (await response.json()) as { error?: string; snapshot?: LibraryResponse };
+			if (!response.ok || !body.snapshot) {
+				throw new Error(body.error ?? 'Project cover could not be updated.');
+			}
+			setLibrarySnapshot(body.snapshot);
+		} catch (coverError) {
+			localError =
+				coverError instanceof Error ? coverError.message : 'Project cover could not be updated.';
+		} finally {
+			coverSavingId = null;
+		}
+	}
+
 	function smartFolderAssets(assets: Asset[], id: string | null) {
 		if (id === 'favorites') return assets.filter((asset) => asset.favorite);
 		if (id === 'untagged') return assets.filter((asset) => asset.tags.length === 0);
@@ -124,6 +178,8 @@
 		<p>{stats}</p>
 		{#if error}
 			<p class="status-message">{error}</p>
+		{:else if localError}
+			<p class="status-message">{localError}</p>
 		{:else if loading}
 			<p class="status-message">Loading library...</p>
 		{/if}
@@ -131,7 +187,21 @@
 
 	<div class="search-sort">
 		<LibrarySearch label={`Search ${title}`} />
-		<button class="sort" type="button">Newest</button>
+		<div class="view-actions">
+			{#if scope === 'folder' && folder}
+				<button class="sort" type="button" onclick={(event) => openAnchored('subfolder', event)}>
+					<FolderPlusIcon size={17} />
+					<span>New Subfolder</span>
+				</button>
+			{/if}
+			{#if scope === 'project' && project}
+				<button class="sort" type="button" onclick={(event) => openAnchored('images', event)}>
+					<ImageSquareIcon size={17} />
+					<span>Add Images</span>
+				</button>
+			{/if}
+			<button class="sort" type="button">Newest</button>
+		</div>
 	</div>
 
 	{#if childFolders.length > 0}
@@ -156,11 +226,33 @@
 			mode="library"
 			activeId={appState.selectedAssetId}
 			selectedIds={appState.selectedAssetIds}
+			projectCoverId={scope === 'project' ? project?.coverAssetId : null}
 			onOpen={openAsset}
 			onSelect={(asset) => toggleSelection(asset)}
+			onSetProjectCover={scope === 'project' ? setProjectCover : undefined}
 		/>
 	</section>
 </section>
+
+{#if subfolderOpen && scope === 'folder' && folder}
+	<CreateOrganizationPopover
+		kind="folder"
+		{library}
+		anchor={actionAnchor}
+		onClose={() => (subfolderOpen = false)}
+		onSnapshot={setLibrarySnapshot}
+	/>
+{/if}
+
+{#if addImagesOpen && scope === 'project' && project}
+	<AddProjectAssetsPopover
+		{library}
+		projectId={project.id}
+		anchor={actionAnchor}
+		onClose={() => (addImagesOpen = false)}
+		onSnapshot={setLibrarySnapshot}
+	/>
+{/if}
 
 <style>
 	.folder-view {
@@ -268,12 +360,26 @@
 		gap: var(--space-3);
 	}
 
+	.view-actions {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: end;
+		gap: var(--space-2);
+	}
+
 	.sort {
 		min-width: 6.5rem;
+		min-height: 2.65rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-2);
+		padding: 0 var(--space-3);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-lg);
 		background: var(--color-surface);
 		color: var(--color-text);
+		font: inherit;
 		cursor: pointer;
 		transition:
 			background var(--duration-fast) var(--ease-out),
@@ -329,6 +435,14 @@
 	@media (max-width: 420px) {
 		.search-sort {
 			grid-template-columns: 1fr;
+		}
+
+		.view-actions {
+			justify-content: stretch;
+		}
+
+		.sort {
+			flex: 1;
 		}
 	}
 
