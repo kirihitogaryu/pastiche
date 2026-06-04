@@ -234,7 +234,7 @@
 
 	.search-results {
 		position: absolute;
-		inset: calc(100% + var(--space-2)) 0 auto;
+		inset: calc(100% - 1px) 0 auto;
 		max-height: min(28rem, calc(100dvh - 12rem));
 		overflow: auto;
 		display: grid;

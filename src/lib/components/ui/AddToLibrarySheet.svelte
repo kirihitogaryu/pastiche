@@ -22,8 +22,6 @@
 	};
 
 	let { onClose }: Props = $props();
-	let galleryInput = $state<HTMLInputElement | null>(null);
-	let folderInput = $state<HTMLInputElement | null>(null);
 	let importing = $state(false);
 	let statusMessage = $state<string | null>(null);
 	let urlOpen = $state(false);
@@ -106,45 +104,44 @@
 		<p>Import images into this folder</p>
 	</header>
 
-	<input
-		bind:this={galleryInput}
-		class="hidden-input"
-		type="file"
-		accept="image/*"
-		multiple
-		onchange={(event) => {
-			void importFiles(event.currentTarget.files);
-			event.currentTarget.value = '';
-		}}
-	/>
-	<input
-		bind:this={folderInput}
-		class="hidden-input"
-		type="file"
-		accept="image/*"
-		multiple
-		webkitdirectory
-		onchange={(event) => {
-			void importFiles(event.currentTarget.files);
-			event.currentTarget.value = '';
-		}}
-	/>
-
 	<div class="options">
-		<button type="button" disabled={importing} onclick={() => galleryInput?.click()}>
+		<label class="file-option" aria-disabled={importing}>
+			<input
+				class="hidden-input"
+				type="file"
+				accept="image/*"
+				multiple
+				disabled={importing}
+				onchange={(event) => {
+					void importFiles(event.currentTarget.files);
+					event.currentTarget.value = '';
+				}}
+			/>
 			<ImageSquareIcon size={27} />
 			<span>
 				<strong>From Gallery</strong>
 				<small>Choose images from your device</small>
 			</span>
-		</button>
-		<button type="button" disabled={importing} onclick={() => folderInput?.click()}>
+		</label>
+		<label class="file-option" aria-disabled={importing}>
+			<input
+				class="hidden-input"
+				type="file"
+				accept="image/*"
+				multiple
+				webkitdirectory
+				disabled={importing}
+				onchange={(event) => {
+					void importFiles(event.currentTarget.files);
+					event.currentTarget.value = '';
+				}}
+			/>
 			<FolderIcon size={27} />
 			<span>
 				<strong>From Folder</strong>
 				<small>Import all images from a folder</small>
 			</span>
-		</button>
+		</label>
 		<button type="button" disabled={importing} onclick={() => (urlOpen = !urlOpen)}>
 			<LinkIcon size={27} />
 			<span>
@@ -205,9 +202,20 @@
 		box-shadow: 0 1.5rem 4rem oklch(0% 0 0 / 0.45);
 	}
 
-	.add-sheet > i,
-	.hidden-input {
+	.add-sheet > i {
 		display: none;
+	}
+
+	.hidden-input {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		clip-path: inset(50%);
+		white-space: nowrap;
+		opacity: 0;
+		pointer-events: none;
 	}
 
 	h2,
@@ -230,6 +238,7 @@
 	}
 
 	button,
+	.file-option,
 	.url-form input {
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
@@ -238,11 +247,14 @@
 		font: inherit;
 	}
 
-	button {
+	button,
+	.file-option {
 		cursor: pointer;
 	}
 
-	.options > button {
+	.options > button,
+	.file-option {
+		position: relative;
 		min-height: 4rem;
 		display: grid;
 		grid-template-columns: 2.15rem 1fr;
@@ -263,6 +275,11 @@
 
 	.options small {
 		font-size: 0.82rem;
+	}
+
+	.file-option[aria-disabled='true'] {
+		cursor: not-allowed;
+		opacity: 0.55;
 	}
 
 	.url-form {
@@ -301,7 +318,9 @@
 	}
 
 	button:hover,
-	button:focus-visible {
+	button:focus-visible,
+	.file-option:hover,
+	.file-option:focus-within {
 		border-color: var(--color-border-strong);
 		background: var(--color-surface-soft);
 	}
@@ -333,7 +352,8 @@
 			background: var(--color-border-strong);
 		}
 
-		.options > button {
+		.options > button,
+		.file-option {
 			min-height: 3.45rem;
 			padding: var(--space-2) var(--space-3);
 		}
