@@ -123,6 +123,21 @@
 		</button>
 	</div>
 
+	<div class="mobile-create-actions" aria-label="Create library organization">
+		<button type="button" onclick={(event) => openCreate('project', event)}>
+			<StackIcon size={17} />
+			<span>Project</span>
+		</button>
+		<button type="button" onclick={(event) => openCreate('folder', event)}>
+			<FolderIcon size={17} />
+			<span>Folder</span>
+		</button>
+		<button type="button" onclick={(event) => openCreate('tag', event)}>
+			<HashIcon size={17} />
+			<span>Tag</span>
+		</button>
+	</div>
+
 	<ProjectCardGrid
 		projects={hubProjects}
 		onOpen={openProjectLibrary}
@@ -211,6 +226,10 @@
 		gap: var(--space-3);
 	}
 
+	.mobile-create-actions {
+		display: none;
+	}
+
 	.create-actions button,
 	.empty-row {
 		min-width: 0;
@@ -290,11 +309,42 @@
 			min-height: 100%;
 			margin: 0;
 			overflow: visible;
-			padding: var(--space-5) var(--space-4) calc(var(--bottom-nav-height) + var(--space-8));
+			gap: var(--space-4);
+			padding: var(--space-4) var(--space-3) calc(var(--bottom-nav-height) + var(--space-6));
 		}
 
 		.create-actions {
-			grid-template-columns: 1fr;
+			display: none;
+		}
+
+		.mobile-create-actions {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: var(--space-2);
+		}
+
+		.mobile-create-actions button {
+			min-width: 0;
+			min-height: 2.35rem;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: 0.35rem;
+			padding: 0 var(--space-2);
+			border: 1px solid var(--color-border);
+			border-radius: var(--radius-md);
+			background: transparent;
+			color: var(--color-muted);
+			font: inherit;
+			font-size: 0.82rem;
+			cursor: pointer;
+		}
+
+		.mobile-create-actions button:hover,
+		.mobile-create-actions button:focus-visible {
+			border-color: var(--color-border-strong);
+			background: var(--color-surface-soft);
+			color: var(--color-text);
 		}
 	}
 </style>
