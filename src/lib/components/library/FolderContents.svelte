@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ArrowLeftIcon from 'phosphor-svelte/lib/ArrowLeftIcon';
+	import DotsThreeIcon from 'phosphor-svelte/lib/DotsThreeIcon';
 	import FolderPlusIcon from 'phosphor-svelte/lib/FolderPlusIcon';
 	import ImageSquareIcon from 'phosphor-svelte/lib/ImageSquareIcon';
 	import ListBulletsIcon from 'phosphor-svelte/lib/ListBulletsIcon';
@@ -127,6 +128,14 @@
 		}
 	}
 
+	function openPrimaryMobileAction(event: MouseEvent) {
+		if (scope === 'folder' && folder) {
+			openAnchored('subfolder', event);
+		} else if (scope === 'project' && project) {
+			openAnchored('images', event);
+		}
+	}
+
 	function anchorFrom(target: EventTarget | null) {
 		if (!(target instanceof HTMLElement)) return null;
 		const rect = target.getBoundingClientRect();
@@ -220,7 +229,7 @@
 			onOpenTag={(id) => openLibraryTag(id)}
 			onOpenAsset={openAsset}
 		/>
-		<div class="view-actions">
+		<div class="view-actions desktop-actions">
 			{#if scope === 'folder' && folder}
 				<button class="sort" type="button" onclick={(event) => openAnchored('subfolder', event)}>
 					<FolderPlusIcon size={17} />
@@ -239,6 +248,11 @@
 			{/if}
 			<button class="sort" type="button">Newest</button>
 		</div>
+		{#if (scope === 'folder' && folder) || (scope === 'project' && project)}
+			<button class="mobile-overflow" type="button" aria-label="View actions" onclick={openPrimaryMobileAction}>
+				<DotsThreeIcon size={19} weight="bold" />
+			</button>
+		{/if}
 	</div>
 
 	{#if childFolders.length > 0}
@@ -416,6 +430,10 @@
 		gap: var(--space-2);
 	}
 
+	.mobile-overflow {
+		display: none;
+	}
+
 	.sort {
 		min-width: 6.5rem;
 		min-height: 2.65rem;
@@ -481,25 +499,41 @@
 		padding-inline: 0;
 	}
 
-	@media (max-width: 420px) {
-		.search-sort {
-			grid-template-columns: 1fr;
-		}
-
-		.view-actions {
-			justify-content: stretch;
-		}
-
-		.sort {
-			flex: 1;
-		}
-	}
-
 	@media (max-width: 759px) {
 		.folder-view {
 			height: auto;
 			min-height: 100%;
 			overflow: visible;
+			gap: var(--space-4);
+			padding: var(--space-4) var(--space-3) calc(var(--bottom-nav-height) + var(--space-6));
+		}
+
+		.search-sort {
+			grid-template-columns: 1fr auto;
+			gap: var(--space-2);
+		}
+
+		.desktop-actions {
+			display: none;
+		}
+
+		.mobile-overflow {
+			width: 2.6rem;
+			height: 2.6rem;
+			display: grid;
+			place-items: center;
+			border: 1px solid var(--color-border);
+			border-radius: var(--radius-md);
+			background: var(--color-surface);
+			color: var(--color-muted);
+			cursor: pointer;
+		}
+
+		.mobile-overflow:hover,
+		.mobile-overflow:focus-visible {
+			border-color: var(--color-border-strong);
+			background: var(--color-surface-soft);
+			color: var(--color-text);
 		}
 	}
 </style>
