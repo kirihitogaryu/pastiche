@@ -165,9 +165,9 @@
 
 <style>
 	.library-overview {
-		width: min(100%, 64rem);
+		box-sizing: border-box;
+		width: 100%;
 		height: 100%;
-		margin-inline: auto;
 		display: grid;
 		align-content: start;
 		gap: var(--space-6);
@@ -267,7 +267,8 @@
 
 	@media (min-width: 1024px) {
 		.library-overview {
-			width: min(100%, 58rem);
+			padding-left: var(--space-8);
+			padding-right: var(--space-6);
 		}
 	}
 

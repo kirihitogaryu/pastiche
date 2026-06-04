@@ -85,8 +85,10 @@
 
 	.project-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(14rem, 18rem));
 		gap: var(--space-3);
+		align-items: start;
+		justify-content: start;
 	}
 
 	.project-card,
@@ -120,8 +122,10 @@
 
 	.project-media {
 		aspect-ratio: 2.25 / 1;
+		max-height: 8.25rem;
 		display: grid;
 		place-items: center;
+		overflow: hidden;
 		color: var(--color-dim);
 		background: oklch(10% 0.008 70);
 	}
