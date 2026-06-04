@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
 	buildSmartFolderItems,
 	buildFolderTree,
+	filterAssetsByLibraryQuery,
 	filterAssetsByTag,
 	previewTags,
+	searchLibrary,
 	sortHubTagGroups,
 	type FolderTreeNode
 } from './libraryOverviewModel';
@@ -148,6 +150,99 @@ describe('libraryOverviewModel', () => {
 		expect(filterAssetsByTag(assets, 'subject-landscape').map((asset) => asset.id)).toEqual([
 			'landscape'
 		]);
+	});
+
+	it('searches library assets by title, creator, source, medium, and accepted tags', () => {
+		const assets = [
+			assetFixture('hands-study', [
+				{
+					id: 'tag-hands',
+					facetId: 'facet-subject',
+					facetName: 'Subject',
+					facetSlug: 'subject',
+					value: 'hands',
+					name: 'Subject: hands',
+					slug: 'subject-hands',
+					assetCount: 1
+				}
+			]),
+			{
+				...assetFixture('landscape', []),
+				title: 'Coastal Landscape',
+				creator: 'Turner',
+				medium: 'Watercolor',
+				sourceName: 'Archive'
+			}
+		];
+
+		expect(filterAssetsByLibraryQuery(assets, 'hands').map((asset) => asset.id)).toEqual([
+			'hands-study'
+		]);
+		expect(filterAssetsByLibraryQuery(assets, 'turner').map((asset) => asset.id)).toEqual([
+			'landscape'
+		]);
+		expect(filterAssetsByLibraryQuery(assets, 'watercolor').map((asset) => asset.id)).toEqual([
+			'landscape'
+		]);
+	});
+
+	it('returns grouped search results for hub navigation', () => {
+		const results = searchLibrary({
+			library: {
+				assets: [assetFixture('hands-study', [])],
+				folders: [
+					{
+						id: 'folder-figures',
+						name: 'Figures',
+						path: ['library', 'References', 'Figures'],
+						assetCount: 3,
+						childFolderCount: 0
+					}
+				],
+				projects: [
+					{
+						id: 'project-study',
+						name: 'Figure Studies',
+						description: null,
+						pinned: false,
+						coverAssetId: null,
+						coverPreviewUrl: null,
+						assetCount: 1,
+						folderCount: 0,
+						createdAt: '2026-06-04T00:00:00.000Z',
+						updatedAt: '2026-06-04T00:00:00.000Z'
+					}
+				],
+				tagFacets: [
+					{
+						id: 'facet-subject',
+						name: 'Subject',
+						slug: 'subject',
+						kind: 'facet',
+						tagCount: 1,
+						tags: [
+							{
+								id: 'tag-figure',
+								facetId: 'facet-subject',
+								facetName: 'Subject',
+								facetSlug: 'subject',
+								value: 'figure',
+								name: 'Subject: figure',
+								slug: 'subject-figure',
+								assetCount: 1
+							}
+						]
+					}
+				],
+				stats: { assets: 1, folders: 1, projects: 1, tags: 1 }
+			},
+			query: 'figure'
+		});
+
+		expect(results.projects[0]?.id).toBe('project-study');
+		expect(results.folders[0]?.id).toBe('folder-figures');
+		expect(results.tags[0]?.id).toBe('tag-figure');
+		expect(results.total).toBe(3);
 	});
 });
 
