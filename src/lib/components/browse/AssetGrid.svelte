@@ -26,7 +26,7 @@
 		<AssetCard
 			{asset}
 			{mode}
-			active={asset.id === activeId}
+			active={mode !== 'library' && asset.id === activeId}
 			selected={selectedIds.includes(asset.id)}
 			{onOpen}
 			{onSelect}

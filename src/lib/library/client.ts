@@ -6,7 +6,9 @@ export function emptyLibrarySnapshot(): LibraryResponse {
 	return {
 		assets: [],
 		folders: [],
-		stats: { assets: 0, projects: 0, folders: 0 }
+		projects: [],
+		tagFacets: [],
+		stats: { assets: 0, projects: 0, folders: 0, tags: 0 }
 	};
 }
 

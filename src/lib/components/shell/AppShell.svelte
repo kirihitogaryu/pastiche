@@ -12,6 +12,7 @@
 	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
 	import FilterPanel from '$lib/components/filters/FilterPanel.svelte';
 	import HomeHub from '$lib/components/home/HomeHub.svelte';
+	import FocusedAssetPreview from '$lib/components/inspector/FocusedAssetPreview.svelte';
 	import MobileInspect from '$lib/components/inspector/MobileInspect.svelte';
 	import LibraryWorkspace from '$lib/components/library/LibraryWorkspace.svelte';
 	import ModeRail from '$lib/components/shell/ModeRail.svelte';
@@ -21,10 +22,12 @@
 	import BottomNav from '$lib/components/ui/BottomNav.svelte';
 	import SelectionBar from '$lib/components/ui/SelectionBar.svelte';
 	import { libraryState } from '$lib/state/library-state.svelte';
+	import type { Asset } from '$lib/types';
 
 	let selectedAsset = $derived(
 		libraryState.snapshot.assets.find((asset) => asset.id === appState.selectedAssetId) ?? null
 	);
+	let mobilePreviewAsset = $state<Asset | null>(null);
 </script>
 
 <div class="app-shell">
@@ -64,7 +67,15 @@
 {/if}
 
 {#if appState.mobileState === 'inspecting' && selectedAsset}
-	<MobileInspect asset={selectedAsset} onClose={closeMobileInspect} />
+	<MobileInspect
+		asset={selectedAsset}
+		onClose={closeMobileInspect}
+		onPreview={(asset) => (mobilePreviewAsset = asset)}
+	/>
+{/if}
+
+{#if mobilePreviewAsset}
+	<FocusedAssetPreview asset={mobilePreviewAsset} onClose={() => (mobilePreviewAsset = null)} />
 {/if}
 
 {#if appState.filterOpen}

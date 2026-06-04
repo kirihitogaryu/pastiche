@@ -5,10 +5,13 @@
 	import MagnifyingGlassMinusIcon from 'phosphor-svelte/lib/MagnifyingGlassMinusIcon';
 	import MagnifyingGlassPlusIcon from 'phosphor-svelte/lib/MagnifyingGlassPlusIcon';
 	import XIcon from 'phosphor-svelte/lib/XIcon';
+	import type { LibraryAssetRecord } from '$lib/library/types';
 	import type { Asset } from '$lib/types';
 
+	type PreviewAsset = Asset & { record?: LibraryAssetRecord };
+
 	type Props = {
-		asset: Asset;
+		asset: PreviewAsset;
 		onClose: () => void;
 	};
 
@@ -27,6 +30,16 @@
 
 	let zoomPercent = $derived(`${Math.round(scale * 100)}%`);
 	let imageTransform = $derived(`translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`);
+	let title = $derived(asset.record?.title ?? asset.title);
+	let imageUrl = $derived(asset.record?.image.originalUrl ?? asset.record?.image.previewUrl ?? asset.imageUrl);
+	let sourceUrl = $derived(asset.record?.source.pageUrl ?? asset.sourceUrl);
+	let subtitle = $derived(
+		asset.record
+			? [asset.record.artist ?? asset.record.source.label, asset.record.dates.dateDisplay]
+					.filter(Boolean)
+					.join(', ')
+			: `${asset.creator || asset.sourceName}${asset.year ? `, ${asset.year}` : ''}`
+	);
 
 	$effect(() => {
 		const previouslyFocused =
@@ -180,15 +193,15 @@
 				<XIcon size={21} />
 			</button>
 			<div>
-				<h2>{asset.title}</h2>
-				<p>{asset.creator || asset.sourceName}{asset.year ? `, ${asset.year}` : ''}</p>
+				<h2>{title}</h2>
+				<p>{subtitle}</p>
 			</div>
 			<button
 				class="icon"
 				type="button"
 				aria-label="Open source"
-				disabled={!asset.sourceUrl}
-				onclick={() => asset.sourceUrl && window.open(asset.sourceUrl, '_blank', 'noreferrer')}
+				disabled={!sourceUrl}
+				onclick={() => sourceUrl && window.open(sourceUrl, '_blank', 'noreferrer')}
 			>
 				<ArrowSquareOutIcon size={21} />
 			</button>
@@ -217,7 +230,7 @@
 			class:dragging
 			class="image-stage"
 			role="img"
-			aria-label={`Zoomable preview of ${asset.title}`}
+			aria-label={`Zoomable preview of ${title}`}
 			onwheel={handleWheel}
 			onpointerdown={handlePointerDown}
 			onpointermove={handlePointerMove}
@@ -226,8 +239,8 @@
 			ondblclick={handleDoubleClick}
 		>
 			<img
-				src={asset.imageUrl}
-				alt={asset.title}
+				src={imageUrl}
+				alt={title}
 				style={`transform: ${imageTransform}`}
 				draggable="false"
 			/>
@@ -239,7 +252,7 @@
 	.preview-shell {
 		position: fixed;
 		inset: 0;
-		z-index: calc(var(--z-sheet) + 4);
+		z-index: calc(var(--z-modal) + 4);
 		display: grid;
 		place-items: center;
 		padding: clamp(0.75rem, 2.4vw, 2rem);

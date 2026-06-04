@@ -1,10 +1,15 @@
 <script lang="ts">
 	import FunnelIcon from 'phosphor-svelte/lib/FunnelIcon';
+	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
+	import HashIcon from 'phosphor-svelte/lib/HashIcon';
 	import HouseIcon from 'phosphor-svelte/lib/HouseIcon';
 	import DotsThreeIcon from 'phosphor-svelte/lib/DotsThreeIcon';
+	import StackIcon from 'phosphor-svelte/lib/StackIcon';
+	import CreateOrganizationPopover from '$lib/components/library/CreateOrganizationPopover.svelte';
 	import SearchBox from '$lib/components/shell/SearchBox.svelte';
 	import type { AppMode } from '$lib/types';
 	import { appState, openFilter, setMode } from '$lib/state/app-state.svelte';
+	import { libraryState, setLibrarySnapshot } from '$lib/state/library-state.svelte';
 
 	type Props = {
 		mode: AppMode;
@@ -12,6 +17,7 @@
 	};
 
 	let { mode, compact = false }: Props = $props();
+	let createOpen = $state<'folder' | 'project' | 'tag' | null>(null);
 
 	let visible = $derived(mode === 'library' || mode === 'explore');
 	let showSearch = $derived(mode === 'explore');
@@ -30,6 +36,59 @@
 				<div class="wordmark">pastiche.</div>
 			</div>
 			<div class="actions">
+				{#if mode === 'library'}
+					<div class="action-wrap">
+						<button
+							type="button"
+							aria-label="New folder"
+							onclick={() => (createOpen = createOpen === 'folder' ? null : 'folder')}
+						>
+							<FolderIcon size={19} />
+						</button>
+						{#if createOpen === 'folder'}
+							<CreateOrganizationPopover
+								kind="folder"
+								library={libraryState.snapshot}
+								onClose={() => (createOpen = null)}
+								onSnapshot={setLibrarySnapshot}
+							/>
+						{/if}
+					</div>
+					<div class="action-wrap">
+						<button
+							type="button"
+							aria-label="New project"
+							onclick={() => (createOpen = createOpen === 'project' ? null : 'project')}
+						>
+							<StackIcon size={19} />
+						</button>
+						{#if createOpen === 'project'}
+							<CreateOrganizationPopover
+								kind="project"
+								library={libraryState.snapshot}
+								onClose={() => (createOpen = null)}
+								onSnapshot={setLibrarySnapshot}
+							/>
+						{/if}
+					</div>
+					<div class="action-wrap">
+						<button
+							type="button"
+							aria-label="New tag"
+							onclick={() => (createOpen = createOpen === 'tag' ? null : 'tag')}
+						>
+							<HashIcon size={19} />
+						</button>
+						{#if createOpen === 'tag'}
+							<CreateOrganizationPopover
+								kind="tag"
+								library={libraryState.snapshot}
+								onClose={() => (createOpen = null)}
+								onSnapshot={setLibrarySnapshot}
+							/>
+						{/if}
+					</div>
+				{/if}
 				<button type="button" aria-label="Filter" onclick={openFilter}
 					><FunnelIcon size={19} /></button
 				>
@@ -95,6 +154,14 @@
 
 	.actions {
 		gap: var(--space-2);
+	}
+
+	.action-wrap {
+		position: relative;
+	}
+
+	.action-wrap :global(.create-popover) {
+		right: 0;
 	}
 
 	button {

@@ -56,8 +56,57 @@ export function openLibraryDatabase() {
 			updated_at text not null,
 			last_error text
 		);
+
+		create table if not exists tag_facets (
+			id text primary key,
+			name text not null,
+			slug text not null unique,
+			created_at text not null
+		);
+
+		create table if not exists tags (
+			id text primary key,
+			facet_id text not null references tag_facets(id),
+			value text not null,
+			name text not null,
+			slug text not null unique,
+			created_at text not null
+		);
+
+		create table if not exists asset_tags (
+			asset_id text not null references assets(id) on delete cascade,
+			tag_id text not null references tags(id) on delete cascade,
+			created_at text not null,
+			primary key (asset_id, tag_id)
+		);
+
+		create table if not exists projects (
+			id text primary key,
+			name text not null,
+			description text,
+			pinned integer not null default 0,
+			cover_asset_id text references assets(id),
+			created_at text not null,
+			updated_at text not null
+		);
+
+		create table if not exists project_asset_refs (
+			project_id text not null references projects(id) on delete cascade,
+			asset_id text not null references assets(id) on delete cascade,
+			created_at text not null,
+			primary key (project_id, asset_id)
+		);
+
+		create table if not exists project_folder_refs (
+			project_id text not null references projects(id) on delete cascade,
+			folder_id text not null references folders(id) on delete cascade,
+			include_subfolders integer not null default 0,
+			created_at text not null,
+			primary key (project_id, folder_id)
+		);
 	`);
 	ensureColumn(db, 'assets', 'metadata_json', 'text');
+	ensureDefaultTagFacets(db);
 	return db;
 }
 
@@ -70,4 +119,26 @@ function ensureColumn(db: Database.Database, table: string, column: string, defi
 	const columns = db.prepare(`pragma table_info(${table})`).all() as Array<{ name: string }>;
 	if (columns.some((item) => item.name === column)) return;
 	db.prepare(`alter table ${table} add column ${column} ${definition}`).run();
+}
+
+const DEFAULT_TAG_FACETS = [
+	{ slug: 'subject', name: 'subject' },
+	{ slug: 'medium', name: 'medium' },
+	{ slug: 'style-era', name: 'style/era' },
+	{ slug: 'source', name: 'source' },
+	{ slug: 'location', name: 'location' },
+	{ slug: 'department', name: 'department' },
+	{ slug: 'culture', name: 'culture' },
+	{ slug: 'usage-intent', name: 'usage intent' },
+	{ slug: 'color-mood', name: 'color mood' }
+];
+
+function ensureDefaultTagFacets(db: Database.Database) {
+	const now = new Date().toISOString();
+	const insert = db.prepare(
+		`insert or ignore into tag_facets (id, name, slug, created_at) values (?, ?, ?, ?)`
+	);
+	for (const facet of DEFAULT_TAG_FACETS) {
+		insert.run(`facet-${facet.slug}`, facet.name, facet.slug, now);
+	}
 }

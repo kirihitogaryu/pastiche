@@ -1,4 +1,18 @@
-import type { LibraryAsset, LibraryResponse, StorageMode } from '$lib/library/types';
+import type {
+	AiGenerationMetadata,
+	LibraryAsset,
+	LibraryAssetFacts,
+	LibraryAssetImage,
+	LibraryAssetRecord,
+	LibraryAssetSource,
+	LibraryProject,
+	LibraryResponse,
+	LibrarySourceType,
+	LibraryTag,
+	LibraryTagFacet,
+	SourceTagSuggestion,
+	StorageMode
+} from '$lib/library/types';
 
 export type ImportRequest = {
 	destination_folder_id: string | null;
@@ -70,4 +84,18 @@ export type StatusResponse = {
 	}>;
 };
 
-export type { LibraryAsset, LibraryResponse, StorageMode };
+export type {
+	AiGenerationMetadata,
+	LibraryAsset,
+	LibraryAssetFacts,
+	LibraryAssetImage,
+	LibraryAssetRecord,
+	LibraryAssetSource,
+	LibraryProject,
+	LibraryResponse,
+	LibrarySourceType,
+	LibraryTag,
+	LibraryTagFacet,
+	SourceTagSuggestion,
+	StorageMode
+};

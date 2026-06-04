@@ -1,15 +1,14 @@
 <script lang="ts">
 	import AssetInspector from '$lib/components/inspector/AssetInspector.svelte';
 	import FocusedAssetPreview from '$lib/components/inspector/FocusedAssetPreview.svelte';
-	import { emptyLibrarySnapshot, loadLibrarySnapshot } from '$lib/library/client';
-	import type { LibraryResponse } from '$lib/library/types';
+	import { loadLibrarySnapshot } from '$lib/library/client';
 	import { appState, closeInspector } from '$lib/state/app-state.svelte';
-	import { setLibrarySnapshot } from '$lib/state/library-state.svelte';
+	import { libraryState, setLibrarySnapshot } from '$lib/state/library-state.svelte';
 	import type { Asset } from '$lib/types';
 	import FolderContents from './FolderContents.svelte';
 	import LibraryOverview from './LibraryOverview.svelte';
 
-	let library = $state<LibraryResponse>(emptyLibrarySnapshot());
+	let library = $derived(libraryState.snapshot);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let previewAsset = $state<Asset | null>(null);
@@ -25,7 +24,6 @@
 		void loadLibrarySnapshot()
 			.then((snapshot) => {
 				if (cancelled) return;
-				library = snapshot;
 				setLibrarySnapshot(snapshot);
 			})
 			.catch((loadError) => {
@@ -51,7 +49,6 @@
 				throw new Error('Asset could not be deleted.');
 			}
 			const snapshot = await loadLibrarySnapshot();
-			library = snapshot;
 			setLibrarySnapshot(snapshot);
 			closeInspector();
 			error = null;
@@ -69,6 +66,8 @@
 			<FolderContents scope="all" {library} {loading} {error} />
 		{:else if appState.libraryView === 'folder'}
 			<FolderContents scope="folder" {library} {loading} {error} />
+		{:else if appState.libraryView === 'project'}
+			<FolderContents scope="project" {library} {loading} {error} />
 		{:else}
 			<LibraryOverview {library} {loading} {error} />
 		{/if}

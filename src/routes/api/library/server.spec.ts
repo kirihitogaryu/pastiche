@@ -44,8 +44,17 @@ describe('GET /api/library', () => {
 		expect(response.status).toBe(200);
 		expect(response.headers.get('access-control-allow-origin')).toBe('*');
 		await expect(response.json()).resolves.toMatchObject({
-			stats: { assets: 1, folders: 0 },
-			assets: [{ title: 'Library route ref', imageUrl: 'https://example.com/library.jpg' }],
+			stats: { assets: 1, folders: 0, tags: 0 },
+			assets: [
+				{
+					title: 'Example',
+					imageUrl: 'https://example.com/library.jpg',
+					record: {
+						title: 'Example',
+						image: { previewUrl: 'https://example.com/library.jpg' }
+					}
+				}
+			],
 			folders: []
 		});
 	});

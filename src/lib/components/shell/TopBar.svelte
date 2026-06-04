@@ -1,17 +1,24 @@
 <script lang="ts">
 	import FunnelIcon from 'phosphor-svelte/lib/FunnelIcon';
+	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
+	import HashIcon from 'phosphor-svelte/lib/HashIcon';
+	import StackIcon from 'phosphor-svelte/lib/StackIcon';
 	import SquaresFourIcon from 'phosphor-svelte/lib/SquaresFourIcon';
 	import ListBulletsIcon from 'phosphor-svelte/lib/ListBulletsIcon';
 	import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
+	import CreateOrganizationPopover from '$lib/components/library/CreateOrganizationPopover.svelte';
 	import SearchBox from '$lib/components/shell/SearchBox.svelte';
 	import type { AppMode } from '$lib/types';
 	import { openAdd, openFilter, setMode } from '$lib/state/app-state.svelte';
+	import { libraryState, setLibrarySnapshot } from '$lib/state/library-state.svelte';
 
 	type Props = {
 		mode: AppMode;
 	};
 
 	let { mode }: Props = $props();
+	let createOpen = $state<'folder' | 'project' | 'tag' | null>(null);
+	let createAnchor = $state<{ left: number; top: number } | null>(null);
 
 	const labels: Record<AppMode, string> = {
 		home: 'Home',
@@ -21,6 +28,26 @@
 		colors: 'Colors',
 		resources: 'Resources'
 	};
+
+	function openCreate(kind: 'folder' | 'project' | 'tag', event: MouseEvent) {
+		if (createOpen === kind) {
+			createOpen = null;
+			createAnchor = null;
+			return;
+		}
+		createOpen = kind;
+		createAnchor = anchorFrom(event.currentTarget);
+	}
+
+	function anchorFrom(target: EventTarget | null) {
+		if (!(target instanceof HTMLElement)) return null;
+		const rect = target.getBoundingClientRect();
+		const width = 320;
+		return {
+			left: Math.max(12, Math.min(rect.left, window.innerWidth - width - 12)),
+			top: rect.bottom + 8
+		};
+	}
 </script>
 
 <header class="topbar">
@@ -36,6 +63,65 @@
 			showShortcut
 		/>
 	</div>
+	{#if mode === 'library'}
+		<div class="tool-wrap">
+			<button
+				class="icon-tool"
+				type="button"
+				aria-label="New folder"
+				onclick={(event) => openCreate('folder', event)}
+			>
+				<FolderIcon size={20} />
+			</button>
+			{#if createOpen === 'folder'}
+				<CreateOrganizationPopover
+					kind="folder"
+					library={libraryState.snapshot}
+					anchor={createAnchor}
+					onClose={() => (createOpen = null)}
+					onSnapshot={setLibrarySnapshot}
+				/>
+			{/if}
+		</div>
+		<div class="tool-wrap">
+			<button
+				class="icon-tool"
+				type="button"
+				aria-label="New project"
+				onclick={(event) => openCreate('project', event)}
+			>
+				<StackIcon size={20} />
+			</button>
+			{#if createOpen === 'project'}
+				<CreateOrganizationPopover
+					kind="project"
+					library={libraryState.snapshot}
+					anchor={createAnchor}
+					onClose={() => (createOpen = null)}
+					onSnapshot={setLibrarySnapshot}
+				/>
+			{/if}
+		</div>
+		<div class="tool-wrap">
+			<button
+				class="icon-tool"
+				type="button"
+				aria-label="New tag"
+				onclick={(event) => openCreate('tag', event)}
+			>
+				<HashIcon size={20} />
+			</button>
+			{#if createOpen === 'tag'}
+				<CreateOrganizationPopover
+					kind="tag"
+					library={libraryState.snapshot}
+					anchor={createAnchor}
+					onClose={() => (createOpen = null)}
+					onSnapshot={setLibrarySnapshot}
+				/>
+			{/if}
+		</div>
+	{/if}
 	<button class="tool" type="button" onclick={openFilter}>
 		<FunnelIcon size={20} />
 		<span>Filter</span>
@@ -77,6 +163,7 @@
 
 	.mode-pill,
 	.tool,
+	.icon-tool,
 	.view-toggle,
 	.add {
 		border: 1px solid var(--color-border);
@@ -102,6 +189,8 @@
 
 	.tool:hover,
 	.tool:focus-visible,
+	.icon-tool:hover,
+	.icon-tool:focus-visible,
 	.add:hover,
 	.add:focus-visible {
 		border-color: var(--color-border-strong);
@@ -109,6 +198,7 @@
 	}
 
 	.tool,
+	.icon-tool,
 	.add,
 	.view-toggle button {
 		height: 2.55rem;
@@ -122,6 +212,17 @@
 		align-items: center;
 		gap: var(--space-2);
 		padding: 0 var(--space-4);
+	}
+
+	.tool-wrap {
+		position: relative;
+	}
+
+	.icon-tool {
+		width: 2.55rem;
+		display: grid;
+		place-items: center;
+		padding: 0;
 	}
 
 	.view-toggle {

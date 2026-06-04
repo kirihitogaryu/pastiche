@@ -127,8 +127,19 @@ describe('POST /api/library/save-explore', () => {
 			sourceType: 'museum',
 			width: 17,
 			height: 23,
-			tags: ['photograph', 'portrait'],
+			tags: [],
 			description: 'Public domain image according to The Met.'
 		});
+		expect(snapshot.assets[0].record?.organization.sourceTagSuggestions).toEqual([
+			expect.objectContaining({ name: 'source: The Met', slug: 'source-the-met' }),
+			expect.objectContaining({
+				name: 'medium: Albumen silver print from glass negative',
+				slug: 'medium-albumen-silver-print-from-glass-negative'
+			}),
+			expect.objectContaining({ name: 'style/era: 1860s–70s', slug: 'style-era-1860s-70s' }),
+			expect.objectContaining({ name: 'department: Photographs', slug: 'department-photographs' }),
+			expect.objectContaining({ name: 'subject: photograph', slug: 'subject-photograph' }),
+			expect.objectContaining({ name: 'subject: portrait', slug: 'subject-portrait' })
+		]);
 	});
 });

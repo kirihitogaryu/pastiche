@@ -7,6 +7,14 @@ import { ensureLibraryArchive, resolveLibraryPaths } from './paths';
 import { initializeLibrary } from './schema';
 import { getLibraryStatus } from './status';
 import { importLibraryItems } from './import';
+import {
+	addProjectFolderRef,
+	attachTagToAsset,
+	createFolder,
+	createProject,
+	createTag
+} from './organization';
+import { getLibrarySnapshot } from './read';
 
 describe('local library archive', () => {
 	let archiveRoot: string;
@@ -51,9 +59,100 @@ describe('local library archive', () => {
 			.prepare("select name from sqlite_master where type = 'table' order by name")
 			.all()
 			.map((row) => (row as { name: string }).name);
+		const projectColumns = db
+			.prepare('pragma table_info(projects)')
+			.all()
+			.map((row) => (row as { name: string }).name);
 		db.close();
 
-		expect(tables).toEqual(['asset_import_failures', 'assets', 'folders', 'lazy_download_jobs']);
+		expect(tables).toEqual([
+			'asset_import_failures',
+			'asset_tags',
+			'assets',
+			'folders',
+			'lazy_download_jobs',
+			'project_asset_refs',
+			'project_folder_refs',
+			'projects',
+			'tag_facets',
+			'tags'
+		]);
+
+		expect(projectColumns).not.toContain('path');
+	});
+
+	it('creates empty folder directories with collision-safe slugged paths', async () => {
+		initializeLibrary();
+
+		const first = createFolder({ name: 'Character Poses ✨' });
+		const second = createFolder({ name: 'Character Poses' });
+
+		expect(first.path).toBe('library/character-poses');
+		expect(second.path).toBe('library/character-poses-2');
+		expect(existsSync(join(archiveRoot, first.path))).toBe(true);
+		expect(existsSync(join(archiveRoot, second.path))).toBe(true);
+
+		const snapshot = getLibrarySnapshot();
+		expect(snapshot.folders).toEqual([
+			expect.objectContaining({ name: 'Character Poses ✨', assetCount: 0 }),
+			expect.objectContaining({ name: 'Character Poses', assetCount: 0 })
+		]);
+	});
+
+	it('creates empty faceted tags and attaches them to assets', async () => {
+		const result = await importLibraryItems({
+			destination_folder_id: null,
+			items: [
+				{
+					filename: 'Tagged ref',
+					storage_mode: 'url_reference',
+					image_data: null,
+					source_image_url: 'https://example.com/tagged.jpg',
+					mime_type: 'image/jpeg',
+					natural_width: 800,
+					natural_height: 600,
+					source_url: 'https://example.com/page',
+					page_title: 'Tagged Ref',
+					alt_text: null,
+					captured_at: '2026-05-27T12:00:00.000Z'
+				}
+			]
+		});
+
+		const loose = createTag({ label: 'usage intent: lighting study' });
+		const attached = createTag({ facet: 'subject', value: 'hands' });
+		attachTagToAsset(result.imported[0].asset_id, attached.id);
+
+		const snapshot = getLibrarySnapshot();
+		expect(snapshot.stats.tags).toBeGreaterThanOrEqual(2);
+		expect(snapshot.tagFacets.find((facet) => facet.slug === 'usage-intent')?.tagCount).toBe(1);
+		expect(snapshot.assets[0].record?.organization.tags).toEqual([
+			expect.objectContaining({ name: 'subject: hands', assetCount: 1 })
+		]);
+		expect(loose.assetCount).toBe(0);
+	});
+
+	it('uses live direct-only project folder refs for project membership', async () => {
+		const folder = createFolder({ name: 'Hands' });
+		const nested = createFolder({ name: 'Fingers', parentId: folder.id });
+		const direct = await importLibraryItems({
+			destination_folder_id: folder.id,
+			items: [referenceImport('Direct hand', 'https://example.com/direct.jpg')]
+		});
+		await importLibraryItems({
+			destination_folder_id: nested.id,
+			items: [referenceImport('Nested finger', 'https://example.com/nested.jpg')]
+		});
+		const project = createProject({ name: 'Hand study' });
+		addProjectFolderRef(project.id, folder.id);
+
+		const snapshot = getLibrarySnapshot();
+		const directAsset = snapshot.assets.find((asset) => asset.id === direct.imported[0].asset_id);
+		const nestedAsset = snapshot.assets.find((asset) => asset.title === 'Nested finger');
+
+		expect(snapshot.projects[0]).toMatchObject({ name: 'Hand study', assetCount: 1, folderCount: 1 });
+		expect(directAsset?.projects).toEqual([project.id]);
+		expect(nestedAsset?.projects).toEqual([]);
 	});
 
 	it('imports downloaded image data to originals and records the asset', async () => {
@@ -241,4 +340,20 @@ describe('local library archive', () => {
 
 function tinyPngBase64() {
 	return 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
+}
+
+function referenceImport(filename: string, sourceImageUrl: string) {
+	return {
+		filename,
+		storage_mode: 'url_reference' as const,
+		image_data: null,
+		source_image_url: sourceImageUrl,
+		mime_type: 'image/jpeg',
+		natural_width: 800,
+		natural_height: 600,
+		source_url: sourceImageUrl.replace('/direct.jpg', '/page').replace('/nested.jpg', '/page'),
+		page_title: filename,
+		alt_text: null,
+		captured_at: '2026-05-27T12:00:00.000Z'
+	};
 }
