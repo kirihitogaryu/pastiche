@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import sharp from 'sharp';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('POST /api/import', () => {
@@ -90,4 +91,59 @@ describe('POST /api/import', () => {
 			failed: [{ index: 1, error: 'Downloaded imports require image_data' }]
 		});
 	});
+
+	it('imports a local manual image payload from the app upload sheet', async () => {
+		const { POST } = await import('./+server');
+		const imageData = await tinyPngBase64();
+
+		const response = await POST({
+			request: new Request('http://localhost/api/import', {
+				method: 'POST',
+				body: JSON.stringify({
+					destination_folder_id: null,
+					items: [
+						{
+							filename: 'study.png',
+							storage_mode: 'download',
+							image_data: imageData,
+							source_image_url: null,
+							mime_type: 'image/png',
+							natural_width: 2,
+							natural_height: 2,
+							source_url: 'file://study.png',
+							page_title: 'study.png',
+							alt_text: null,
+							captured_at: '2026-06-04T00:00:00.000Z',
+							metadata: {
+								sourceName: 'Local file',
+								sourceType: 'local',
+								rawMetadata: { fileName: 'study.png', fileSize: 100 }
+							}
+						}
+					]
+				})
+			})
+		});
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toMatchObject({
+			imported: [{ index: 0, duplicate: false }],
+			failed: []
+		});
+	});
 });
+
+async function tinyPngBase64() {
+	return (
+		await sharp({
+			create: {
+				width: 2,
+				height: 2,
+				channels: 4,
+				background: { r: 220, g: 210, b: 190, alpha: 1 }
+			}
+		})
+			.png()
+			.toBuffer()
+	).toString('base64');
+}
