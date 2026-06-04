@@ -2,7 +2,6 @@
 	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
 	import HashIcon from 'phosphor-svelte/lib/HashIcon';
 	import StackIcon from 'phosphor-svelte/lib/StackIcon';
-	import { librarySmartFolders } from '$lib/data/library-organization';
 	import type { LibraryResponse } from '$lib/library/types';
 	import { openLibraryFolder, openProjectLibrary, openSmartFolder } from '$lib/state/app-state.svelte';
 	import { setLibrarySnapshot } from '$lib/state/library-state.svelte';
@@ -12,7 +11,7 @@
 	import ProjectCardGrid from './ProjectCardGrid.svelte';
 	import SmartFolderList from './SmartFolderList.svelte';
 	import TagGroupList from './TagGroupList.svelte';
-	import { buildFolderTree, sortHubTagGroups } from './libraryOverviewModel';
+	import { buildFolderTree, buildSmartFolderItems, sortHubTagGroups } from './libraryOverviewModel';
 
 	type CreateKind = 'folder' | 'project' | 'tag' | 'tag-group';
 
@@ -29,6 +28,7 @@
 	let expandedTagGroups = $state(new Set<string>(['general']));
 	let folderTree = $derived(buildFolderTree(library.folders));
 	let tagGroups = $derived(sortHubTagGroups(library.tagFacets));
+	let smartFolders = $derived(buildSmartFolderItems(library.assets));
 	let hubProjects = $derived(
 		library.projects.filter((project) => project.pinned || library.projects.length <= 4)
 	);
@@ -150,7 +150,7 @@
 		onCreateGroup={(event) => openCreate('tag-group', event)}
 	/>
 
-	<SmartFolderList items={librarySmartFolders} onOpen={openSmartFolder} />
+	<SmartFolderList items={smartFolders} onOpen={openSmartFolder} />
 </section>
 
 {#if createOpen}

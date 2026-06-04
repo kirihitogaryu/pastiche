@@ -1,5 +1,5 @@
 import type { LibraryTag, LibraryTagFacet } from '$lib/library/types';
-import type { LibraryFolder } from '$lib/types';
+import type { Asset, LibraryFolder, SmartFolder } from '$lib/types';
 
 export type FolderTreeNode = LibraryFolder & {
 	children: FolderTreeNode[];
@@ -44,4 +44,33 @@ export function previewTags(tags: LibraryTag[], limit = 6) {
 		visible: tags.slice(0, limit),
 		hiddenCount: Math.max(0, tags.length - limit)
 	};
+}
+
+export function buildSmartFolderItems(assets: Asset[]): SmartFolder[] {
+	return [
+		{
+			id: 'favorites',
+			label: 'Favorites',
+			count: assets.filter((asset) => asset.favorite).length,
+			icon: 'star'
+		},
+		{
+			id: 'recently-added',
+			label: 'Recently Added',
+			count: assets.length,
+			icon: 'clock'
+		},
+		{
+			id: 'untagged',
+			label: 'Untagged',
+			count: assets.filter((asset) => asset.tags.length === 0).length,
+			icon: 'tag'
+		},
+		{
+			id: 'missing-source',
+			label: 'Missing Source',
+			count: assets.filter((asset) => !asset.sourceUrl).length,
+			icon: 'link'
+		}
+	];
 }
