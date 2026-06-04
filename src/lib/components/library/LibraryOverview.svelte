@@ -101,7 +101,12 @@
 		<p class="status-message">Loading library...</p>
 	{/if}
 
-	<LibrarySearch />
+	<LibrarySearch
+		{library}
+		onOpenFolder={(path) => openLibraryFolder(path)}
+		onOpenProject={(id) => openProjectLibrary(id)}
+		onOpenTag={(id) => openLibraryTag(id)}
+	/>
 
 	<div class="create-actions" aria-label="Create library organization">
 		<button type="button" onclick={(event) => openCreate('project', event)}>

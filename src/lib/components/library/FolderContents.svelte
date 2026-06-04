@@ -6,11 +6,13 @@
 	import SquaresFourIcon from 'phosphor-svelte/lib/SquaresFourIcon';
 	import AssetGrid from '$lib/components/browse/AssetGrid.svelte';
 	import { librarySmartFolders } from '$lib/data/library-organization';
-	import type { LibraryResponse } from '$lib/library/types';
+	import type { LibraryAsset, LibraryResponse } from '$lib/library/types';
 	import {
 		appState,
 		openLibraryFolder,
+		openLibraryTag,
 		openLibraryOverview,
+		openProjectLibrary,
 		openMobileInspect,
 		selectAsset,
 		toggleSelection
@@ -22,7 +24,7 @@
 	import CreateOrganizationPopover from './CreateOrganizationPopover.svelte';
 	import FolderCards from './FolderCards.svelte';
 	import LibrarySearch from './LibrarySearch.svelte';
-	import { filterAssetsByTag } from './libraryOverviewModel';
+	import { filterAssetsByLibraryQuery, filterAssetsByTag } from './libraryOverviewModel';
 
 	type Props = {
 		scope: 'all' | 'folder' | 'project' | 'smart' | 'tag';
@@ -94,6 +96,7 @@
 						? `${assets.length.toLocaleString()} assets · ${tag?.facetName ?? 'Tag Group'}`
 						: `${(folder?.assetCount ?? 0).toLocaleString()} assets · ${folder?.childFolderCount ?? 0} subfolders`
 	);
+	let visibleAssets = $derived(filterAssetsByLibraryQuery(assets, appState.query));
 
 	function findFolderByPath(source: LibraryResponse, path: string[]): LibraryFolder | null {
 		const key = path.join('/');
@@ -157,7 +160,7 @@
 		}
 	}
 
-	function smartFolderAssets(assets: Asset[], id: string | null) {
+	function smartFolderAssets(assets: LibraryAsset[], id: string | null) {
 		if (id === 'favorites') return assets.filter((asset) => asset.favorite);
 		if (id === 'untagged') return assets.filter((asset) => asset.tags.length === 0);
 		if (id === 'missing-source') return assets.filter((asset) => !asset.sourceUrl);
@@ -208,7 +211,15 @@
 	</div>
 
 	<div class="search-sort">
-		<LibrarySearch label={`Search ${title}`} />
+		<LibrarySearch
+			{library}
+			label={`Search ${title}`}
+			scopeLabel={title}
+			onOpenFolder={(path) => openLibraryFolder(path)}
+			onOpenProject={(id) => openProjectLibrary(id)}
+			onOpenTag={(id) => openLibraryTag(id)}
+			onOpenAsset={openAsset}
+		/>
 		<div class="view-actions">
 			{#if scope === 'folder' && folder}
 				<button class="sort" type="button" onclick={(event) => openAnchored('subfolder', event)}>
@@ -248,7 +259,7 @@
 			</div>
 		</header>
 		<AssetGrid
-			{assets}
+			assets={visibleAssets}
 			mode="library"
 			activeId={appState.selectedAssetId}
 			selectedIds={appState.selectedAssetIds}
