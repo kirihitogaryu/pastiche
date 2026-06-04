@@ -22,9 +22,10 @@
 	import CreateOrganizationPopover from './CreateOrganizationPopover.svelte';
 	import FolderCards from './FolderCards.svelte';
 	import LibrarySearch from './LibrarySearch.svelte';
+	import { filterAssetsByTag } from './libraryOverviewModel';
 
 	type Props = {
-		scope: 'all' | 'folder' | 'project' | 'smart';
+		scope: 'all' | 'folder' | 'project' | 'smart' | 'tag';
 		library: LibraryResponse;
 		loading?: boolean;
 		error?: string | null;
@@ -52,6 +53,14 @@
 			? librarySmartFolders.find((item) => item.id === appState.activeSmartFolderId) ?? null
 			: null
 	);
+	let tag = $derived(
+		scope === 'tag'
+			? (library.tagFacets
+					.flatMap((group) => group.tags)
+					.find((item) => item.id === appState.activeTagId || item.slug === appState.activeTagId) ??
+				null)
+			: null
+	);
 	let assets = $derived(
 		scope === 'all'
 			? library.assets
@@ -59,7 +68,9 @@
 				? library.assets.filter((asset) => asset.projects.includes(appState.activeProjectId ?? ''))
 				: scope === 'smart'
 					? smartFolderAssets(library.assets, appState.activeSmartFolderId)
-					: library.assets.filter((asset) => asset.folderPath.join('/') === folder?.path.join('/'))
+					: scope === 'tag'
+						? filterAssetsByTag(library.assets, appState.activeTagId)
+						: library.assets.filter((asset) => asset.folderPath.join('/') === folder?.path.join('/'))
 	);
 	let title = $derived(
 		scope === 'all'
@@ -68,7 +79,9 @@
 				? (project?.name ?? 'Project')
 				: scope === 'smart'
 					? (smartFolder?.label ?? 'Smart Folder')
-					: (folder?.name ?? 'Folder')
+					: scope === 'tag'
+						? (tag?.value ?? 'Tag')
+						: (folder?.name ?? 'Folder')
 	);
 	let stats = $derived(
 		scope === 'all'
@@ -77,7 +90,9 @@
 				? `${assets.length.toLocaleString()} assets · ${project?.folderCount ?? 0} folders`
 				: scope === 'smart'
 					? `${assets.length.toLocaleString()} assets`
-					: `${(folder?.assetCount ?? 0).toLocaleString()} assets · ${folder?.childFolderCount ?? 0} subfolders`
+					: scope === 'tag'
+						? `${assets.length.toLocaleString()} assets · ${tag?.facetName ?? 'Tag Group'}`
+						: `${(folder?.assetCount ?? 0).toLocaleString()} assets · ${folder?.childFolderCount ?? 0} subfolders`
 	);
 
 	function findFolderByPath(source: LibraryResponse, path: string[]): LibraryFolder | null {

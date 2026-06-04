@@ -70,6 +70,8 @@
 			<FolderContents scope="project" {library} {loading} {error} />
 		{:else if appState.libraryView === 'smart'}
 			<FolderContents scope="smart" {library} {loading} {error} />
+		{:else if appState.libraryView === 'tag'}
+			<FolderContents scope="tag" {library} {loading} {error} />
 		{:else}
 			<LibraryOverview {library} {loading} {error} />
 		{/if}

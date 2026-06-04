@@ -2,6 +2,7 @@
 	import FunnelIcon from 'phosphor-svelte/lib/FunnelIcon';
 	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
 	import HashIcon from 'phosphor-svelte/lib/HashIcon';
+	import TagChevronIcon from 'phosphor-svelte/lib/TagChevronIcon';
 	import StackIcon from 'phosphor-svelte/lib/StackIcon';
 	import SquaresFourIcon from 'phosphor-svelte/lib/SquaresFourIcon';
 	import ListBulletsIcon from 'phosphor-svelte/lib/ListBulletsIcon';
@@ -17,7 +18,9 @@
 	};
 
 	let { mode }: Props = $props();
-	let createOpen = $state<'folder' | 'project' | 'tag' | null>(null);
+	type CreateKind = 'folder' | 'project' | 'tag' | 'tag-group';
+
+	let createOpen = $state<CreateKind | null>(null);
 	let createAnchor = $state<{ left: number; top: number } | null>(null);
 
 	const labels: Record<AppMode, string> = {
@@ -29,7 +32,7 @@
 		resources: 'Resources'
 	};
 
-	function openCreate(kind: 'folder' | 'project' | 'tag', event: MouseEvent) {
+	function openCreate(kind: CreateKind, event: MouseEvent) {
 		if (createOpen === kind) {
 			createOpen = null;
 			createAnchor = null;
@@ -114,6 +117,25 @@
 			{#if createOpen === 'tag'}
 				<CreateOrganizationPopover
 					kind="tag"
+					library={libraryState.snapshot}
+					anchor={createAnchor}
+					onClose={() => (createOpen = null)}
+					onSnapshot={setLibrarySnapshot}
+				/>
+			{/if}
+		</div>
+		<div class="tool-wrap">
+			<button
+				class="icon-tool"
+				type="button"
+				aria-label="New tag group"
+				onclick={(event) => openCreate('tag-group', event)}
+			>
+				<TagChevronIcon size={20} />
+			</button>
+			{#if createOpen === 'tag-group'}
+				<CreateOrganizationPopover
+					kind="tag-group"
 					library={libraryState.snapshot}
 					anchor={createAnchor}
 					onClose={() => (createOpen = null)}

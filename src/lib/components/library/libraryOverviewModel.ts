@@ -1,4 +1,4 @@
-import type { LibraryTag, LibraryTagFacet } from '$lib/library/types';
+import type { LibraryAsset, LibraryTag, LibraryTagFacet } from '$lib/library/types';
 import type { Asset, LibraryFolder, SmartFolder } from '$lib/types';
 
 export type FolderTreeNode = LibraryFolder & {
@@ -73,4 +73,11 @@ export function buildSmartFolderItems(assets: Asset[]): SmartFolder[] {
 			icon: 'link'
 		}
 	];
+}
+
+export function filterAssetsByTag(assets: LibraryAsset[], tagId: string | null): LibraryAsset[] {
+	if (!tagId) return [];
+	return assets.filter((asset) =>
+		asset.record?.organization.tags.some((tag) => tag.id === tagId || tag.slug === tagId)
+	);
 }

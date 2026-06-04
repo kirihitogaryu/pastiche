@@ -49,37 +49,53 @@
 <style>
 	.folder-tree {
 		display: grid;
-		gap: var(--space-1);
+		gap: 0.15rem;
 	}
 
 	.depth-0 {
 		--indent: 0rem;
-		--row-height: 3rem;
+		--row-height: 2.8rem;
 		--font-size: 1rem;
 	}
 
 	.depth-1 {
-		--indent: 1.35rem;
-		--row-height: 2.75rem;
+		--indent: 1.55rem;
+		--row-height: 2.45rem;
 		--font-size: 0.93rem;
 	}
 
 	.depth-2 {
-		--indent: 2.35rem;
-		--row-height: 2.55rem;
+		--indent: 2.95rem;
+		--row-height: 2.35rem;
 		--font-size: 0.88rem;
 	}
 
 	.folder-row {
+		position: relative;
 		min-width: 0;
 		display: grid;
-		grid-template-columns: 2rem 1fr;
+		grid-template-columns: 1.65rem 1fr;
 		padding-left: var(--indent);
+	}
+
+	.folder-row.depth-1::before,
+	.folder-row.depth-2::before {
+		content: '';
+		position: absolute;
+		left: calc(var(--indent) - 1.05rem);
+		top: -0.35rem;
+		bottom: 50%;
+		width: 0.8rem;
+		border-left: 1px solid var(--color-border-soft);
+		border-bottom: 1px solid var(--color-border-soft);
+		border-bottom-left-radius: var(--radius-sm);
+		pointer-events: none;
+		opacity: 0.9;
 	}
 
 	.folder-toggle,
 	.folder-spacer {
-		width: 2rem;
+		width: 1.65rem;
 		min-height: var(--row-height);
 		display: grid;
 		place-items: center;
@@ -100,9 +116,9 @@
 		align-items: center;
 		gap: var(--space-2);
 		padding: 0 var(--space-3);
-		border: 1px solid var(--color-border);
+		border: 1px solid transparent;
 		border-radius: var(--radius-md);
-		background: var(--color-surface);
+		background: transparent;
 		color: var(--color-text);
 		font: inherit;
 		font-size: var(--font-size);
@@ -111,6 +127,17 @@
 		transition:
 			background var(--duration-fast) var(--ease-out),
 			border-color var(--duration-fast) var(--ease-out);
+	}
+
+	.depth-0 .folder-open {
+		border-color: var(--color-border);
+		border-radius: var(--radius-lg);
+		background: oklch(18% 0.01 70 / 0.52);
+	}
+
+	.depth-1 .folder-open,
+	.depth-2 .folder-open {
+		color: oklch(83% 0.015 70);
 	}
 
 	.folder-open:hover,

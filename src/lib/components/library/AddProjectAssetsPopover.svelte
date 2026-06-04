@@ -18,6 +18,8 @@
 	let query = $state('');
 	let savingId = $state<string | null>(null);
 	let error = $state<string | null>(null);
+	let popoverElement = $state<HTMLElement | null>(null);
+	let canDismiss = $state(false);
 	let popoverStyle = $derived(
 		anchor ? `--popover-left: ${anchor.left}px; --popover-top: ${anchor.top}px;` : ''
 	);
@@ -31,6 +33,14 @@
 				.some((value) => value.toLowerCase().includes(normalized));
 		})
 	);
+
+	$effect(() => {
+		canDismiss = false;
+		const frame = requestAnimationFrame(() => {
+			canDismiss = true;
+		});
+		return () => cancelAnimationFrame(frame);
+	});
 
 	async function submitAsset(asset: Asset) {
 		if (savingId) return;
@@ -75,9 +85,20 @@
 	onkeydown={(event) => {
 		if (event.key === 'Escape') onClose();
 	}}
+	onclick={(event) => {
+		if (
+			canDismiss &&
+			popoverElement &&
+			event.target instanceof Node &&
+			!popoverElement.contains(event.target)
+		) {
+			onClose();
+		}
+	}}
 />
 
 <section
+	bind:this={popoverElement}
 	class="add-project-assets"
 	style={popoverStyle}
 	aria-label={purpose === 'cover' ? 'Choose project cover' : 'Add images to project'}

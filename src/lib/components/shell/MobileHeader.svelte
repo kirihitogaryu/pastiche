@@ -5,6 +5,7 @@
 	import HouseIcon from 'phosphor-svelte/lib/HouseIcon';
 	import DotsThreeIcon from 'phosphor-svelte/lib/DotsThreeIcon';
 	import StackIcon from 'phosphor-svelte/lib/StackIcon';
+	import TagChevronIcon from 'phosphor-svelte/lib/TagChevronIcon';
 	import CreateOrganizationPopover from '$lib/components/library/CreateOrganizationPopover.svelte';
 	import SearchBox from '$lib/components/shell/SearchBox.svelte';
 	import type { AppMode } from '$lib/types';
@@ -17,7 +18,7 @@
 	};
 
 	let { mode, compact = false }: Props = $props();
-	let createOpen = $state<'folder' | 'project' | 'tag' | null>(null);
+	let createOpen = $state<'folder' | 'project' | 'tag' | 'tag-group' | null>(null);
 
 	let visible = $derived(mode === 'library' || mode === 'explore');
 	let showSearch = $derived(mode === 'explore');
@@ -82,6 +83,23 @@
 						{#if createOpen === 'tag'}
 							<CreateOrganizationPopover
 								kind="tag"
+								library={libraryState.snapshot}
+								onClose={() => (createOpen = null)}
+								onSnapshot={setLibrarySnapshot}
+							/>
+						{/if}
+					</div>
+					<div class="action-wrap">
+						<button
+							type="button"
+							aria-label="New tag group"
+							onclick={() => (createOpen = createOpen === 'tag-group' ? null : 'tag-group')}
+						>
+							<TagChevronIcon size={19} />
+						</button>
+						{#if createOpen === 'tag-group'}
+							<CreateOrganizationPopover
+								kind="tag-group"
 								library={libraryState.snapshot}
 								onClose={() => (createOpen = null)}
 								onSnapshot={setLibrarySnapshot}

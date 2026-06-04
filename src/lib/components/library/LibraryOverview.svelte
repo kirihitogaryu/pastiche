@@ -3,7 +3,12 @@
 	import HashIcon from 'phosphor-svelte/lib/HashIcon';
 	import StackIcon from 'phosphor-svelte/lib/StackIcon';
 	import type { LibraryResponse } from '$lib/library/types';
-	import { openLibraryFolder, openProjectLibrary, openSmartFolder } from '$lib/state/app-state.svelte';
+	import {
+		openLibraryFolder,
+		openLibraryTag,
+		openProjectLibrary,
+		openSmartFolder
+	} from '$lib/state/app-state.svelte';
 	import { setLibrarySnapshot } from '$lib/state/library-state.svelte';
 	import CreateOrganizationPopover from './CreateOrganizationPopover.svelte';
 	import FolderTree from './FolderTree.svelte';
@@ -148,6 +153,7 @@
 		onToggle={toggleTagGroup}
 		onCreateTag={(event) => openCreate('tag', event)}
 		onCreateGroup={(event) => openCreate('tag-group', event)}
+		onOpenTag={(tag) => openLibraryTag(tag.id)}
 	/>
 
 	<SmartFolderList items={smartFolders} onOpen={openSmartFolder} />

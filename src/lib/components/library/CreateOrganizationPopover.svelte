@@ -22,6 +22,8 @@
 	let startWithCurrentFolder = $state(true);
 	let saving = $state(false);
 	let error = $state<string | null>(null);
+	let popoverElement = $state<HTMLFormElement | null>(null);
+	let canDismiss = $state(false);
 
 	let currentFolder = $derived(
 		library.folders.find((folder) => folder.path.join('/') === appState.activeLibraryFolderPath.join('/')) ??
@@ -51,6 +53,14 @@
 			? `--popover-left: ${anchor.left}px; --popover-top: ${anchor.top}px;`
 			: ''
 	);
+
+	$effect(() => {
+		canDismiss = false;
+		const frame = requestAnimationFrame(() => {
+			canDismiss = true;
+		});
+		return () => cancelAnimationFrame(frame);
+	});
 
 	async function submit() {
 		if (saving) return;
@@ -104,9 +114,28 @@
 	onkeydown={(event) => {
 		if (event.key === 'Escape') onClose();
 	}}
+	onclick={(event) => {
+		if (
+			canDismiss &&
+			popoverElement &&
+			event.target instanceof Node &&
+			!popoverElement.contains(event.target)
+		) {
+			onClose();
+		}
+	}}
 />
 
-<form class="create-popover" style={popoverStyle} aria-label={title} onsubmit={(event) => { event.preventDefault(); submit(); }}>
+<form
+	bind:this={popoverElement}
+	class="create-popover"
+	style={popoverStyle}
+	aria-label={title}
+	onsubmit={(event) => {
+		event.preventDefault();
+		submit();
+	}}
+>
 	<header>
 		<Icon size={18} />
 		<strong>{title}</strong>

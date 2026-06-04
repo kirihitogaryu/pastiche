@@ -165,6 +165,14 @@ export function openSmartFolder(id: string) {
 	appState.mobileState = 'browse';
 }
 
+export function openLibraryTag(id: string) {
+	appState.mode = 'library';
+	appState.libraryView = 'tag';
+	appState.lastLibraryView = 'tag';
+	appState.activeTagId = id;
+	appState.mobileState = 'browse';
+}
+
 export function openProjectLibrary(id: string) {
 	appState.mode = 'library';
 	appState.libraryView = 'project';
