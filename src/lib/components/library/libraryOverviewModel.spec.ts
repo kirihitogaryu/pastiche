@@ -7,6 +7,7 @@ import {
 	previewTags,
 	searchLibrary,
 	sortHubTagGroups,
+	visibleTagGroups,
 	type FolderTreeNode
 } from './libraryOverviewModel';
 import type { LibraryAsset } from '$lib/library/types';
@@ -243,6 +244,34 @@ describe('libraryOverviewModel', () => {
 		expect(results.folders[0]?.id).toBe('folder-figures');
 		expect(results.tags[0]?.id).toBe('tag-figure');
 		expect(results.total).toBe(3);
+	});
+
+	it('hides empty tag groups by default while keeping General', () => {
+		const groups = visibleTagGroups([
+			{ id: 'general', slug: 'general', name: 'General', tagCount: 0, kind: 'general', tags: [] },
+			{ id: 'empty', slug: 'empty', name: 'Empty', tagCount: 0, kind: 'facet', tags: [] },
+			{
+				id: 'subject',
+				slug: 'subject',
+				name: 'Subject',
+				tagCount: 1,
+				kind: 'facet',
+				tags: [
+					{
+						id: 'tag-hands',
+						facetId: 'subject',
+						facetName: 'Subject',
+						facetSlug: 'subject',
+						value: 'hands',
+						name: 'Subject: hands',
+						slug: 'subject-hands',
+						assetCount: 1
+					}
+				]
+			}
+		]);
+
+		expect(groups.map((group) => group.slug)).toEqual(['general', 'subject']);
 	});
 });
 

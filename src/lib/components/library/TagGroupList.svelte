@@ -55,9 +55,11 @@
 					{/if}
 					<span class="group-dot" style={dotStyle(group.slug)}></span>
 					<strong>{group.name}</strong>
+					<small>{group.tags.length.toLocaleString()} tags</small>
 				</button>
-				<div class="tag-pills">
-					{#if tagPreview.visible.length}
+				{#if expanded.has(group.slug)}
+					<div class="tag-pills">
+						{#if tagPreview.visible.length}
 						{#each tagPreview.visible as tag (tag.id)}
 							<button type="button" onclick={() => onOpenTag?.(tag)}>{tag.value}</button>
 						{/each}
@@ -66,10 +68,9 @@
 								+{tagPreview.hiddenCount}
 							</button>
 						{/if}
-					{:else}
-						<span>No tags in this group</span>
-					{/if}
-				</div>
+						{/if}
+					</div>
+				{/if}
 			</article>
 		{/each}
 	</div>
@@ -131,7 +132,7 @@
 		min-width: 0;
 		min-height: 2.25rem;
 		display: grid;
-		grid-template-columns: auto auto 1fr;
+		grid-template-columns: auto auto minmax(0, 1fr) auto;
 		align-items: center;
 		gap: var(--space-2);
 		border: 0;
@@ -148,6 +149,12 @@
 		font-weight: 500;
 	}
 
+	.group-toggle small {
+		color: var(--color-muted);
+		font-size: 0.76rem;
+		white-space: nowrap;
+	}
+
 	.group-dot {
 		width: 0.65rem;
 		height: 0.65rem;
@@ -162,8 +169,7 @@
 		gap: var(--space-2);
 	}
 
-	.tag-pills button,
-	.tag-pills span {
+	.tag-pills button {
 		min-width: 0;
 		min-height: 2.1rem;
 		display: inline-flex;
@@ -197,15 +203,26 @@
 		color: var(--color-accent);
 	}
 
-	.tag-pills span {
-		border-style: dashed;
-		color: var(--color-dim);
-	}
-
 	@media (max-width: 620px) {
 		.group-row {
 			grid-template-columns: 1fr;
 			gap: var(--space-1);
+		}
+
+		header {
+			align-items: start;
+		}
+
+		header button {
+			font-size: 0.9rem;
+		}
+
+		.group-list {
+			gap: var(--space-1);
+		}
+
+		.group-toggle {
+			min-height: 2.2rem;
 		}
 	}
 </style>

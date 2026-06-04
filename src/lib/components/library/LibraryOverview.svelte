@@ -16,7 +16,12 @@
 	import ProjectCardGrid from './ProjectCardGrid.svelte';
 	import SmartFolderList from './SmartFolderList.svelte';
 	import TagGroupList from './TagGroupList.svelte';
-	import { buildFolderTree, buildSmartFolderItems, sortHubTagGroups } from './libraryOverviewModel';
+	import {
+		buildFolderTree,
+		buildSmartFolderItems,
+		sortHubTagGroups,
+		visibleTagGroups
+	} from './libraryOverviewModel';
 
 	type CreateKind = 'folder' | 'project' | 'tag' | 'tag-group';
 
@@ -30,9 +35,9 @@
 	let createOpen = $state<CreateKind | null>(null);
 	let createAnchor = $state<{ left: number; top: number } | null>(null);
 	let expandedFolders = $state(new Set<string>(loadExpanded('pastiche.library.expandedFolders')));
-	let expandedTagGroups = $state(new Set<string>(['general']));
+	let expandedTagGroups = $state(new Set<string>());
 	let folderTree = $derived(buildFolderTree(library.folders));
-	let tagGroups = $derived(sortHubTagGroups(library.tagFacets));
+	let tagGroups = $derived(visibleTagGroups(sortHubTagGroups(library.tagFacets)));
 	let smartFolders = $derived(buildSmartFolderItems(library.assets));
 	let hubProjects = $derived(
 		library.projects.filter((project) => project.pinned || library.projects.length <= 4)

@@ -54,6 +54,10 @@ export function sortHubTagGroups(groups: LibraryTagFacet[]): LibraryTagFacet[] {
 	});
 }
 
+export function visibleTagGroups(groups: LibraryTagFacet[], includeEmpty = false): LibraryTagFacet[] {
+	return groups.filter((group) => includeEmpty || group.tags.length > 0 || group.slug === 'general');
+}
+
 export function previewTags(tags: LibraryTag[], limit = 6) {
 	return {
 		visible: tags.slice(0, limit),
