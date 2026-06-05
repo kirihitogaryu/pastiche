@@ -30,6 +30,99 @@ export type WikidataSearchMode =
 	| 'movement'
 	| 'genre';
 
+export type WikimediaMode = 'art' | 'reference';
+
+export type WikimediaReferenceToken =
+	| {
+			kind: 'entity';
+			id: string;
+			label: string;
+			description: string | null;
+			role: 'subject' | 'qualifier';
+	  }
+	| {
+			kind: 'text';
+			value: string;
+			match: 'boost' | 'required';
+	  };
+
+export type WikimediaReferenceFormat =
+	| 'photograph'
+	| 'artwork'
+	| 'illustration'
+	| 'printmaking'
+	| 'poster'
+	| 'sculpture_object'
+	| 'texture'
+	| 'diagram';
+
+export type WikimediaReferenceSubject =
+	| 'animals'
+	| 'plants'
+	| 'marine_life'
+	| 'insects'
+	| 'landscapes'
+	| 'water_sky'
+	| 'architecture'
+	| 'textures'
+	| 'figure'
+	| 'faces'
+	| 'body_parts'
+	| 'pose_motion'
+	| 'drapery';
+
+export type WikimediaReferenceQualifier =
+	| 'paintings'
+	| 'drawings_sketches'
+	| 'watercolors'
+	| 'sculpture'
+	| 'ceramics_craft'
+	| 'baroque'
+	| 'dutch_golden_age'
+	| 'renaissance'
+	| 'romanticism'
+	| 'realism'
+	| 'neoclassicism'
+	| 'impressionism'
+	| 'post_impressionism'
+	| 'symbolism'
+	| 'art_nouveau'
+	| 'rococo'
+	| 'mannerism'
+	| 'ukiyo_e'
+	| 'woodcuts'
+	| 'engravings'
+	| 'etchings'
+	| 'lithographs'
+	| 'pen_ink'
+	| 'charcoal'
+	| 'pastel'
+	| 'botanical'
+	| 'natural_history'
+	| 'anatomical'
+	| 'book_periodical'
+	| 'decorative_ornamental'
+	| 'travel_tourism'
+	| 'advertising'
+	| 'propaganda_war'
+	| 'art_nouveau_posters'
+	| 'documentary'
+	| 'scientific_natural_history'
+	| 'production_publicity_stills';
+
+export type WikimediaReferenceFilters = {
+	subjects: WikimediaReferenceSubject[];
+	qualifiers: WikimediaReferenceQualifier[];
+	formats: WikimediaReferenceFormat[];
+	quality: 'all' | 'valued' | 'quality' | 'featured';
+	includeWikidataArt: boolean;
+	includeCommonsStructured: boolean;
+	includeCommonsCategories: boolean;
+	includeCommonsText: boolean;
+	excludeSvg: boolean;
+	minResolution: 'standard' | 'large';
+};
+
 export type ExploreItem = {
 	id: string;
 	source: SourceId;
@@ -65,12 +158,19 @@ export type ExploreQuery = {
 	yearFrom?: number;
 	yearTo?: number;
 	medium?: string;
+	mediumCategory?: string;
+	objectName?: string;
 	department?: string;
+	culture?: string;
+	period?: string;
 	publicDomainOnly?: boolean;
 	hasImageOnly?: boolean;
 	isHighlightOnly?: boolean;
 	color?: string;
 	depicts?: ExploreSubject[];
+	wikimediaMode?: WikimediaMode;
+	wikimediaReferenceTokens?: WikimediaReferenceToken[];
+	wikimediaReferenceFilters?: WikimediaReferenceFilters;
 	wikidataMode?: WikidataSearchMode;
 	wikidataEntities?: ExploreSubject[];
 	workType?: 'painting';

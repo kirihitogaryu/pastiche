@@ -4,8 +4,6 @@
 	import HashIcon from 'phosphor-svelte/lib/HashIcon';
 	import TagChevronIcon from 'phosphor-svelte/lib/TagChevronIcon';
 	import StackIcon from 'phosphor-svelte/lib/StackIcon';
-	import SquaresFourIcon from 'phosphor-svelte/lib/SquaresFourIcon';
-	import ListBulletsIcon from 'phosphor-svelte/lib/ListBulletsIcon';
 	import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
 	import CreateOrganizationPopover from '$lib/components/library/CreateOrganizationPopover.svelte';
 	import SearchBox from '$lib/components/shell/SearchBox.svelte';
@@ -148,14 +146,6 @@
 		<FunnelIcon size={20} />
 		<span>Filter</span>
 	</button>
-	<button class="tool" type="button">
-		<span>Sort: Newest</span>
-	</button>
-	<div class="view-toggle" aria-label="View options">
-		<button type="button" aria-label="Grid view"><SquaresFourIcon size={20} weight="fill" /></button
-		>
-		<button type="button" aria-label="List view"><ListBulletsIcon size={20} /></button>
-	</div>
 	<button class="add" type="button" aria-label="Add to Library" onclick={openAdd}>
 		<PlusIcon size={24} />
 	</button>
@@ -186,7 +176,6 @@
 	.mode-pill,
 	.tool,
 	.icon-tool,
-	.view-toggle,
 	.add {
 		border: 1px solid var(--color-border);
 		background: var(--color-surface);
@@ -221,8 +210,7 @@
 
 	.tool,
 	.icon-tool,
-	.add,
-	.view-toggle button {
+	.add {
 		height: 2.55rem;
 		border: 0;
 		color: var(--color-text);
@@ -247,12 +235,6 @@
 		padding: 0;
 	}
 
-	.view-toggle {
-		display: inline-flex;
-		padding: var(--space-1);
-	}
-
-	.view-toggle button,
 	.add {
 		width: 2.55rem;
 		display: grid;
@@ -262,11 +244,6 @@
 		transition:
 			background var(--duration-fast) var(--ease-out),
 			color var(--duration-fast) var(--ease-out);
-	}
-
-	.view-toggle button:hover,
-	.view-toggle button:focus-visible {
-		background: var(--color-hover);
 	}
 
 	.add {

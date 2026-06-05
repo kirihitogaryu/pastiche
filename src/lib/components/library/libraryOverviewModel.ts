@@ -5,6 +5,7 @@ import type {
 	LibraryTag,
 	LibraryTagFacet
 } from '$lib/library/types';
+import type { LibraryFilterState } from '$lib/state/app-state.svelte';
 import type { Asset, LibraryFolder, SmartFolder } from '$lib/types';
 
 export type FolderTreeNode = LibraryFolder & {
@@ -122,7 +123,45 @@ export function filterAssetsByLibraryQuery(
 		]
 			.filter((value): value is string => Boolean(value))
 			.some((value) => value.toLocaleLowerCase().includes(normalized))
-	);
+		);
+}
+
+export function filterAssetsByLibraryFilters(
+	assets: LibraryAsset[],
+	filters: LibraryFilterState
+): LibraryAsset[] {
+	return assets.filter((asset) => {
+		if (filters.favoritesOnly && !asset.favorite) return false;
+		if (filters.untaggedOnly && asset.tags.length > 0) return false;
+		if (filters.missingSourceOnly && asset.sourceUrl) return false;
+		if (filters.folderId && asset.record?.organization.folderId !== filters.folderId) return false;
+		if (filters.projectId && !asset.projects.includes(filters.projectId)) return false;
+		if (
+			filters.tagIds.length > 0 &&
+			!asset.record?.organization.tags.some((tag) => filters.tagIds.includes(tag.id))
+		) {
+			return false;
+		}
+		if (
+			filters.sourceTypes.length > 0 &&
+			!filters.sourceTypes.includes(asset.record?.source.type ?? asset.sourceType)
+		) {
+			return false;
+		}
+		if (
+			filters.importers.length > 0 &&
+			!filters.importers.includes(asset.record?.raw.importer ?? 'manual')
+		) {
+			return false;
+		}
+		for (const [key, value] of Object.entries(filters.metadata)) {
+			if (value && asset.record?.facts[key as keyof typeof filters.metadata] !== value) return false;
+		}
+		if (filters.orientation && imageOrientation(asset.width, asset.height) !== filters.orientation) {
+			return false;
+		}
+		return true;
+	});
 }
 
 export function searchLibrary(input: {
@@ -163,6 +202,11 @@ export function searchLibrary(input: {
 		hasQuery: true,
 		total: assets.length + projects.length + folders.length + tags.length
 	};
+}
+
+function imageOrientation(width: number, height: number) {
+	if (Math.abs(width - height) <= Math.max(width, height) * 0.08) return 'square';
+	return width > height ? 'landscape' : 'portrait';
 }
 
 function flattenFolderTree(node: FolderTreeNode): FolderTreeNode[] {

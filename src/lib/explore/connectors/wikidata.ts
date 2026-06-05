@@ -12,9 +12,11 @@ import type {
 import {
 	WikimediaCircuitBreaker,
 	WikimediaRequestQueue,
+	isWikimediaTemporaryError,
 	requestWikimediaJson,
 	wikimediaHeaders
 } from '../wikimedia-request';
+import { commonsTitleFromExploreId, createCommonsReferenceConnector } from './commons-reference';
 
 type WikidataFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -49,12 +51,14 @@ type CommonsImageInfoResponse = {
 	};
 };
 
-type WikidataEntitySearchResponse = {
-	search?: unknown;
+type WikidataTitleSearchResponse = {
+	query?: {
+		search?: unknown;
+	};
 };
 
-type WikidataEntitySearchResult = {
-	id?: unknown;
+type WikidataTitleSearchResult = {
+	title?: unknown;
 };
 
 type CommonsPage = {
@@ -86,7 +90,10 @@ export type WikidataRelatedSeed = {
 };
 
 export type WikidataConnector = SourceConnector & {
-	getRelated(id: string, options?: { limit?: number; cursor?: string }): Promise<ExploreRelatedPage>;
+	getRelated(
+		id: string,
+		options?: { limit?: number; cursor?: string }
+	): Promise<ExploreRelatedPage>;
 };
 
 const WIKIDATA_SPARQL_URL = 'https://query.wikidata.org/sparql';
@@ -136,6 +143,13 @@ export function createWikidataConnector(options: WikidataConnectorOptions = {}):
 	const sparqlTimeoutMs = options.sparqlTimeoutMs ?? DEFAULT_SPARQL_TIMEOUT_MS;
 	const actionTimeoutMs = options.actionTimeoutMs ?? DEFAULT_ACTION_TIMEOUT_MS;
 	const cache = options.cache ?? new ServerCache(2000);
+	const referenceConnector = createCommonsReferenceConnector({
+		fetch: fetcher,
+		cache,
+		concurrency: options.actionConcurrency ?? options.concurrency ?? 2,
+		requestsPerSecond: options.actionRequestsPerSecond ?? options.requestsPerSecond ?? 2,
+		timeoutMs: actionTimeoutMs
+	});
 
 	async function sparqlJson(query: string): Promise<WikidataSparqlResponse> {
 		const request = buildWikidataSparqlRequest(query);
@@ -152,7 +166,10 @@ export function createWikidataConnector(options: WikidataConnectorOptions = {}):
 	}
 
 	async function commonsJson(url: URL): Promise<CommonsImageInfoResponse> {
-		return actionJson<CommonsImageInfoResponse>(url, 'Wikimedia image metadata took too long to answer.');
+		return actionJson<CommonsImageInfoResponse>(
+			url,
+			'Wikimedia image metadata took too long to answer.'
+		);
 	}
 
 	async function actionJson<T>(url: URL, timeoutMessage: string): Promise<T> {
@@ -176,11 +193,17 @@ export function createWikidataConnector(options: WikidataConnectorOptions = {}):
 		);
 		if (filenames.length === 0) return items;
 
-		const response = await cache.getOrFetch(
-			`commons:imageinfo:${filenames.join('|')}`,
-			SERVER_OBJECT_TTL_MS,
-			() => commonsJson(buildCommonsImageInfoUrl(filenames, 400))
-		);
+		let response: CommonsImageInfoResponse;
+		try {
+			response = await cache.getOrFetch(
+				`commons:imageinfo:${filenames.join('|')}`,
+				SERVER_OBJECT_TTL_MS,
+				() => commonsJson(buildCommonsImageInfoUrl(filenames, 400))
+			);
+		} catch (error) {
+			if (isWikimediaTemporaryError(error)) return items;
+			throw error;
+		}
 		const imageInfoByFile = parseCommonsImageInfo(response);
 
 		return items
@@ -206,6 +229,9 @@ export function createWikidataConnector(options: WikidataConnectorOptions = {}):
 	}
 
 	async function search(query: ExploreQuery) {
+		if (query.wikimediaMode === 'reference') {
+			return referenceConnector.search(query);
+		}
 		const normalizedQuery = normalizeWikidataSearchQuery(query);
 		if (normalizedQuery.mode !== 'title' && normalizedQuery.entities.length === 0) {
 			return { items: [], total: 0, nextCursor: null };
@@ -270,14 +296,14 @@ export function createWikidataConnector(options: WikidataConnectorOptions = {}):
 			`wikidata:title-candidates:${trimmed.toLowerCase()}:${limit}`,
 			SERVER_OBJECT_TTL_MS,
 			async () => {
-				const data = await actionJson<WikidataEntitySearchResponse>(
+				const data = await actionJson<WikidataTitleSearchResponse>(
 					buildWikidataTitleSearchUrl(trimmed, Math.min(50, Math.max(limit * 2, 20))),
 					'Wikidata title search took too long to answer.'
 				);
-				const results = Array.isArray(data.search) ? data.search : [];
+				const results = Array.isArray(data.query?.search) ? data.query.search : [];
 				return uniqueStrings(
 					results
-						.map((result) => stringOrNull((result as WikidataEntitySearchResult).id))
+						.map((result) => stringOrNull((result as WikidataTitleSearchResult).title))
 						.filter((id): id is string => id !== null && isQid(id))
 				);
 			}
@@ -287,11 +313,15 @@ export function createWikidataConnector(options: WikidataConnectorOptions = {}):
 	async function getRelated(id: string, relatedOptions: { limit?: number; cursor?: string } = {}) {
 		const qid = parseWikidataNativeId(id);
 		if (!qid) throw new Error(`Invalid Wikidata item id: ${id}`);
-		const seed = await cache.getOrFetch(`wikidata:related-seed:${qid}`, SERVER_OBJECT_TTL_MS, async () => {
-			const response = await sparqlJson(buildWikidataRelatedSeedQuery(qid));
-			const bindings = Array.isArray(response.results?.bindings) ? response.results.bindings : [];
-			return normalizeWikidataRelatedSeed(bindings[0] as WikidataBinding, qid);
-		});
+		const seed = await cache.getOrFetch(
+			`wikidata:related-seed:${qid}`,
+			SERVER_OBJECT_TTL_MS,
+			async () => {
+				const response = await sparqlJson(buildWikidataRelatedSeedQuery(qid));
+				const bindings = Array.isArray(response.results?.bindings) ? response.results.bindings : [];
+				return normalizeWikidataRelatedSeed(bindings[0] as WikidataBinding, qid);
+			}
+		);
 		if (!seed) throw new Error(`Wikidata item not found: ${id}`);
 
 		const limit = clampLimit(relatedOptions.limit ?? DEFAULT_LIMIT);
@@ -329,6 +359,9 @@ export function createWikidataConnector(options: WikidataConnectorOptions = {}):
 		},
 		search,
 		async getById(id) {
+			if (commonsTitleFromExploreId(id)) {
+				return referenceConnector.getById(id);
+			}
 			const qid = parseWikidataNativeId(id);
 			if (!qid) throw new Error(`Invalid Wikidata item id: ${id}`);
 			const response = await cache.getOrFetch(`wikidata:object:${qid}`, SERVER_OBJECT_TTL_MS, () =>
@@ -337,7 +370,8 @@ export function createWikidataConnector(options: WikidataConnectorOptions = {}):
 			const bindings = Array.isArray(response.results?.bindings) ? response.results.bindings : [];
 			const item = normalizeWikidataBinding(bindings[0] as WikidataBinding);
 			if (!item) throw new Error(`Wikidata item not found: ${id}`);
-			return item;
+			const [resolvedItem] = await resolveCommonsImages([item]);
+			return resolvedItem ?? item;
 		},
 		getRelated
 	};
@@ -388,15 +422,18 @@ export function buildWikidataSearchQuery(query: ExploreQuery): string {
 
 export function buildWikidataTitleSearchUrl(search: string, limit: number): URL {
 	const url = new URL(WIKIDATA_API_URL);
-	url.searchParams.set('action', 'wbsearchentities');
-	url.searchParams.set('search', search);
-	url.searchParams.set('language', 'en');
-	url.searchParams.set('type', 'item');
-	url.searchParams.set('limit', String(limit));
+	url.searchParams.set('action', 'query');
+	url.searchParams.set('list', 'search');
+	url.searchParams.set('srsearch', wikidataTitleSearchText(search));
+	url.searchParams.set('srlimit', String(limit));
 	url.searchParams.set('format', 'json');
 	url.searchParams.set('maxlag', '5');
 	url.searchParams.set('origin', '*');
 	return url;
+}
+
+function wikidataTitleSearchText(search: string): string {
+	return `${search.trim()} haswbstatement:P31=Q3305213 haswbstatement:P18`;
 }
 
 function buildWikidataEntityModeQuery(
@@ -702,15 +739,25 @@ function normalizeWikidataRelatedSeed(
 function directRelationBranches(qid: string): string[] {
 	return [
 		graphBranch(`wd:${qid} wdt:P144 ?item. BIND(100 AS ?score) BIND("source work" AS ?reason)`),
-		graphBranch(`?item wdt:P144 wd:${qid}. BIND(100 AS ?score) BIND("based on this work" AS ?reason)`),
-		graphBranch(`wd:${qid} wdt:P4969 ?item. BIND(100 AS ?score) BIND("derivative work" AS ?reason)`),
-		graphBranch(`?item wdt:P4969 wd:${qid}. BIND(100 AS ?score) BIND("related derivative" AS ?reason)`),
+		graphBranch(
+			`?item wdt:P144 wd:${qid}. BIND(100 AS ?score) BIND("based on this work" AS ?reason)`
+		),
+		graphBranch(
+			`wd:${qid} wdt:P4969 ?item. BIND(100 AS ?score) BIND("derivative work" AS ?reason)`
+		),
+		graphBranch(
+			`?item wdt:P4969 wd:${qid}. BIND(100 AS ?score) BIND("related derivative" AS ?reason)`
+		),
 		graphBranch(`wd:${qid} wdt:P1639 ?item. BIND(95 AS ?score) BIND("pendant work" AS ?reason)`),
 		graphBranch(`?item wdt:P1639 wd:${qid}. BIND(95 AS ?score) BIND("pendant work" AS ?reason)`),
 		graphBranch(`wd:${qid} wdt:P6606 ?item. BIND(95 AS ?score) BIND("study or design" AS ?reason)`),
 		graphBranch(`?item wdt:P6606 wd:${qid}. BIND(95 AS ?score) BIND("study or design" AS ?reason)`),
-		graphBranch(`wd:${qid} wdt:P179 ?series. ?item wdt:P179 ?series. BIND(80 AS ?score) BIND("same series" AS ?reason)`),
-		graphBranch(`wd:${qid} wdt:P180 ?item. BIND(75 AS ?score) BIND("depicted in this work" AS ?reason)`),
+		graphBranch(
+			`wd:${qid} wdt:P179 ?series. ?item wdt:P179 ?series. BIND(80 AS ?score) BIND("same series" AS ?reason)`
+		),
+		graphBranch(
+			`wd:${qid} wdt:P180 ?item. BIND(75 AS ?score) BIND("depicted in this work" AS ?reason)`
+		),
 		graphBranch(`?item wdt:P180 wd:${qid}. BIND(75 AS ?score) BIND("depicts this work" AS ?reason)`)
 	];
 }
@@ -745,15 +792,12 @@ function graphBranch(pattern: string): string {
 
 function entityIdsFromGroup(value: unknown): string[] {
 	const raw = pipeSeparatedStrings(value);
-	return uniqueStrings(
-		raw
-			.map((item) => item.split('/entity/')[1] ?? item)
-			.filter(isQid)
-	);
+	return uniqueStrings(raw.map((item) => item.split('/entity/')[1] ?? item).filter(isQid));
 }
 
 function numberOrNull(value: unknown): number | null {
-	const parsed = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+	const parsed =
+		typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
 	return Number.isFinite(parsed) ? parsed : null;
 }
 

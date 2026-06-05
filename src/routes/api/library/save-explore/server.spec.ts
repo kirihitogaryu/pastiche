@@ -142,4 +142,81 @@ describe('POST /api/library/save-explore', () => {
 			expect.objectContaining({ name: 'subject: portrait', slug: 'subject-portrait' })
 		]);
 	});
+
+	it('uses Art Institute thumbnail dimensions when IIIF info is unavailable', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response(null, { status: 403 }))
+		);
+		getById.mockResolvedValue({
+			...sampleItem,
+			id: 'artic-27992',
+			source: 'artic',
+			detailUrl: 'https://www.artic.edu/artworks/27992/a-sunday-on-la-grande-jatte',
+			title: 'A Sunday on La Grande Jatte',
+			imageUrl: 'https://www.artic.edu/iiif/2/abc123',
+			thumbUrl: 'https://www.artic.edu/iiif/2/abc123/full/400,/0/default.jpg',
+			isIIIF: true,
+			rawMetadata: {
+				thumbnail: {
+					width: 843,
+					height: 1280
+				}
+			}
+		});
+		const { POST } = await import('./+server');
+		const { getLibrarySnapshot } = await import('$lib/server/library/read');
+
+		const response = await POST({
+			request: new Request('http://localhost/api/library/save-explore', {
+				method: 'POST',
+				body: JSON.stringify({ item_id: 'artic-27992', destination_folder_id: null })
+			})
+		});
+		const snapshot = getLibrarySnapshot();
+
+		expect(response.status).toBe(200);
+		expect(snapshot.assets[0]).toMatchObject({
+			sourceName: 'Art Institute',
+			sourceUrl: 'https://www.artic.edu/artworks/27992/a-sunday-on-la-grande-jatte',
+			width: 843,
+			height: 1280
+		});
+	});
+
+	it('saves Wikimedia items with fallback dimensions when remote image probing is throttled', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response(null, { status: 429 }))
+		);
+		getById.mockResolvedValue({
+			...sampleItem,
+			id: 'wikidata-Q12418',
+			source: 'wikidata',
+			detailUrl: 'https://www.wikidata.org/wiki/Q12418',
+			title: 'Mona Lisa',
+			imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/mona.jpg',
+			thumbUrl: null,
+			isIIIF: false,
+			rawMetadata: {}
+		});
+		const { POST } = await import('./+server');
+		const { getLibrarySnapshot } = await import('$lib/server/library/read');
+
+		const response = await POST({
+			request: new Request('http://localhost/api/library/save-explore', {
+				method: 'POST',
+				body: JSON.stringify({ item_id: 'wikidata-Q12418', destination_folder_id: null })
+			})
+		});
+		const snapshot = getLibrarySnapshot();
+
+		expect(response.status).toBe(200);
+		expect(snapshot.assets[0]).toMatchObject({
+			sourceName: 'Wikidata',
+			sourceUrl: 'https://www.wikidata.org/wiki/Q12418',
+			width: 1,
+			height: 1
+		});
+	});
 });

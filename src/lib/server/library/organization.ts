@@ -95,6 +95,37 @@ export function detachTagFromAsset(assetId: string, tagId: string) {
 	}
 }
 
+export function setAssetFavorite(assetId: string, favorite: boolean) {
+	const db = openLibraryDatabase();
+	try {
+		assertAssetExists(db, assetId);
+		db.prepare('update assets set favorite = ?, modified_at = ? where id = ?').run(
+			favorite ? 1 : 0,
+			new Date().toISOString(),
+			assetId
+		);
+		return true;
+	} finally {
+		db.close();
+	}
+}
+
+export function moveAssetToFolder(assetId: string, folderId: string | null) {
+	const db = openLibraryDatabase();
+	try {
+		assertAssetExists(db, assetId);
+		if (folderId !== null) assertFolderExists(db, folderId);
+		db.prepare('update assets set folder_id = ?, modified_at = ? where id = ?').run(
+			folderId,
+			new Date().toISOString(),
+			assetId
+		);
+		return true;
+	} finally {
+		db.close();
+	}
+}
+
 export function acceptSourceTagSuggestion(input: {
 	assetId: string;
 	name: string;
@@ -287,6 +318,10 @@ function assertTagExists(db: Database.Database, id: string) {
 
 function assertProjectExists(db: Database.Database, id: string) {
 	if (!db.prepare('select 1 from projects where id = ?').get(id)) throw new Error('Project not found');
+}
+
+function assertFolderExists(db: Database.Database, id: string) {
+	if (!db.prepare('select 1 from folders where id = ?').get(id)) throw new Error('Folder not found');
 }
 
 function addProjectFolderRefInDb(

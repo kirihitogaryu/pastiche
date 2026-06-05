@@ -5,8 +5,6 @@
 	import PaletteIcon from 'phosphor-svelte/lib/PaletteIcon';
 	import ScribbleIcon from 'phosphor-svelte/lib/ScribbleIcon';
 	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
-	import GearSixIcon from 'phosphor-svelte/lib/GearSixIcon';
-	import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
 	import type { AppMode } from '$lib/types';
 	import { appModes } from '$lib/data/mock-navigation';
 
@@ -41,10 +39,6 @@
 				<Icon size={24} weight={mode === item.id ? 'fill' : 'regular'} />
 			</button>
 		{/each}
-	</div>
-	<div class="rail-foot">
-		<button type="button" aria-label="Settings" title="Settings"><GearSixIcon size={23} /></button>
-		<button type="button" aria-label="Trash" title="Trash"><TrashIcon size={23} /></button>
 	</div>
 </nav>
 
@@ -81,8 +75,7 @@
 		color: var(--color-text);
 	}
 
-	.rail-main,
-	.rail-foot {
+	.rail-main {
 		display: grid;
 		gap: var(--space-3);
 	}

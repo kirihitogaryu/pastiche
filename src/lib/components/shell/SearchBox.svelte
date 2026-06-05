@@ -2,9 +2,12 @@
 	import ArrowRightIcon from 'phosphor-svelte/lib/ArrowRightIcon';
 	import MagnifyingGlassIcon from 'phosphor-svelte/lib/MagnifyingGlassIcon';
 	import {
+		addWikimediaReferenceEntity,
+		addWikimediaReferenceText,
 		addWikidataSubject,
 		appState,
 		commitExploreSearch,
+		removeWikimediaReferenceToken,
 		selectExploreSuggestion,
 		setWikidataEntityError,
 		setWikidataEntityLoading,
@@ -25,8 +28,11 @@
 	let focused = $state(false);
 
 	let isWikidataMode = $derived(mode === 'explore' && appState.exploreSourceId === 'wikidata');
+	let isWikimediaReferenceMode = $derived(isWikidataMode && appState.wikimediaMode === 'reference');
 	let wikidataMode = $derived(appState.wikidataMode);
-	let isWikidataEntityMode = $derived(isWikidataMode && wikidataMode !== 'title');
+	let isWikidataEntityMode = $derived(
+		isWikidataMode && (isWikimediaReferenceMode || wikidataMode !== 'title')
+	);
 	let suggestions = $derived(
 		mode === 'explore' && !isWikidataMode ? appState.exploreSuggestions : []
 	);
@@ -50,7 +56,12 @@
 			(!isWikidataMode || wikidataMode === 'title') &&
 			appState.query.trim() !== appState.exploreCommittedQuery.trim()
 	);
-	let canAddWikidataSubject = $derived(isWikidataEntityMode && entitySuggestions.length > 0);
+	let canAddWikidataSubject = $derived(
+		isWikidataEntityMode &&
+			(entitySuggestions.length > 0 ||
+				(isWikimediaReferenceMode && appState.query.trim().length > 0))
+	);
+	let referenceTokens = $derived(appState.wikimediaReferenceTokens);
 
 	$effect(() => {
 		if (!isWikidataEntityMode) return;
@@ -66,7 +77,11 @@
 		setWikidataEntityLoading(true);
 		setWikidataEntityError(null);
 		const timeout = window.setTimeout(() => {
-			const params = new URLSearchParams({ search, mode: wikidataMode });
+			const params = new URLSearchParams({
+				search,
+				mode: isWikimediaReferenceMode ? 'depicts' : wikidataMode
+			});
+			if (isWikimediaReferenceMode) params.set('context', 'reference');
 			void fetch(`/explore/api/wikidata/entities?${params.toString()}`)
 				.then(async (response) => {
 					const data = (await response.json()) as
@@ -75,7 +90,13 @@
 					if (!response.ok) throw new Error('error' in data ? data.error : 'Entity search failed');
 					if (!('entities' in data)) throw new Error('Entity search failed');
 					if (!cancelled) {
-						const selectedIds = new Set(appState.wikidataSubjects.map((subject) => subject.id));
+						const selectedIds = new Set(
+							isWikimediaReferenceMode
+								? appState.wikimediaReferenceTokens
+										.filter((token) => token.kind === 'entity')
+										.map((token) => token.id)
+								: appState.wikidataSubjects.map((subject) => subject.id)
+						);
 						setWikidataEntitySuggestions(
 							data.entities.filter((subject) => !selectedIds.has(subject.id))
 						);
@@ -108,7 +129,11 @@
 	}
 
 	function applyEntity(subject: ExploreSubject) {
-		addWikidataSubject(subject);
+		if (isWikimediaReferenceMode) {
+			addWikimediaReferenceEntity(subject);
+		} else {
+			addWikidataSubject(subject);
+		}
 		focused = false;
 	}
 
@@ -116,6 +141,15 @@
 		if (mode !== 'explore' || event.key !== 'Enter') return;
 		event.preventDefault();
 		if (isWikidataMode) {
+			if (isWikimediaReferenceMode) {
+				if (entitySuggestions[0]) {
+					applyEntity(entitySuggestions[0]);
+				} else {
+					addWikimediaReferenceText(appState.query);
+					focused = false;
+				}
+				return;
+			}
 			if (wikidataMode === 'title') {
 				commitSearch();
 			} else if (entitySuggestions[0]) {
@@ -128,6 +162,15 @@
 
 	function commitSearch() {
 		if (isWikidataMode) {
+			if (isWikimediaReferenceMode) {
+				if (entitySuggestions[0]) {
+					applyEntity(entitySuggestions[0]);
+				} else {
+					addWikimediaReferenceText(appState.query);
+					focused = false;
+				}
+				return;
+			}
 			if (wikidataMode === 'title') {
 				commitExploreSearch();
 				focused = false;
@@ -155,6 +198,7 @@
 	}
 
 	function wikidataPlaceholder(mode: WikidataSearchMode, hasEntities: boolean) {
+		if (isWikimediaReferenceMode) return hasEntities ? 'Add entity or descriptor...' : 'Search an entity or descriptor...';
 		if (mode === 'title') return 'Search artwork titles...';
 		if (hasEntities) return 'Add another subject...';
 		if (mode === 'main_subject') return 'Search main subjects...';
@@ -166,9 +210,25 @@
 </script>
 
 <div class="search-wrap">
-	<div class="search">
+	<div class="search" class:reference-search={isWikimediaReferenceMode && referenceTokens.length > 0}>
 		<MagnifyingGlassIcon size={20} />
 		<span class="sr-only">{label}</span>
+		{#if isWikimediaReferenceMode && referenceTokens.length > 0}
+			<div class="reference-token-row" aria-label="Selected Wikimedia reference tokens">
+				{#each referenceTokens as token, index}
+					<button
+						class="reference-token"
+						type="button"
+						aria-label={`Remove ${token.kind === 'entity' ? token.label : token.value}`}
+						onmousedown={(event) => event.preventDefault()}
+						onclick={() => removeWikimediaReferenceToken(index)}
+					>
+						<span>{token.kind === 'entity' ? token.label : token.value}</span>
+						<small>{token.kind === 'entity' ? token.id : 'text'}</small>
+					</button>
+				{/each}
+			</div>
+		{/if}
 		<input
 			aria-label={label}
 			value={appState.query}
@@ -185,12 +245,16 @@
 				class="commit-search"
 				type="button"
 				aria-label={isWikidataMode
-					? wikidataMode === 'title'
+					? isWikimediaReferenceMode
+						? 'Add Wikimedia reference token'
+						: wikidataMode === 'title'
 						? 'Search Wikimedia'
 						: 'Add Wikimedia entity'
 					: `Search ${appState.exploreSourceLabel}`}
 				disabled={isWikidataMode
-					? wikidataMode === 'title'
+					? isWikimediaReferenceMode
+						? !canAddWikidataSubject
+						: wikidataMode === 'title'
 						? !canCommitExploreSearch
 						: !canAddWikidataSubject
 					: !canCommitExploreSearch}
@@ -271,6 +335,11 @@
 			border-color var(--duration-fast) var(--ease-out);
 	}
 
+	.search.reference-search {
+		gap: var(--space-2);
+		padding-left: var(--space-3);
+	}
+
 	.search:focus-within {
 		border-color: var(--color-border-strong);
 		background: var(--color-surface-soft);
@@ -283,6 +352,56 @@
 		background: transparent;
 		color: var(--color-text);
 		outline: none;
+	}
+
+	.reference-token-row {
+		min-width: 0;
+		max-width: min(52%, 25rem);
+		display: flex;
+		gap: 0.35rem;
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+
+	.reference-token-row::-webkit-scrollbar {
+		display: none;
+	}
+
+	.reference-token {
+		flex: 0 0 auto;
+		max-width: 10rem;
+		height: 1.65rem;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		padding: 0 0.58rem;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-pill);
+		background: oklch(20% 0.012 70);
+		color: var(--color-text);
+		cursor: pointer;
+	}
+
+	.reference-token:hover,
+	.reference-token:focus-visible {
+		border-color: var(--color-border-strong);
+		background: var(--color-hover);
+	}
+
+	.reference-token span {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: 0.78rem;
+		font-weight: 700;
+	}
+
+	.reference-token small {
+		flex: 0 0 auto;
+		color: var(--color-dim);
+		font-size: 0.65rem;
+		text-transform: uppercase;
 	}
 
 	kbd {
@@ -391,5 +510,15 @@
 		font-size: 0.84rem;
 		line-height: 1.35;
 		padding: var(--space-3);
+	}
+
+	@media (max-width: 759px) {
+		.reference-token-row {
+			max-width: 48%;
+		}
+
+		.reference-token {
+			max-width: 7.5rem;
+		}
 	}
 </style>

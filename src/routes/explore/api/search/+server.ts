@@ -88,6 +88,9 @@ function isExploreQuery(value: unknown): value is ExploreQuery {
 		isOptionalBoolean(value.isHighlightOnly) &&
 		isOptionalString(value.color) &&
 		isOptionalDepicts(value.depicts) &&
+		isOptionalWikimediaMode(value.wikimediaMode) &&
+		isOptionalWikimediaReferenceTokens(value.wikimediaReferenceTokens) &&
+		isOptionalWikimediaReferenceFilters(value.wikimediaReferenceFilters) &&
 		isOptionalWikidataMode(value.wikidataMode) &&
 		isOptionalDepicts(value.wikidataEntities) &&
 		isOptionalWorkType(value.workType) &&
@@ -125,6 +128,137 @@ function isOptionalWikidataMode(value: unknown) {
 		value === 'movement' ||
 		value === 'genre'
 	);
+}
+
+function isOptionalWikimediaMode(value: unknown) {
+	return value === undefined || value === 'art' || value === 'reference';
+}
+
+function isOptionalWikimediaReferenceTokens(value: unknown) {
+	if (value === undefined) return true;
+	if (!Array.isArray(value)) return false;
+	return value.every((token) => {
+		if (!isRecord(token) || typeof token.kind !== 'string') return false;
+		if (token.kind === 'entity') {
+			return (
+				typeof token.id === 'string' &&
+				/^Q\d+$/.test(token.id) &&
+				typeof token.label === 'string' &&
+				token.label.trim().length > 0 &&
+				(token.description === null ||
+					token.description === undefined ||
+					typeof token.description === 'string') &&
+				(token.role === 'subject' || token.role === 'qualifier')
+			);
+		}
+		if (token.kind === 'text') {
+			return (
+				typeof token.value === 'string' &&
+				token.value.trim().length > 0 &&
+				(token.match === 'boost' || token.match === 'required')
+			);
+		}
+		return false;
+	});
+}
+
+function isOptionalWikimediaReferenceFilters(value: unknown) {
+	if (value === undefined) return true;
+	if (!isRecord(value)) return false;
+	return (
+		isReferenceSubjectArray(value.subjects) &&
+		isReferenceQualifierArray(value.qualifiers) &&
+		isReferenceFormatArray(value.formats) &&
+		(value.quality === 'all' ||
+			value.quality === 'valued' ||
+			value.quality === 'quality' ||
+			value.quality === 'featured') &&
+		typeof value.includeWikidataArt === 'boolean' &&
+		typeof value.includeCommonsStructured === 'boolean' &&
+		typeof value.includeCommonsCategories === 'boolean' &&
+		typeof value.includeCommonsText === 'boolean' &&
+		typeof value.excludeSvg === 'boolean' &&
+		(value.minResolution === 'standard' || value.minResolution === 'large')
+	);
+}
+
+function isReferenceSubjectArray(value: unknown) {
+	if (!Array.isArray(value)) return false;
+	const allowed = new Set([
+		'animals',
+		'plants',
+		'marine_life',
+		'insects',
+		'landscapes',
+		'water_sky',
+		'architecture',
+		'textures',
+		'figure',
+		'faces',
+		'body_parts',
+		'pose_motion',
+		'drapery'
+	]);
+	return value.every((subject) => typeof subject === 'string' && allowed.has(subject));
+}
+
+function isReferenceQualifierArray(value: unknown) {
+	if (!Array.isArray(value)) return false;
+	const allowed = new Set([
+		'paintings',
+		'drawings_sketches',
+		'watercolors',
+		'sculpture',
+		'ceramics_craft',
+		'baroque',
+		'dutch_golden_age',
+		'renaissance',
+		'romanticism',
+		'realism',
+		'neoclassicism',
+		'impressionism',
+		'post_impressionism',
+		'symbolism',
+		'art_nouveau',
+		'rococo',
+		'mannerism',
+		'ukiyo_e',
+		'woodcuts',
+		'engravings',
+		'etchings',
+		'lithographs',
+		'pen_ink',
+		'charcoal',
+		'pastel',
+		'botanical',
+		'natural_history',
+		'anatomical',
+		'book_periodical',
+		'decorative_ornamental',
+		'travel_tourism',
+		'advertising',
+		'propaganda_war',
+		'art_nouveau_posters',
+		'documentary',
+		'scientific_natural_history',
+		'production_publicity_stills'
+	]);
+	return value.every((qualifier) => typeof qualifier === 'string' && allowed.has(qualifier));
+}
+
+function isReferenceFormatArray(value: unknown) {
+	if (!Array.isArray(value)) return false;
+	const allowed = new Set([
+		'photograph',
+		'artwork',
+		'illustration',
+		'printmaking',
+		'poster',
+		'sculpture_object',
+		'texture',
+		'diagram'
+	]);
+	return value.every((format) => typeof format === 'string' && allowed.has(format));
 }
 
 function isOptionalDepicts(value: unknown) {

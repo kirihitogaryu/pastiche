@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
 	buildArticIiifBaseUrl,
+	buildArticSearchUrl,
 	createArticConnector,
 	normalizeArticArtwork,
 	parseArticNativeId
@@ -114,6 +115,33 @@ describe('Art Institute connector helpers', () => {
 		expect(page.items.map((item) => item.id)).toEqual(['artic-27992']);
 		expect(page.total).toBe(1);
 		expect(page.nextCursor).toBeNull();
+	});
+
+	it('builds remote metadata constraints for Art Institute context filters', () => {
+		const url = buildArticSearchUrl({
+			keyword: 'Venice',
+			culture: 'Venice, Italy',
+			period: 'Impressionism',
+			publicDomainOnly: true,
+			limit: 20
+		});
+
+		expect(url.searchParams.get('q')).toBeNull();
+		expect(url.searchParams.get('query[bool][must][0][query_string][query]')).toBe('Venice');
+		expect(
+			url.searchParams.get('query[bool][must][1][bool][should][0][match_phrase][place_of_origin]')
+		).toBe('Venice, Italy');
+		expect(
+			url.searchParams.get('query[bool][must][1][bool][should][1][match_phrase][subject_titles]')
+		).toBe('Venice, Italy');
+		expect(
+			url.searchParams.get('query[bool][must][1][bool][should][2][match_phrase][term_titles]')
+		).toBe('Venice, Italy');
+		expect(url.searchParams.get('query[bool][must][2][match_phrase][style_title]')).toBe(
+			'Impressionism'
+		);
+		expect(url.searchParams.get('query[bool][must][3][exists][field]')).toBe('image_id');
+		expect(url.searchParams.get('query[bool][must][4][term][is_public_domain]')).toBe('true');
 	});
 
 	it('retries retryable Art Institute search responses', async () => {

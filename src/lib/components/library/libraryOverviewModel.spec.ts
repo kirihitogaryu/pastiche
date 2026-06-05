@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	buildSmartFolderItems,
 	buildFolderTree,
+	filterAssetsByLibraryFilters,
 	filterAssetsByLibraryQuery,
 	filterAssetsByTag,
 	previewTags,
@@ -185,6 +186,81 @@ describe('libraryOverviewModel', () => {
 		expect(filterAssetsByLibraryQuery(assets, 'watercolor').map((asset) => asset.id)).toEqual([
 			'landscape'
 		]);
+	});
+
+	it('filters library assets by persisted organization and metadata fields', () => {
+		const tagged = {
+			...assetFixture('favorite-hands', [
+				{
+					id: 'tag-hands',
+					facetId: 'facet-subject',
+					facetName: 'Subject',
+					facetSlug: 'subject',
+					value: 'hands',
+					name: 'Subject: hands',
+					slug: 'subject-hands',
+					assetCount: 1
+				}
+			]),
+			favorite: true,
+			projects: ['project-1'],
+			record: {
+				...assetFixture('favorite-hands', []).record!,
+				facts: {
+					medium: 'Watercolor',
+					department: 'Drawings'
+				},
+				source: {
+					...assetFixture('favorite-hands', []).record!.source,
+					type: 'museum' as const
+				},
+				organization: {
+					...assetFixture('favorite-hands', []).record!.organization,
+					folderId: 'folder-1',
+					tags: [
+						{
+							id: 'tag-hands',
+							facetId: 'facet-subject',
+							facetName: 'Subject',
+							facetSlug: 'subject',
+							value: 'hands',
+							name: 'Subject: hands',
+							slug: 'subject-hands',
+							assetCount: 1
+						}
+					],
+					projects: ['project-1'],
+					favorite: true
+				},
+				raw: {
+					importer: 'explore' as const,
+					sourceMetadata: {}
+				}
+			}
+		};
+		const plain = assetFixture('plain', []);
+
+		expect(
+			filterAssetsByLibraryFilters([tagged, plain], {
+				favoritesOnly: true,
+				untaggedOnly: false,
+				missingSourceOnly: false,
+				orientation: null,
+				folderId: 'folder-1',
+				projectId: 'project-1',
+				tagIds: ['tag-hands'],
+				sourceTypes: ['museum'],
+				importers: ['explore'],
+				metadata: {
+					medium: 'Watercolor',
+					type: null,
+					department: 'Drawings',
+					culture: null,
+					period: null,
+					rights: null
+				}
+			}).map((asset) => asset.id)
+		).toEqual(['favorite-hands']);
 	});
 
 	it('returns grouped search results for hub navigation', () => {

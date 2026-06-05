@@ -9,7 +9,6 @@
 		setMode
 	} from '$lib/state/app-state.svelte';
 	import ExploreWorkspace from '$lib/components/explore/ExploreWorkspace.svelte';
-	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
 	import FilterPanel from '$lib/components/filters/FilterPanel.svelte';
 	import HomeHub from '$lib/components/home/HomeHub.svelte';
 	import FocusedAssetPreview from '$lib/components/inspector/FocusedAssetPreview.svelte';
@@ -79,7 +78,6 @@
 {/if}
 
 {#if appState.filterOpen}
-	<FilterDrawer />
 	<FilterPanel />
 {/if}
 

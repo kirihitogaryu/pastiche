@@ -101,12 +101,22 @@ async function resolveExploreImageDimensions(item: ExploreItem, imageUrl: string
 		if (iiifDimensions) return iiifDimensions;
 	}
 
-	return dimensionsFromImageUrl(imageUrl);
+	try {
+		return await dimensionsFromImageUrl(imageUrl);
+	} catch (error) {
+		if (item.source === 'wikidata') return { width: 1, height: 1 };
+		throw error;
+	}
 }
 
 function dimensionsFromMetadata(metadata: Record<string, unknown>) {
 	const commons = isRecord(metadata.commons) ? metadata.commons : null;
-	return dimensionsFromRecord(commons ?? metadata);
+	const thumbnail = isRecord(metadata.thumbnail) ? metadata.thumbnail : null;
+	for (const record of [commons, thumbnail, metadata]) {
+		const dimensions = dimensionsFromRecord(record);
+		if (dimensions) return dimensions;
+	}
+	return null;
 }
 
 function dimensionsFromRecord(record: Record<string, unknown> | null) {

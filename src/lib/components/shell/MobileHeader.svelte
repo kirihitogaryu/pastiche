@@ -3,7 +3,6 @@
 	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
 	import HashIcon from 'phosphor-svelte/lib/HashIcon';
 	import HouseIcon from 'phosphor-svelte/lib/HouseIcon';
-	import DotsThreeIcon from 'phosphor-svelte/lib/DotsThreeIcon';
 	import StackIcon from 'phosphor-svelte/lib/StackIcon';
 	import TagChevronIcon from 'phosphor-svelte/lib/TagChevronIcon';
 	import CreateOrganizationPopover from '$lib/components/library/CreateOrganizationPopover.svelte';
@@ -110,7 +109,6 @@
 				<button type="button" aria-label="Filter" onclick={openFilter}
 					><FunnelIcon size={19} /></button
 				>
-				<button type="button" aria-label="More"><DotsThreeIcon size={21} weight="bold" /></button>
 			</div>
 		</div>
 		{#if showBreadcrumb}

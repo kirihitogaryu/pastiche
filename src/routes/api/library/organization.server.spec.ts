@@ -8,6 +8,7 @@ import { POST as createFolderPost } from './folders/+server';
 import { POST as createProjectPost } from './projects/+server';
 import { POST as createTagGroupPost } from './tag-groups/+server';
 import { POST as createTagPost } from './tags/+server';
+import { PATCH as updateAssetPatch } from './assets/[id]/+server';
 import { POST as attachTagPost } from './assets/[id]/tags/+server';
 import { POST as acceptSourceTagPost } from './assets/[id]/source-tags/+server';
 import { POST as addProjectAssetPost } from './projects/[id]/assets/+server';
@@ -153,6 +154,35 @@ describe('library organization routes', () => {
 			assetCount: 1
 		});
 		expect(body.snapshot.assets[0].projects).toEqual([project.id]);
+	});
+
+	it('favorites assets and moves them between folders', async () => {
+		const folder = createFolder({ name: 'Moved refs' });
+		const imported = await importLibraryItems({
+			destination_folder_id: null,
+			items: [referenceImport('Movable ref', 'https://example.com/move.jpg')]
+		});
+		const assetId = imported.imported[0].asset_id;
+
+		const favoriteResponse = await updateAssetPatch({
+			params: { id: assetId },
+			request: jsonRequest({ favorite: true })
+		});
+		const favoriteBody = await favoriteResponse.json();
+
+		expect(favoriteResponse.status).toBe(200);
+		expect(favoriteBody.snapshot.assets[0]).toMatchObject({ id: assetId, favorite: true });
+		expect(favoriteBody.snapshot.assets[0].record.organization.favorite).toBe(true);
+
+		const moveResponse = await updateAssetPatch({
+			params: { id: assetId },
+			request: jsonRequest({ folder_id: folder.id })
+		});
+		const moveBody = await moveResponse.json();
+
+		expect(moveResponse.status).toBe(200);
+		expect(moveBody.snapshot.assets[0].record.organization.folderId).toBe(folder.id);
+		expect(moveBody.snapshot.assets[0].folderPath).toEqual(['library', 'moved-refs']);
 	});
 });
 

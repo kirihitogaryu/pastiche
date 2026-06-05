@@ -151,15 +151,82 @@ export function buildArticSearchUrl(query: ExploreQuery): URL {
 	const q = query.tag?.trim() || query.artist?.trim() || query.keyword?.trim() || '*';
 	const limit = query.limit || DEFAULT_LIMIT;
 	const page = parseArticCursor(query.cursor);
+	const hasMetadataFilters = Boolean(
+		query.mediumCategory || query.objectName || query.department || query.culture || query.period
+	);
 
-	url.searchParams.set('q', q);
 	url.searchParams.set('limit', String(limit));
 	url.searchParams.set('page', String(page));
 	url.searchParams.set('fields', ARTIC_FIELDS);
-	if (query.hasImageOnly !== false) url.searchParams.set('query[exists][field]', 'image_id');
-	if (query.publicDomainOnly) url.searchParams.set('query[term][is_public_domain]', 'true');
+
+	if (!hasMetadataFilters) {
+		url.searchParams.set('q', q);
+		if (query.hasImageOnly !== false) url.searchParams.set('query[exists][field]', 'image_id');
+		if (query.publicDomainOnly) url.searchParams.set('query[term][is_public_domain]', 'true');
+		return url;
+	}
+
+	let mustIndex = 0;
+	if (q !== '*') {
+		url.searchParams.set(`query[bool][must][${mustIndex}][query_string][query]`, q);
+		mustIndex += 1;
+	}
+	if (query.mediumCategory?.trim()) {
+		url.searchParams.set(
+			`query[bool][must][${mustIndex}][match][medium_display]`,
+			query.mediumCategory.trim()
+		);
+		mustIndex += 1;
+	}
+	if (query.objectName?.trim()) {
+		url.searchParams.set(
+			`query[bool][must][${mustIndex}][match_phrase][artwork_type_title]`,
+			query.objectName.trim()
+		);
+		mustIndex += 1;
+	}
+	if (query.department?.trim()) {
+		url.searchParams.set(
+			`query[bool][must][${mustIndex}][match_phrase][department_title]`,
+			query.department.trim()
+		);
+		mustIndex += 1;
+	}
+	if (query.culture?.trim()) {
+		addCultureLocationFilter(url, mustIndex, query.culture.trim());
+		mustIndex += 1;
+	}
+	if (query.period?.trim()) {
+		url.searchParams.set(
+			`query[bool][must][${mustIndex}][match_phrase][style_title]`,
+			query.period.trim()
+		);
+		mustIndex += 1;
+	}
+	if (query.hasImageOnly !== false) {
+		url.searchParams.set(`query[bool][must][${mustIndex}][exists][field]`, 'image_id');
+		mustIndex += 1;
+	}
+	if (query.publicDomainOnly) {
+		url.searchParams.set(`query[bool][must][${mustIndex}][term][is_public_domain]`, 'true');
+	}
 
 	return url;
+}
+
+function addCultureLocationFilter(url: URL, mustIndex: number, value: string) {
+	url.searchParams.set(
+		`query[bool][must][${mustIndex}][bool][should][0][match_phrase][place_of_origin]`,
+		value
+	);
+	url.searchParams.set(
+		`query[bool][must][${mustIndex}][bool][should][1][match_phrase][subject_titles]`,
+		value
+	);
+	url.searchParams.set(
+		`query[bool][must][${mustIndex}][bool][should][2][match_phrase][term_titles]`,
+		value
+	);
 }
 
 export function parseArticNativeId(id: string): number | null {

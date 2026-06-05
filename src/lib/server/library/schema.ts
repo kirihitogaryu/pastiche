@@ -106,6 +106,7 @@ export function openLibraryDatabase() {
 		);
 	`);
 	ensureColumn(db, 'assets', 'metadata_json', 'text');
+	ensureColumn(db, 'assets', 'favorite', 'integer not null default 0');
 	ensureDefaultTagFacets(db);
 	return db;
 }

@@ -3,7 +3,11 @@
 	import ImageSquareIcon from 'phosphor-svelte/lib/ImageSquareIcon';
 	import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
 	import StarIcon from 'phosphor-svelte/lib/StarIcon';
+	import CreateOrganizationPopover from '$lib/components/library/CreateOrganizationPopover.svelte';
+	import MoveAssetPopover from '$lib/components/library/MoveAssetPopover.svelte';
 	import type { LibraryAssetRecord } from '$lib/library/types';
+	import type { LibraryResponse } from '$lib/library/types';
+	import { libraryState, setLibrarySnapshot } from '$lib/state/library-state.svelte';
 	import type { Asset } from '$lib/types';
 
 	type CardAsset = Asset & { record?: LibraryAssetRecord };
@@ -32,7 +36,11 @@
 	let displayRatio = $derived(Math.min(1.65, Math.max(0.72, asset.width / asset.height)));
 	let imageUrl = $derived(asset.record?.image.previewUrl || asset.imageUrl || null);
 	let menuOpen = $state(false);
+	let tagPopoverOpen = $state(false);
+	let movePopoverOpen = $state(false);
+	let actionAnchor = $state<{ left: number; top: number } | null>(null);
 	let imageFailed = $state(false);
+	let actionError = $state<string | null>(null);
 
 	let pressTimer: ReturnType<typeof setTimeout> | null = null;
 	let longPressed = false;
@@ -64,7 +72,10 @@
 
 	function toggleMenu(event: MouseEvent) {
 		event.stopPropagation();
+		actionAnchor = anchorFrom(event.currentTarget);
 		menuOpen = !menuOpen;
+		tagPopoverOpen = false;
+		movePopoverOpen = false;
 	}
 
 	function chooseMenuAction(event: MouseEvent) {
@@ -73,10 +84,57 @@
 		onSelect(asset);
 	}
 
+	async function toggleFavorite(event: MouseEvent) {
+		event.stopPropagation();
+		menuOpen = false;
+		actionError = null;
+		try {
+			const response = await fetch(`/api/library/assets/${encodeURIComponent(asset.id)}`, {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ favorite: !asset.favorite })
+			});
+			const body = (await response.json()) as { error?: string; snapshot?: LibraryResponse };
+			if (!response.ok || !body.snapshot) {
+				throw new Error(body.error ?? 'Favorite could not be updated.');
+			}
+			setLibrarySnapshot(body.snapshot);
+		} catch (favoriteError) {
+			actionError =
+				favoriteError instanceof Error ? favoriteError.message : 'Favorite could not be updated.';
+		}
+	}
+
+	function openTagPopover(event: MouseEvent) {
+		event.stopPropagation();
+		actionAnchor = anchorFrom(event.currentTarget);
+		menuOpen = false;
+		tagPopoverOpen = true;
+		movePopoverOpen = false;
+	}
+
+	function openMovePopover(event: MouseEvent) {
+		event.stopPropagation();
+		actionAnchor = anchorFrom(event.currentTarget);
+		menuOpen = false;
+		movePopoverOpen = true;
+		tagPopoverOpen = false;
+	}
+
 	function setProjectCover(event: MouseEvent) {
 		event.stopPropagation();
 		menuOpen = false;
 		onSetProjectCover?.(asset);
+	}
+
+	function anchorFrom(target: EventTarget | null) {
+		if (!(target instanceof HTMLElement)) return null;
+		const rect = target.getBoundingClientRect();
+		const width = 320;
+		return {
+			left: Math.max(12, Math.min(rect.left, window.innerWidth - width - 12)),
+			top: rect.bottom + 8
+		};
 	}
 </script>
 
@@ -143,13 +201,34 @@
 					{projectCover ? 'Project Cover' : 'Set Project Cover'}
 				</button>
 			{/if}
-			<button type="button" role="menuitem" onclick={chooseMenuAction}>
+			<button type="button" role="menuitem" onclick={toggleFavorite}>
 				{asset.favorite ? 'Remove favorite' : 'Favorite'}
 			</button>
 			<button type="button" role="menuitem" onclick={chooseMenuAction}>Add to Canvas</button>
-			<button type="button" role="menuitem" onclick={chooseMenuAction}>Tag</button>
-			<button type="button" role="menuitem" onclick={chooseMenuAction}>Move</button>
+			<button type="button" role="menuitem" onclick={openTagPopover}>Tag</button>
+			<button type="button" role="menuitem" onclick={openMovePopover}>Move</button>
 		</div>
+	{/if}
+	{#if actionError}
+		<p class="action-error">{actionError}</p>
+	{/if}
+	{#if tagPopoverOpen && mode === 'library'}
+		<CreateOrganizationPopover
+			kind="tag"
+			library={libraryState.snapshot}
+			{asset}
+			anchor={actionAnchor}
+			onClose={() => (tagPopoverOpen = false)}
+			onSnapshot={setLibrarySnapshot}
+		/>
+	{/if}
+	{#if movePopoverOpen && mode === 'library'}
+		<MoveAssetPopover
+			{asset}
+			library={libraryState.snapshot}
+			anchor={actionAnchor}
+			onClose={() => (movePopoverOpen = false)}
+		/>
 	{/if}
 </article>
 
@@ -359,6 +438,20 @@
 	.card-menu button:hover,
 	.card-menu button:focus-visible {
 		background: var(--color-hover);
+	}
+
+	.action-error {
+		position: absolute;
+		left: var(--space-2);
+		right: var(--space-2);
+		bottom: var(--space-2);
+		z-index: 2;
+		margin: 0;
+		padding: var(--space-2);
+		border-radius: var(--radius-md);
+		background: oklch(22% 0.05 25 / 0.96);
+		color: var(--color-text);
+		font-size: 0.72rem;
 	}
 
 	@keyframes menu-in {

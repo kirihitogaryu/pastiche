@@ -1,11 +1,9 @@
 <script lang="ts">
 	import ArrowSquareOutIcon from 'phosphor-svelte/lib/ArrowSquareOutIcon';
 	import CopyIcon from 'phosphor-svelte/lib/CopyIcon';
-	import FolderPlusIcon from 'phosphor-svelte/lib/FolderPlusIcon';
 	import GridFourIcon from 'phosphor-svelte/lib/GridFourIcon';
 	import ArrowsOutSimpleIcon from 'phosphor-svelte/lib/ArrowsOutSimpleIcon';
 	import PaletteIcon from 'phosphor-svelte/lib/PaletteIcon';
-	import ShareIcon from 'phosphor-svelte/lib/ShareIcon';
 	import StarIcon from 'phosphor-svelte/lib/StarIcon';
 	import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
 	import XIcon from 'phosphor-svelte/lib/XIcon';
@@ -38,6 +36,7 @@
 	let tagPopoverOpen = $state(false);
 	let tagPopoverAnchor = $state<{ left: number; top: number } | null>(null);
 	let sourceTagsExpanded = $state(false);
+	let actionError = $state<string | null>(null);
 
 	let title = $derived(asset?.record?.title ?? asset?.title ?? '');
 	let artist = $derived(asset?.record?.artist ?? asset?.creator ?? '');
@@ -70,6 +69,26 @@
 	function openSource() {
 		if (!sourcePageUrl) return;
 		window.open(sourcePageUrl, '_blank', 'noreferrer');
+	}
+
+	async function toggleFavorite() {
+		if (!asset) return;
+		actionError = null;
+		try {
+			const response = await fetch(`/api/library/assets/${encodeURIComponent(asset.id)}`, {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ favorite: !asset.favorite })
+			});
+			const body = (await response.json()) as { error?: string; snapshot?: LibraryResponse };
+			if (!response.ok || !body.snapshot) {
+				throw new Error(body.error ?? 'Favorite could not be updated.');
+			}
+			setLibrarySnapshot(body.snapshot);
+		} catch (favoriteError) {
+			actionError =
+				favoriteError instanceof Error ? favoriteError.message : 'Favorite could not be updated.';
+		}
 	}
 
 	function toggleTagPopover(event: MouseEvent) {
@@ -207,7 +226,7 @@
 				{/if}
 			</div>
 			<div class="header-actions">
-				<button type="button" aria-label="Favorite {title}">
+				<button type="button" aria-label="Favorite {title}" onclick={toggleFavorite}>
 					<StarIcon size={21} weight={asset.favorite ? 'fill' : 'regular'} />
 				</button>
 				{#if onClose}
@@ -317,11 +336,10 @@
 			</section>
 		{/if}
 
-		<section>
-			<div class="section-title">
-				<h3>Palette</h3>
-				<button type="button">View in Colors</button>
-			</div>
+			<section>
+				<div class="section-title">
+					<h3>Palette</h3>
+				</div>
 			<div class="palette">
 				{#each asset.palette as swatch}
 					<span title={`${swatch.label}: ${swatch.hex}`} style={`--swatch: ${swatch.hex}`}></span>
@@ -336,15 +354,16 @@
 			</section>
 		{/if}
 
+		{#if actionError}
+			<p class="action-error">{actionError}</p>
+		{/if}
+
 		<div class="actions">
-			<button type="button"><FolderPlusIcon size={19} /> Add to Library</button>
 			<button type="button"><GridFourIcon size={19} /> Add to Canvas</button>
-			<button type="button"><PaletteIcon size={19} /> Open in Colors</button>
 			<button type="button"><CopyIcon size={19} /> Copy Palette</button>
 			<button type="button" disabled={!sourcePageUrl} onclick={openSource}
 				><ArrowSquareOutIcon size={19} /> Open Source</button
 			>
-			<button type="button"><ShareIcon size={19} /> Share</button>
 			{#if onDelete}
 				<button class="danger" type="button" disabled={deleting} onclick={deleteAsset}>
 					<TrashIcon size={19} />
@@ -620,13 +639,6 @@
 		gap: var(--space-3);
 	}
 
-	.section-title button {
-		border: 0;
-		background: transparent;
-		color: var(--color-muted);
-		font-size: 0.82rem;
-	}
-
 	.palette {
 		display: grid;
 		grid-template-columns: repeat(6, 1fr);
@@ -638,6 +650,16 @@
 		border-radius: var(--radius-sm);
 		border: 1px solid var(--color-border-soft);
 		background: var(--swatch);
+	}
+
+	.action-error {
+		margin: 0;
+		padding: var(--space-2) var(--space-3);
+		border: 1px solid oklch(62% 0.18 28 / 0.35);
+		border-radius: var(--radius-md);
+		background: oklch(20% 0.04 25 / 0.55);
+		color: var(--color-text);
+		font-size: 0.78rem;
 	}
 
 	.actions {

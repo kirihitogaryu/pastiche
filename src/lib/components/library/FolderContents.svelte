@@ -3,8 +3,6 @@
 	import DotsThreeIcon from 'phosphor-svelte/lib/DotsThreeIcon';
 	import FolderPlusIcon from 'phosphor-svelte/lib/FolderPlusIcon';
 	import ImageSquareIcon from 'phosphor-svelte/lib/ImageSquareIcon';
-	import ListBulletsIcon from 'phosphor-svelte/lib/ListBulletsIcon';
-	import SquaresFourIcon from 'phosphor-svelte/lib/SquaresFourIcon';
 	import AssetGrid from '$lib/components/browse/AssetGrid.svelte';
 	import { librarySmartFolders } from '$lib/data/library-organization';
 	import type { LibraryAsset, LibraryResponse } from '$lib/library/types';
@@ -25,7 +23,11 @@
 	import CreateOrganizationPopover from './CreateOrganizationPopover.svelte';
 	import FolderCards from './FolderCards.svelte';
 	import LibrarySearch from './LibrarySearch.svelte';
-	import { filterAssetsByLibraryQuery, filterAssetsByTag } from './libraryOverviewModel';
+	import {
+		filterAssetsByLibraryFilters,
+		filterAssetsByLibraryQuery,
+		filterAssetsByTag
+	} from './libraryOverviewModel';
 
 	type Props = {
 		scope: 'all' | 'folder' | 'project' | 'smart' | 'tag';
@@ -97,7 +99,12 @@
 						? `${assets.length.toLocaleString()} assets · ${tag?.facetName ?? 'Tag Group'}`
 						: `${(folder?.assetCount ?? 0).toLocaleString()} assets · ${folder?.childFolderCount ?? 0} subfolders`
 	);
-	let visibleAssets = $derived(filterAssetsByLibraryQuery(assets, appState.query));
+	let visibleAssets = $derived(
+		filterAssetsByLibraryFilters(
+			filterAssetsByLibraryQuery(assets, appState.query),
+			appState.libraryFilters
+		)
+	);
 
 	function findFolderByPath(source: LibraryResponse, path: string[]): LibraryFolder | null {
 		const key = path.join('/');
@@ -246,7 +253,6 @@
 					<span>Choose Cover</span>
 				</button>
 			{/if}
-			<button class="sort" type="button">Newest</button>
 		</div>
 		{#if (scope === 'folder' && folder) || (scope === 'project' && project)}
 			<button class="mobile-overflow" type="button" aria-label="View actions" onclick={openPrimaryMobileAction}>
@@ -265,12 +271,6 @@
 	<section class="content-section" aria-labelledby="assets-title">
 		<header>
 			<h2 id="assets-title">Assets</h2>
-			<div class="view-toggle" aria-label="View options">
-				<button type="button" aria-label="Grid view"
-					><SquaresFourIcon size={18} weight="fill" /></button
-				>
-				<button type="button" aria-label="List view"><ListBulletsIcon size={18} /></button>
-			</div>
 		</header>
 		<AssetGrid
 			assets={visibleAssets}
@@ -468,31 +468,6 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-	}
-
-	.view-toggle {
-		display: flex;
-		padding: var(--space-1);
-		border-radius: var(--radius-pill);
-		background: var(--color-surface-raised);
-	}
-
-	.view-toggle button {
-		width: 2.1rem;
-		height: 2.1rem;
-		border: 0;
-		border-radius: var(--radius-md);
-		background: transparent;
-		color: var(--color-text);
-		display: grid;
-		place-items: center;
-		cursor: pointer;
-		transition: background var(--duration-fast) var(--ease-out);
-	}
-
-	.view-toggle button:hover,
-	.view-toggle button:focus-visible {
-		background: var(--color-hover);
 	}
 
 	:global(.folder-view .asset-grid) {

@@ -37,6 +37,7 @@ type AssetRow = {
 	captured_at: string;
 	modified_at: string | null;
 	metadata_json: string | null;
+	favorite: number;
 };
 
 type FolderRow = {
@@ -275,7 +276,7 @@ function mapAssetRecord(
 			tags,
 			sourceTagSuggestions: sourceTagSuggestions(metadata, source.label, acceptedTagSlugs),
 			projects,
-			favorite: false
+			favorite: Boolean(asset.favorite)
 		},
 		generation: null,
 		raw: {

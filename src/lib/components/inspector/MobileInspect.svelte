@@ -1,13 +1,13 @@
 <script lang="ts">
 	import ArrowLeftIcon from 'phosphor-svelte/lib/ArrowLeftIcon';
 	import ArrowSquareOutIcon from 'phosphor-svelte/lib/ArrowSquareOutIcon';
-	import DotsThreeIcon from 'phosphor-svelte/lib/DotsThreeIcon';
 	import DownloadSimpleIcon from 'phosphor-svelte/lib/DownloadSimpleIcon';
 	import FolderPlusIcon from 'phosphor-svelte/lib/FolderPlusIcon';
 	import PaletteIcon from 'phosphor-svelte/lib/PaletteIcon';
 	import ScribbleIcon from 'phosphor-svelte/lib/ScribbleIcon';
 	import StarIcon from 'phosphor-svelte/lib/StarIcon';
 	import CreateOrganizationPopover from '$lib/components/library/CreateOrganizationPopover.svelte';
+	import MoveAssetPopover from '$lib/components/library/MoveAssetPopover.svelte';
 	import type { LibraryAssetRecord } from '$lib/library/types';
 	import type { LibraryResponse } from '$lib/library/types';
 	import { libraryState, setLibrarySnapshot } from '$lib/state/library-state.svelte';
@@ -32,7 +32,9 @@
 	let { asset, onClose, onPreview }: Props = $props();
 	let imageFailed = $state(false);
 	let tagPopoverOpen = $state(false);
+	let movePopoverOpen = $state(false);
 	let sourceTagsExpanded = $state(false);
+	let actionError = $state<string | null>(null);
 
 	let title = $derived(asset?.record?.title ?? asset?.title ?? '');
 	let artist = $derived(asset?.record?.artist ?? asset?.creator ?? '');
@@ -55,6 +57,39 @@
 	function openSource() {
 		if (!sourcePageUrl) return;
 		window.open(sourcePageUrl, '_blank', 'noreferrer');
+	}
+
+	async function toggleFavorite() {
+		if (!asset) return;
+		actionError = null;
+		try {
+			const response = await fetch(`/api/library/assets/${encodeURIComponent(asset.id)}`, {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ favorite: !asset.favorite })
+			});
+			const body = (await response.json()) as { error?: string; snapshot?: LibraryResponse };
+			if (!response.ok || !body.snapshot) {
+				throw new Error(body.error ?? 'Favorite could not be updated.');
+			}
+			setLibrarySnapshot(body.snapshot);
+		} catch (favoriteError) {
+			actionError =
+				favoriteError instanceof Error ? favoriteError.message : 'Favorite could not be updated.';
+		}
+	}
+
+	function downloadAsset() {
+		if (!asset) return;
+		const url = asset.record?.image.originalUrl || previewUrl || asset.imageUrl;
+		if (!url) return;
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = `${safeFilename(title || asset.id)}${filenameExtension(url)}`;
+		link.rel = 'noreferrer';
+		document.body.append(link);
+		link.click();
+		link.remove();
 	}
 
 	async function acceptSourceTag(tag: SourceSuggestion) {
@@ -165,6 +200,22 @@
 			day: 'numeric'
 		}).format(date);
 	}
+
+	function safeFilename(value: string) {
+		const cleaned = value
+			.toLowerCase()
+			.normalize('NFKD')
+			.replace(/[\u0300-\u036f]/g, '')
+			.replace(/[^a-z0-9]+/g, '-')
+			.replace(/^-+|-+$/g, '');
+		return cleaned || 'pastiche-reference';
+	}
+
+	function filenameExtension(url: string) {
+		const clean = url.split('?')[0].toLowerCase();
+		const match = clean.match(/\.(png|jpe?g|webp|gif|avif)$/);
+		return match ? match[0] : '.jpg';
+	}
 </script>
 
 {#if asset}
@@ -172,9 +223,6 @@
 		<header>
 			<button type="button" aria-label="Back to browsing" onclick={onClose}>
 				<ArrowLeftIcon size={24} />
-			</button>
-			<button type="button" aria-label="More actions">
-				<DotsThreeIcon size={25} weight="bold" />
 			</button>
 		</header>
 
@@ -196,13 +244,30 @@
 		</button>
 
 		<div class="primary-actions" aria-label="Image actions">
-			<button type="button"><StarIcon size={22} /> Favorite</button>
-			<button type="button"><DownloadSimpleIcon size={22} /> Download</button>
-			<button type="button"><FolderPlusIcon size={22} /> Move</button>
+			<button type="button" onclick={toggleFavorite}>
+				<StarIcon size={22} weight={asset.favorite ? 'fill' : 'regular'} />
+				{asset.favorite ? 'Favorited' : 'Favorite'}
+			</button>
+			<button type="button" disabled={!previewUrl} onclick={downloadAsset}
+				><DownloadSimpleIcon size={22} /> Download</button
+			>
+			<button type="button" onclick={() => (movePopoverOpen = true)}
+				><FolderPlusIcon size={22} /> Move</button
+			>
 			<button type="button" disabled={!sourcePageUrl} onclick={openSource}
 				><ArrowSquareOutIcon size={22} /> Source</button
 			>
 		</div>
+		{#if actionError}
+			<p class="action-error">{actionError}</p>
+		{/if}
+		{#if movePopoverOpen}
+			<MoveAssetPopover
+				{asset}
+				library={libraryState.snapshot}
+				onClose={() => (movePopoverOpen = false)}
+			/>
+		{/if}
 
 		<article class="details">
 			<h1>{title}</h1>
@@ -402,6 +467,16 @@
 		justify-content: center;
 		gap: var(--space-2);
 		padding: 0 var(--space-2);
+		font-size: 0.78rem;
+	}
+
+	.action-error {
+		margin: calc(-1 * var(--space-2)) 0 var(--space-3);
+		padding: var(--space-2) var(--space-3);
+		border: 1px solid oklch(62% 0.18 28 / 0.35);
+		border-radius: var(--radius-md);
+		background: oklch(20% 0.04 25 / 0.55);
+		color: var(--color-text);
 		font-size: 0.78rem;
 	}
 

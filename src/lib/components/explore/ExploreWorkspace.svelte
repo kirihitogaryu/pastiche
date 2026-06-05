@@ -15,13 +15,22 @@
 	import { buildExploreSuggestions } from '$lib/explore/suggestions';
 	import { uniqueExploreItemsById } from '$lib/explore/items';
 	import {
+		buildArticFilterOptions,
+		emptyArticFilterOptions,
+		filterArticItems,
+		hasActiveArticMetadataFilters
+	} from '$lib/explore/artic-filters';
+	import {
 		appState,
 		clearExploreQueryPatch,
+		clearWikimediaReferenceTokens,
 		clearWikidataSubjects,
 		removeWikidataSubject,
 		setExploreSource,
+		setExploreFilterOptions,
 		setExploreSuggestions,
 		setShellScrolled,
+		setWikimediaMode,
 		setWikidataMode
 	} from '$lib/state/app-state.svelte';
 	import type {
@@ -41,12 +50,12 @@
 			label: 'Art Institute of Chicago',
 			eyebrow: 'Art Institute Collection'
 		},
-	{
-		id: 'wikidata' as const,
-		label: 'Wikimedia',
-		eyebrow: 'Wikidata + Wikimedia Commons'
-	}
-];
+		{
+			id: 'wikidata' as const,
+			label: 'Wikimedia',
+			eyebrow: 'Wikidata + Wikimedia Commons'
+		}
+	];
 	const wikimediaModes: Array<{ id: WikidataSearchMode; label: string }> = [
 		{ id: 'depicts', label: 'Depicts' },
 		{ id: 'main_subject', label: 'Main subject' },
@@ -60,8 +69,6 @@
 	let items = $state<ExploreItem[]>([]);
 	let selectedItem = $state<ExploreItem | null>(null);
 	let departments = $state<SourceDepartment[]>([]);
-	let activeDepartment = $state<string | null>(null);
-	let highlightOnly = $state(false);
 	let loading = $state(false);
 	let loadingMore = $state(false);
 	let departmentLoadingSource = $state<SourceId | null>(null);
@@ -90,20 +97,45 @@
 	let draftKeyword = $derived(appState.query.trim());
 	let keyword = $derived(appState.exploreCommittedQuery.trim());
 	let subjectKey = $derived(appState.wikidataSubjects.map((subject) => subject.id).join('|'));
+	let referenceTokenKey = $derived(JSON.stringify(appState.wikimediaReferenceTokens));
 	let queryPatchKey = $derived(JSON.stringify(appState.exploreQueryPatch ?? {}));
+	let sourceFilterKey = $derived(JSON.stringify(appState.exploreFilters));
 	let queryKey = $derived(
-		`${activeSource}|${appState.wikidataMode}|${keyword}|${subjectKey}|${activeDepartment ?? ''}|${highlightOnly ? 'highlights' : 'all'}|${queryPatchKey}|${relatedSeed?.id ?? ''}`
+		`${activeSource}|${appState.wikimediaMode}|${appState.wikidataMode}|${keyword}|${subjectKey}|${referenceTokenKey}|${queryPatchKey}|${sourceFilterKey}|${relatedSeed?.id ?? ''}`
 	);
+	let articMetadataFiltersActive = $derived(
+		hasActiveArticMetadataFilters(appState.exploreFilters.artic)
+	);
+	let metFiltersActive = $derived(hasActiveMetFilters(appState.exploreFilters.met));
+	let wikidataFiltersActive = $derived(hasActiveWikidataFilters(appState.exploreFilters.wikidata));
 	let hasSearched = $derived(
 		keyword.length > 0 ||
 			appState.wikidataSubjects.length > 0 ||
-			activeDepartment !== null ||
-			highlightOnly
+			appState.wikimediaReferenceTokens.length > 0 ||
+			metFiltersActive ||
+			articMetadataFiltersActive ||
+			appState.exploreFilters.artic.publicDomainOnly ||
+			wikidataFiltersActive
+	);
+	let visibleItems = $derived(
+		activeSource === 'artic' ? filterArticItems(items, appState.exploreFilters.artic) : items
 	);
 	let resultSummary = $derived(
-		total === null
-			? `Showing ${items.length.toLocaleString()} results`
-			: `Showing ${items.length.toLocaleString()} of ${total.toLocaleString()} matches`
+		resultSummaryFor({
+			source: activeSource,
+			visibleCount: visibleItems.length,
+			loadedCount: items.length,
+			total,
+			filtered: activeSource === 'artic' && articMetadataFiltersActive
+		})
+	);
+	let headerResultLabel = $derived(
+		resultHeaderLabel({
+			source: activeSource,
+			sourceLabel: activeSourceLabel,
+			total,
+			related: Boolean(relatedSeed)
+		})
 	);
 	let activeWikimediaModeLabel = $derived(
 		wikimediaModes.find((mode) => mode.id === appState.wikidataMode)?.label ?? 'Depicts'
@@ -153,6 +185,12 @@
 	});
 
 	$effect(() => {
+		setExploreFilterOptions({
+			artic: activeSource === 'artic' ? buildArticFilterOptions(items) : emptyArticFilterOptions()
+		});
+	});
+
+	$effect(() => {
 		if (relatedSeed && appState.wikidataSubjects.length > 0) {
 			relatedSeed = null;
 			relatedTitle = null;
@@ -161,6 +199,12 @@
 
 	$effect(() => {
 		return () => abortActiveRequests();
+	});
+
+	$effect(() => {
+		if (selectedItem && !visibleItems.some((item) => item.id === selectedItem?.id)) {
+			selectedItem = null;
+		}
 	});
 
 	async function loadDepartments(source: SourceId) {
@@ -186,7 +230,9 @@
 		const source = activeSource;
 		const query = buildQuery();
 		const seed = relatedSeed;
-		const cacheKey = seed ? relatedPageKey(seed.id, undefined, 40) : exploreSearchKey(source, query);
+		const cacheKey = seed
+			? relatedPageKey(seed.id, undefined, 40)
+			: exploreSearchKey(source, query);
 		const cached = await cacheLookup<ExplorePage>(cacheKey, CLIENT_SEARCH_STALE_TTL_MS);
 		if (expectedKey !== queryKey || controller.signal.aborted) {
 			releaseRequestController(controller);
@@ -413,55 +459,91 @@
 	function buildQuery(cursor?: string): ExploreQuery {
 		const patch = appState.exploreQueryPatch ?? {};
 		if (activeSource === 'wikidata') {
+			const filters = appState.exploreFilters.wikidata;
+			if (appState.wikimediaMode === 'reference' && !relatedSeed) {
+				return {
+					wikimediaMode: 'reference',
+					wikimediaReferenceTokens: appState.wikimediaReferenceTokens,
+					wikimediaReferenceFilters: filters.reference,
+					cursor,
+					limit: 40
+				};
+			}
 			if (relatedSeed) {
 				return {
+					wikimediaMode: 'art',
 					wikidataMode: appState.wikidataMode,
 					depicts: [],
 					workType: 'painting',
-					hasImageOnly: true,
+					hasImageOnly: filters.hasImageOnly,
 					cursor,
 					limit: 40
 				};
 			}
 			if (appState.wikidataMode === 'title') {
 				return {
+					wikimediaMode: 'art',
 					wikidataMode: 'title',
 					keyword: keyword || undefined,
 					workType: 'painting',
-					yearFrom: patch.yearFrom,
-					yearTo: patch.yearTo,
-					hasImageOnly: true,
+					yearFrom: patch.yearFrom ?? filters.yearFrom ?? undefined,
+					yearTo: patch.yearTo ?? filters.yearTo ?? undefined,
+					hasImageOnly: filters.hasImageOnly,
 					cursor,
 					limit: 40
 				};
 			}
 			return {
+				wikimediaMode: 'art',
 				wikidataMode: appState.wikidataMode,
 				wikidataEntities: appState.wikidataSubjects,
 				depicts: appState.wikidataMode === 'depicts' ? appState.wikidataSubjects : undefined,
 				workType: 'painting',
-				yearFrom: patch.yearFrom,
-				yearTo: patch.yearTo,
-				hasImageOnly: true,
+				yearFrom: patch.yearFrom ?? filters.yearFrom ?? undefined,
+				yearTo: patch.yearTo ?? filters.yearTo ?? undefined,
+				hasImageOnly: filters.hasImageOnly,
 				cursor,
 				limit: 40
 			};
 		}
+		const metFilters = appState.exploreFilters.met;
+		const articFilters = appState.exploreFilters.artic;
+		const sourceFilters =
+			activeSource === 'met'
+				? {
+						publicDomainOnly: metFilters.publicDomainOnly,
+						isHighlightOnly: metFilters.isHighlightOnly,
+						yearFrom: metFilters.yearFrom,
+						yearTo: metFilters.yearTo,
+						medium: metFilters.medium,
+						department: metFilters.department
+					}
+				: {
+						publicDomainOnly: articFilters.publicDomainOnly,
+						mediumCategory: articFilters.mediumCategory ?? undefined,
+						objectName: articFilters.objectName ?? undefined,
+						department: articFilters.department ?? undefined,
+						culture: articFilters.cultureLocation ?? undefined,
+						period: articFilters.movementEra ?? undefined
+					};
 		return {
 			keyword: keyword || undefined,
 			...patch,
-			department: patch.department ?? activeDepartment ?? undefined,
+			...sourceFilters,
+			department:
+				patch.department ??
+				(activeSource === 'met' ? (metFilters.department ?? undefined) : undefined),
+			yearFrom:
+				patch.yearFrom ?? (activeSource === 'met' ? (metFilters.yearFrom ?? undefined) : undefined),
+			yearTo:
+				patch.yearTo ?? (activeSource === 'met' ? (metFilters.yearTo ?? undefined) : undefined),
+			medium:
+				patch.medium ?? (activeSource === 'met' ? (metFilters.medium ?? undefined) : undefined),
 			hasImageOnly: true,
-			isHighlightOnly: highlightOnly || undefined,
+			isHighlightOnly: (activeSource === 'met' && metFilters.isHighlightOnly) || undefined,
 			cursor,
 			limit: 20
 		};
-	}
-
-	function selectAllResults() {
-		clearExploreQueryPatch();
-		activeDepartment = null;
-		highlightOnly = false;
 	}
 
 	function selectSource(source: SourceId) {
@@ -471,12 +553,11 @@
 		relatedSeed = null;
 		relatedTitle = null;
 		clearExploreQueryPatch();
-		activeDepartment = null;
-		highlightOnly = false;
 		appState.query = '';
 		appState.exploreCommittedQuery = '';
 		if (source !== 'wikidata') {
 			clearWikidataSubjects();
+			clearWikimediaReferenceTokens();
 		} else {
 			appState.wikidataEntitySuggestions = [];
 			appState.wikidataEntityError = null;
@@ -504,16 +585,21 @@
 		prefetchingSearchKey = null;
 	}
 
-	function toggleHighlights() {
-		clearExploreQueryPatch();
-		activeDepartment = null;
-		highlightOnly = !highlightOnly;
-	}
-
-	function selectDepartment(id: string) {
-		clearExploreQueryPatch();
-		activeDepartment = id;
-		highlightOnly = false;
+	function selectWikimediaTopMode(mode: 'art' | 'reference') {
+		if (appState.wikimediaMode === mode) return;
+		abortActiveRequests();
+		setWikimediaMode(mode);
+		relatedSeed = null;
+		relatedTitle = null;
+		items = [];
+		selectedItem = null;
+		inspectedOnMobile = false;
+		previewItem = null;
+		total = null;
+		nextCursor = null;
+		error = null;
+		pageError = null;
+		prefetchingSearchKey = null;
 	}
 
 	function sourceLabelFor(source: SourceId) {
@@ -535,8 +621,6 @@
 		relatedTitle = `Similar to ${item.title}`;
 		clearExploreQueryPatch();
 		clearWikidataSubjects();
-		activeDepartment = null;
-		highlightOnly = false;
 		appState.query = '';
 		appState.exploreCommittedQuery = '';
 		selectedItem = null;
@@ -581,6 +665,73 @@
 			void loadNextPage(queryKey);
 		}
 	}
+
+	function hasActiveMetFilters(filters: typeof appState.exploreFilters.met) {
+		return Boolean(
+			filters.publicDomainOnly ||
+			filters.isHighlightOnly ||
+			filters.yearFrom !== null ||
+			filters.yearTo !== null ||
+			filters.medium ||
+			filters.department
+		);
+	}
+
+	function hasActiveWikidataFilters(filters: typeof appState.exploreFilters.wikidata) {
+		const reference = filters.reference;
+		return Boolean(
+			appState.wikimediaMode !== 'art' ||
+			appState.wikimediaReferenceTokens.length > 0 ||
+			filters.yearFrom !== null ||
+			filters.yearTo !== null ||
+			!filters.hasImageOnly ||
+			reference.quality !== 'valued' ||
+			reference.excludeSvg === false ||
+			reference.minResolution !== 'standard'
+		);
+	}
+
+	function resultSummaryFor({
+		source,
+		visibleCount,
+		loadedCount,
+		total,
+		filtered
+	}: {
+		source: SourceId;
+		visibleCount: number;
+		loadedCount: number;
+		total: number | null;
+		filtered: boolean;
+	}) {
+		if (source === 'artic') {
+			if (filtered) {
+				return `Showing ${visibleCount.toLocaleString()} of ${loadedCount.toLocaleString()} loaded results`;
+			}
+			return `Showing ${visibleCount.toLocaleString()} loaded results`;
+		}
+		if (filtered) {
+			return `Showing ${visibleCount.toLocaleString()} of ${loadedCount.toLocaleString()} loaded results`;
+		}
+		if (total === null) return `Showing ${visibleCount.toLocaleString()} results`;
+		return `Showing ${visibleCount.toLocaleString()} of ${total.toLocaleString()} matches`;
+	}
+
+	function resultHeaderLabel({
+		source,
+		sourceLabel,
+		total,
+		related
+	}: {
+		source: SourceId;
+		sourceLabel: string;
+		total: number | null;
+		related: boolean;
+	}) {
+		if (related) return 'Related works';
+		if (source === 'artic' || total === null) return sourceLabel;
+		return `${total.toLocaleString()} matches`;
+	}
 </script>
 
 <div class="explore-workspace">
@@ -593,11 +744,13 @@
 						{relatedSeed
 							? 'Similar works from Wikidata'
 							: activeSource === 'wikidata'
-							? 'Search Wikimedia artworks'
-							: 'Explore public-domain museum references'}
+								? appState.wikimediaMode === 'reference'
+									? 'Search Wikimedia references'
+									: 'Search Wikimedia artworks'
+								: 'Explore public-domain museum references'}
 					</h1>
 				</div>
-				<span>{relatedSeed ? 'Related works' : total === null ? activeSourceLabel : `${total.toLocaleString()} matches`}</span>
+				<span>{headerResultLabel}</span>
 			</header>
 
 			<div class="source-switcher" aria-label="Explore sources">
@@ -617,11 +770,35 @@
 				<div class="related-context" aria-label="Current related works search">
 					<div>
 						<span>{relatedTitle ?? `Similar to ${relatedSeed.title}`}</span>
-						<small>Ranked by shared subjects, creator, genre, collection, material, date, and direct work relations.</small>
+						<small
+							>Ranked by shared subjects, creator, genre, collection, material, date, and direct
+							work relations.</small
+						>
 					</div>
 					<button type="button" onclick={clearRelatedMode}>Return to subject search</button>
 				</div>
 			{:else if activeSource === 'wikidata'}
+				<div class="wikimedia-top-switch" aria-label="Wikimedia search type">
+					<button
+						class:active={appState.wikimediaMode === 'art'}
+						type="button"
+						aria-pressed={appState.wikimediaMode === 'art'}
+						onclick={() => selectWikimediaTopMode('art')}
+					>
+						Art
+					</button>
+					<button
+						class:active={appState.wikimediaMode === 'reference'}
+						type="button"
+						aria-pressed={appState.wikimediaMode === 'reference'}
+						onclick={() => selectWikimediaTopMode('reference')}
+					>
+						Reference
+					</button>
+				</div>
+			{/if}
+
+			{#if activeSource === 'wikidata' && !relatedSeed && appState.wikimediaMode === 'art'}
 				<div class="wikimedia-mode-strip" aria-label="Wikimedia artwork search modes">
 					{#each wikimediaModes as mode (mode.id)}
 						<button
@@ -649,35 +826,8 @@
 						{/each}
 					</div>
 				{/if}
-			{:else}
-				<div class="department-strip" aria-label={`${activeSourceLabel} departments`}>
-					<button
-						class:active={!highlightOnly && activeDepartment === null}
-						type="button"
-						onclick={selectAllResults}
-					>
-						All {activeSourceLabel} images
-					</button>
-					<button
-						class:active={highlightOnly}
-						type="button"
-						aria-pressed={highlightOnly}
-						onclick={toggleHighlights}
-					>
-						Highlights
-					</button>
-					{#each departments.slice(0, 8) as department (department.id)}
-						<button
-							class:active={!highlightOnly && activeDepartment === department.id}
-							type="button"
-							onclick={() => selectDepartment(department.id)}
-						>
-							{department.label}
-						</button>
-					{/each}
-				</div>
 			{/if}
-			{#if items.length > 0}
+			{#if visibleItems.length > 0}
 				<p class="result-count" aria-live="polite">
 					<span>{resultSummary}</span>
 					{#if refreshing}
@@ -691,26 +841,30 @@
 					<h2>{activeSourceLabel} is taking a breather</h2>
 					<p>{error}</p>
 				</section>
-			{:else if !loading && items.length === 0}
+			{:else if !loading && visibleItems.length === 0}
 				<section class="message" role="status">
 					<h2>No {activeSourceLabel} images found</h2>
 					<p>
 						{activeSource === 'wikidata'
 							? relatedSeed
 								? 'No related Wikidata works with images were found.'
-								: appState.wikidataSubjects.length > 0
-								? `No Wikimedia artworks matched that ${activeWikimediaModeLabel.toLowerCase()}.`
-								: appState.wikidataMode === 'title'
-									? 'Search for an artwork title to find Wikimedia records.'
-									: `Choose a ${activeWikimediaModeLabel.toLowerCase()} from the top search bar.`
+								: appState.wikimediaMode === 'reference'
+									? appState.wikimediaReferenceTokens.length > 0
+										? 'No Wikimedia references matched those tokens and filters.'
+										: 'Choose an entity, then add optional descriptors like female, juvenile, side view, skull, or texture.'
+									: appState.wikidataSubjects.length > 0
+									? `No Wikimedia artworks matched that ${activeWikimediaModeLabel.toLowerCase()}.`
+									: appState.wikidataMode === 'title'
+										? 'Search for an artwork title to find Wikimedia records.'
+										: `Choose a ${activeWikimediaModeLabel.toLowerCase()} from the top search bar.`
 							: hasSearched
-								? `No usable image records matched "${keyword || 'this department'}".`
+								? `No usable image records matched "${keyword || 'these filters'}".`
 								: 'Try searching by artwork, artist, or collection.'}
 					</p>
 				</section>
 			{:else}
 				<ExploreGrid
-					{items}
+					items={visibleItems}
 					activeId={selectedItem?.id}
 					{loading}
 					sourceLabel={activeSourceLabel}
@@ -823,8 +977,8 @@
 	}
 
 	.source-switcher,
-	.wikimedia-mode-strip,
-	.department-strip {
+	.wikimedia-top-switch,
+	.wikimedia-mode-strip {
 		display: flex;
 		gap: var(--space-2);
 		overflow-x: auto;
@@ -835,23 +989,23 @@
 		padding: 0 var(--space-5) var(--space-2);
 	}
 
-	.department-strip {
-		padding: 0 var(--space-5) var(--space-2);
-	}
-
 	.wikimedia-mode-strip {
 		padding: 0 var(--space-5) var(--space-2);
 	}
 
+	.wikimedia-top-switch {
+		padding: 0 var(--space-5) var(--space-2);
+	}
+
 	.source-switcher::-webkit-scrollbar,
-	.wikimedia-mode-strip::-webkit-scrollbar,
-	.department-strip::-webkit-scrollbar {
+	.wikimedia-top-switch::-webkit-scrollbar,
+	.wikimedia-mode-strip::-webkit-scrollbar {
 		display: none;
 	}
 
 	.source-switcher button,
-	.wikimedia-mode-strip button,
-	.department-strip button {
+	.wikimedia-top-switch button,
+	.wikimedia-mode-strip button {
 		flex: 0 0 auto;
 		min-height: 2.2rem;
 		padding: 0 var(--space-3);
@@ -865,12 +1019,12 @@
 	.source-switcher button.active,
 	.source-switcher button:hover,
 	.source-switcher button:focus-visible,
+	.wikimedia-top-switch button.active,
+	.wikimedia-top-switch button:hover,
+	.wikimedia-top-switch button:focus-visible,
 	.wikimedia-mode-strip button.active,
 	.wikimedia-mode-strip button:hover,
-	.wikimedia-mode-strip button:focus-visible,
-	.department-strip button.active,
-	.department-strip button:hover,
-	.department-strip button:focus-visible {
+	.wikimedia-mode-strip button:focus-visible {
 		border-color: var(--color-border-strong);
 		background: var(--color-surface-soft);
 		color: var(--color-text);
@@ -1073,8 +1227,7 @@
 		}
 
 		.source-switcher,
-		.wikimedia-mode-strip,
-		.department-strip {
+		.wikimedia-mode-strip {
 			padding: 0 var(--space-3) var(--space-2);
 		}
 
