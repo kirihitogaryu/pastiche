@@ -20,7 +20,7 @@
 	let filteredRows = $derived(
 		filter.trim()
 			? rows.filter((row) =>
-					`${row.label} ${row.value} ${row.meta ?? ''}`
+					`${row.group} ${row.label} ${row.value} ${row.meta ?? ''}`
 						.toLowerCase()
 						.includes(filter.trim().toLowerCase())
 				)

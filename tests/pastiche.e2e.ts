@@ -241,6 +241,18 @@ test('desktop library and explore surfaces are navigable', async ({ page }) => {
 	await page.getByRole('button', { name: 'Inspect Crimson Horizon' }).click();
 	await expect(page.getByRole('heading', { name: 'Crimson Horizon' })).toBeVisible();
 	await expect(page.getByRole('complementary', { name: 'Image inspector' })).toBeVisible();
+	await page.getByRole('button', { name: 'Open in Atlas' }).click();
+	await expect(primary.getByRole('button', { name: 'Atlas' })).toHaveClass(/active/);
+	await expect(page.getByRole('region', { name: /Atlas inspect Crimson Horizon/ })).toBeVisible();
+	await expect(page.getByRole('complementary', { name: 'Atlas asset metadata' })).toBeVisible();
+	await expect(page.getByLabel('Filter metadata')).toBeVisible();
+	await page.getByLabel('Filter metadata').fill('source');
+	await expect(page.getByText('Source Claims')).toBeVisible();
+	await expect(page.getByText('AI Generation Metadata')).toBeVisible();
+	await primary.getByRole('button', { name: 'Library' }).click();
+	await expect(page.getByRole('heading', { name: 'All Library' })).toBeVisible();
+	await page.getByRole('button', { name: 'Inspect Crimson Horizon' }).click();
+	await expect(page.getByRole('heading', { name: 'Crimson Horizon' })).toBeVisible();
 	await page.getByRole('button', { name: 'Crimson Horizon actions' }).click();
 	await expect(page.getByRole('menu', { name: 'Crimson Horizon actions' })).toBeVisible();
 

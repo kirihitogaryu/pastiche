@@ -81,4 +81,22 @@ describe('GET /api/library/assets/[id]/atlas', () => {
 		expect(response.status).toBe(404);
 		expect(body.error).toBe('Asset not found');
 	});
+
+	it('returns mock Atlas data for the mock library fallback', async () => {
+		vi.stubEnv('PASTICHE_MOCK_LIBRARY_FALLBACK', '1');
+		vi.resetModules();
+		const { GET } = await import('./+server');
+
+		const response = await GET({ params: { id: 'crimson-horizon' } });
+		const body = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(body.asset.title).toBe('Crimson Horizon');
+		expect(body.atlas.claims).toEqual(
+			expect.arrayContaining([expect.objectContaining({ kind: 'medium', value: 'Oil on canvas' })])
+		);
+		expect(body.atlas.tagSuggestions).toEqual(
+			expect.arrayContaining([expect.objectContaining({ label: 'abstract', status: 'suggested' })])
+		);
+	});
 });
