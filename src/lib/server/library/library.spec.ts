@@ -69,11 +69,17 @@ describe('local library archive', () => {
 			'asset_import_failures',
 			'asset_tags',
 			'assets',
+			'atlas_annotation_classifiers',
+			'atlas_annotation_concepts',
+			'atlas_annotations',
+			'atlas_asset_concepts',
 			'atlas_asset_entities',
 			'atlas_claims',
+			'atlas_concepts',
 			'atlas_entities',
 			'atlas_ingestion_runs',
 			'atlas_tag_suggestions',
+			'atlas_wiki_entries',
 			'folders',
 			'lazy_download_jobs',
 			'project_asset_refs',
@@ -88,9 +94,10 @@ describe('local library archive', () => {
 
 	it('creates the reserved General tag group first', () => {
 		const db = openLibraryDatabase();
-		const groups = db
-			.prepare('select slug, name from tag_facets order by rowid')
-			.all() as Array<{ slug: string; name: string }>;
+		const groups = db.prepare('select slug, name from tag_facets order by rowid').all() as Array<{
+			slug: string;
+			name: string;
+		}>;
 		db.close();
 
 		expect(groups[0]).toEqual({ slug: 'general', name: 'General' });
@@ -229,7 +236,11 @@ describe('local library archive', () => {
 		const directAsset = snapshot.assets.find((asset) => asset.id === direct.imported[0].asset_id);
 		const nestedAsset = snapshot.assets.find((asset) => asset.title === 'Nested finger');
 
-		expect(snapshot.projects[0]).toMatchObject({ name: 'Hand study', assetCount: 1, folderCount: 1 });
+		expect(snapshot.projects[0]).toMatchObject({
+			name: 'Hand study',
+			assetCount: 1,
+			folderCount: 1
+		});
 		expect(directAsset?.projects).toEqual([project.id]);
 		expect(nestedAsset?.projects).toEqual([]);
 	});

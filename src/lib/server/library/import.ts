@@ -5,6 +5,10 @@ import {
 	applyAtlasIngestionProposal,
 	createAtlasIngestionProposal
 } from '$lib/server/atlas/ingest';
+import {
+	applyApolloPythonSeedForAsset,
+	shouldApplyApolloPythonSeed
+} from '$lib/server/atlas/apolloSeed';
 import { ensureLibraryArchive, resolveLibraryPaths } from './paths';
 import { resolveDestinationFolder } from './folders';
 import { openLibraryDatabase } from './schema';
@@ -97,6 +101,10 @@ export async function importLibraryItems(request: ImportRequest): Promise<Import
 					now
 				});
 				applyAtlasIngestionProposal(db, proposal);
+			}
+
+			if (shouldApplyApolloPythonSeed({ title: item.filename, sourceUrl: item.source_url })) {
+				applyApolloPythonSeedForAsset(db, assetId, now);
 			}
 
 			imported.push({ index, asset_id: assetId, source_hash: hash, duplicate });
