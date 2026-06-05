@@ -162,6 +162,28 @@ Examples:
 
 Computed metadata can produce suggestions, but it should not become human-approved interpretation without review.
 
+### AI Generation Metadata
+
+Generator-authored metadata embedded in an image file or sidecar.
+
+Examples:
+
+- generator name
+- model name or version
+- seed
+- sampler
+- steps
+- CFG scale and related generation settings
+- positive prompt
+- negative prompt
+- character prompts
+- weighted prompt tokens
+- raw generation payload
+
+AI generation metadata is first-class Atlas data because it can be extremely useful for search, reuse, provenance, and agent review. It is not the same as a visual tag. A prompt token means the image was prompted with a concept, not that the concept is visually present.
+
+Formatted keyword prompts can be indexed as prompt tokens. Loose prose prompts should be preserved and full-text searchable, but should not automatically become structured token facets unless a parser can identify stable tokens.
+
 ## Tag Categories
 
 Each visual tag should have one canonical category.
@@ -206,6 +228,7 @@ Claim categories:
 - `dimensions`
 - `source_metadata`
 - `technical_metadata`
+- `ai_generation`
 
 These categories are for governance and search. UI can group them differently.
 
@@ -227,6 +250,7 @@ Recommended display groups:
 - Theme
 - Mood
 - Reference Use
+- AI Generation Metadata
 - Relationships
 - System
 
@@ -256,6 +280,19 @@ Examples:
 - `artist = Pablo Picasso`
 - `medium = oil on canvas`
 - `institution = The Met`
+
+### Prompted
+
+Present in an AI generation prompt, negative prompt, character prompt, or related generation payload.
+
+Examples:
+
+- `feral`
+- `black_fur`
+- `artist:nightcrow`
+- `species:canine`
+
+Prompted evidence can be indexed and searched, but it does not equal observed visual evidence. Prompt tokens may create suggestions for visual tags, classifier candidates, style-reference entities, or taxonomy entities. Those suggestions still require visual confirmation or user approval before becoming approved descriptive metadata.
 
 ### Inferred
 
