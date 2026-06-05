@@ -149,6 +149,68 @@ describe('local library archive', () => {
 		expect(loose.assetCount).toBe(0);
 	});
 
+	it('creates Atlas metadata records from reliable import metadata', async () => {
+		const result = await importLibraryItems({
+			destination_folder_id: null,
+			items: [
+				{
+					filename: 'Picasso ref',
+					storage_mode: 'url_reference',
+					image_data: null,
+					source_image_url: 'https://example.com/picasso.jpg',
+					mime_type: 'image/jpeg',
+					natural_width: 1200,
+					natural_height: 900,
+					source_url: 'https://www.metmuseum.org/art/collection/search/1',
+					page_title: 'Picasso ref',
+					alt_text: null,
+					captured_at: '2026-06-05T12:00:00.000Z',
+					metadata: {
+						sourceId: 'met',
+						sourceName: 'The Metropolitan Museum of Art',
+						sourceType: 'museum',
+						detailUrl: 'https://www.metmuseum.org/art/collection/search/1',
+						creator: 'Pablo Picasso',
+						dateDisplay: '1937',
+						medium: 'Oil on canvas',
+						objectName: 'Painting',
+						department: 'Paintings',
+						rights: 'Public domain image according to The Met.',
+						tags: ['horse', 'mourning'],
+						rawMetadata: { objectID: 1 }
+					}
+				}
+			]
+		});
+
+		const db = new Database(join(archiveRoot, 'workspace.sqlite'), { readonly: true });
+		const entities = db.prepare('select kind, slug, label from atlas_entities order by kind').all();
+		const claims = db.prepare('select kind, slug, value from atlas_claims order by kind').all();
+		const suggestions = db
+			.prepare('select slug, label, status from atlas_tag_suggestions order by slug')
+			.all();
+		const runs = db.prepare('select asset_id, source, source_id from atlas_ingestion_runs').all();
+		db.close();
+
+		expect(result.failed).toEqual([]);
+		expect(entities).toEqual([
+			{ kind: 'artist', slug: 'pablo_picasso', label: 'Pablo Picasso' },
+			{ kind: 'source', slug: 'the_met', label: 'The Met' }
+		]);
+		expect(claims).toEqual([
+			expect.objectContaining({ kind: 'date', slug: '1937', value: '1937' }),
+			expect.objectContaining({ kind: 'medium', slug: 'oil_on_canvas', value: 'Oil on canvas' }),
+			expect.objectContaining({ kind: 'rights', slug: 'public_domain', value: 'Public Domain' })
+		]);
+		expect(suggestions).toEqual([
+			{ slug: 'horse', label: 'horse', status: 'suggested' },
+			{ slug: 'mourning', label: 'mourning', status: 'suggested' }
+		]);
+		expect(runs).toEqual([
+			{ asset_id: result.imported[0].asset_id, source: 'explore', source_id: 'met' }
+		]);
+	});
+
 	it('uses live direct-only project folder refs for project membership', async () => {
 		const folder = createFolder({ name: 'Hands' });
 		const nested = createFolder({ name: 'Fingers', parentId: folder.id });
