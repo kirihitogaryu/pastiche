@@ -136,6 +136,8 @@ Image cards should show:
 
 Grid cards may use small chips because they are previews. Full editing happens on the asset page.
 
+Dense tag lists and history views should use category-colored tag text rather than pills. Search result cards may still use compact chips when the tag count is low, but expanded metadata and edit-history views should use text lists for scan speed.
+
 ## Search Syntax Direction
 
 Future syntax:

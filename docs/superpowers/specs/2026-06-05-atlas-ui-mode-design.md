@@ -70,6 +70,19 @@ Use the warm accent for:
 
 Do not use the accent for every section heading. Most headings should be muted neutral text with hierarchy from spacing, weight, indentation, and border rhythm.
 
+Atlas should support category-colored tag text in dense metadata contexts. This borrows the useful part of Danbooru's tag lists: color communicates what kind of metadata a row is before the user reads it.
+
+Use category color for tag/entity text, not for large backgrounds:
+
+- artist/entity references
+- work/IP/character references
+- visual/general tags
+- metadata/system tags
+- prompt-derived tags
+- review or warning states
+
+Less important metadata should receive less visual emphasis through muted color, smaller secondary text, or lower row priority. Avoid making every tag equally loud.
+
 ## Metadata Display Grammar
 
 Pills are for previews and summaries. Rows are for governance.
@@ -88,6 +101,8 @@ Use rows or table-like lists for:
 - prompt token review
 - aliases, implications, and classifier management
 - source claims with provenance
+
+Rows can still be compact and text-heavy. The goal is fast scanning, not decorative table chrome.
 
 ## Reading Mode And Editing Mode
 
@@ -153,4 +168,3 @@ The Atlas UI should make correctness ergonomic:
 - prompted metadata stays separate from observed metadata
 - risky implications appear as reviewable suggestions before approval
 - new canonical tags require draft wiki documentation
-

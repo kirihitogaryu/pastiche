@@ -46,6 +46,20 @@ Top groups:
 - Similar By
 - Audit Trail
 
+Tag and entity labels should use category-colored text in this full-screen view. The color should identify the metadata group, similar to Danbooru's artist/copyright/character/general/meta distinction, but adapted to Atlas categories.
+
+Initial color roles:
+
+- artist/entity
+- work/IP/character
+- visual tag
+- classifier
+- source/rights/system metadata
+- prompt-derived candidate
+- warning/review
+
+The color is a scanning aid. It should not replace text labels, group headings, or status copy.
+
 Canonical visual tags should be grouped by display group:
 
 ```txt
@@ -122,6 +136,8 @@ Expanded tabs or sections:
 
 Prompt tokens should be list rows, not pills.
 
+Full prompts should open inline in the AI metadata section, not navigate to a separate page. Use an expandable scrollable text box with copy controls. A modal is acceptable for raw JSON or very large payloads, but the default interaction should keep the user on the inspect page.
+
 ## Related And Similar Images
 
 Below the image:
@@ -133,6 +149,22 @@ Below the image:
 - reference-used-for relationships
 
 Cards can show a small image, title, source, and a few shared tags. They should stay subordinate to the inspected asset.
+
+## Audit Trail And Edit History
+
+Atlas should eventually expose a Danbooru-like edit history for each asset.
+
+The audit trail should show:
+
+- version or event number
+- actor
+- timestamp
+- changed fields
+- tags/entities/claims before and after
+- undo or revert affordances when safe
+- source of change, such as user, import, agent, parser, or migration
+
+The first implementation can show a collapsed audit section with imported/created metadata only. A full history table is useful but not required for the first UI slice.
 
 ## Library Inspector Projection
 

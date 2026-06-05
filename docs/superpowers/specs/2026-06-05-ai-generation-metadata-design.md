@@ -169,6 +169,8 @@ Expanded sections:
 
 Prompt tokens should render as rows. Library inspector can show a small `AI metadata available` summary only.
 
+Full positive, negative, and character prompts should render inline as scrollable text boxes with copy actions. Do not use link styling that implies navigation to another page. Large raw payloads may open in a modal or focused drawer, but prompt inspection should remain local to the asset page.
+
 ## Search
 
 Future search fields:
@@ -211,4 +213,3 @@ Deferred:
 - full prompt search index
 - generator-specific editing
 - reproduction/export workflow
-
