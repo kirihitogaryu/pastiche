@@ -10,16 +10,20 @@
 		atlas: AtlasAssetSummary | null;
 		loading?: boolean;
 		error?: string | null;
+		onBack?: () => void;
 		onPreview?: (asset: Asset) => void;
 	};
 
-	let { asset, atlas, loading = false, error = null, onPreview }: Props = $props();
+	let { asset, atlas, loading = false, error = null, onBack, onPreview }: Props = $props();
 	let subtitle = $derived([asset.creator, asset.year, asset.medium].filter(Boolean).join(' / '));
 </script>
 
 <section class="atlas-inspect" aria-label={`Atlas inspect ${asset.title}`}>
 	<header class="top">
 		<div>
+			{#if onBack}
+				<button class="back" type="button" onclick={onBack}>Back to Atlas</button>
+			{/if}
 			<p>Atlas Inspect</p>
 			<h1>{asset.title}</h1>
 			{#if subtitle}
@@ -91,6 +95,20 @@
 		min-height: 2.35rem;
 		padding: 0 var(--space-3);
 		border-radius: var(--radius-md);
+	}
+
+	.back {
+		margin: 0 0 var(--space-2);
+		border: 0;
+		background: transparent;
+		color: var(--color-muted);
+		cursor: pointer;
+		padding: 0;
+	}
+
+	.back:hover,
+	.back:focus-visible {
+		color: var(--color-text);
 	}
 
 	.body {

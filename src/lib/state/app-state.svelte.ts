@@ -71,6 +71,8 @@ export type ExploreFilterOptionsState = {
 	};
 };
 
+export type AtlasView = 'home' | 'asset' | 'wiki' | 'review';
+
 export function defaultLibraryFilters(): LibraryFilterState {
 	return {
 		favoritesOnly: false,
@@ -158,6 +160,7 @@ export function defaultExploreFilterOptions(): ExploreFilterOptionsState {
 export const appState = $state({
 	mode: 'home' as AppMode,
 	selectedAssetId: null as string | null,
+	atlasView: 'home' as AtlasView,
 	activeAtlasAssetId: null as string | null,
 	selectedAssetIds: [] as string[],
 	mobileState: 'browse' as MobileState,
@@ -202,8 +205,9 @@ export function setMode(mode: AppMode) {
 	}
 
 	appState.mode = mode;
-	if (mode === 'atlas' && !appState.activeAtlasAssetId && appState.selectedAssetId) {
-		appState.activeAtlasAssetId = appState.selectedAssetId;
+	if (mode === 'atlas') {
+		appState.atlasView = 'home';
+		appState.activeAtlasAssetId = null;
 	}
 	appState.mobileState = 'browse';
 	appState.addOpen = false;
@@ -260,7 +264,11 @@ export function addWikidataSubject(subject: ExploreSubject) {
 }
 
 export function addWikimediaReferenceEntity(subject: ExploreSubject) {
-	if (appState.wikimediaReferenceTokens.some((token) => token.kind === 'entity' && token.id === subject.id)) {
+	if (
+		appState.wikimediaReferenceTokens.some(
+			(token) => token.kind === 'entity' && token.id === subject.id
+		)
+	) {
 		return;
 	}
 	const hasSubject = appState.wikimediaReferenceTokens.some(
@@ -304,7 +312,9 @@ export function addWikimediaReferenceText(value: string) {
 }
 
 export function removeWikimediaReferenceToken(index: number) {
-	appState.wikimediaReferenceTokens = appState.wikimediaReferenceTokens.filter((_, itemIndex) => itemIndex !== index);
+	appState.wikimediaReferenceTokens = appState.wikimediaReferenceTokens.filter(
+		(_, itemIndex) => itemIndex !== index
+	);
 }
 
 export function clearWikimediaReferenceTokens() {
@@ -406,7 +416,20 @@ export function openProjectLibrary(id: string) {
 export function openAtlasAsset(assetId: string) {
 	appState.activeAtlasAssetId = assetId;
 	appState.selectedAssetId = assetId;
+	appState.atlasView = 'asset';
 	appState.mode = 'atlas';
+	appState.mobileState = 'browse';
+	appState.addOpen = false;
+	appState.filterOpen = false;
+	appState.inspectorOpen = false;
+	appState.shellScrolled = false;
+	appState.focusedPreviewOpen = false;
+}
+
+export function openAtlasHome() {
+	appState.mode = 'atlas';
+	appState.atlasView = 'home';
+	appState.activeAtlasAssetId = null;
 	appState.mobileState = 'browse';
 	appState.addOpen = false;
 	appState.filterOpen = false;

@@ -226,8 +226,17 @@ test('desktop library and explore surfaces are navigable', async ({ page }) => {
 
 	const primary = page.getByRole('navigation', { name: 'Primary' });
 	await primary.getByRole('button', { name: 'Atlas' }).click();
-	await expect(page.getByRole('region', { name: /Atlas inspect Crimson Horizon/ })).toBeVisible();
+	await expect(page.getByRole('region', { name: 'Atlas home' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Atlas' })).toBeVisible();
+	await expect(
+		page.getByRole('button', { name: 'Open Atlas inspect for Crimson Horizon' })
+	).toBeVisible();
+	await expect(page.getByRole('region', { name: /Atlas inspect Crimson Horizon/ })).toHaveCount(0);
 	await expect(page.getByText('No library assets are available yet.')).toHaveCount(0);
+	await page.getByRole('button', { name: 'Open Atlas inspect for Crimson Horizon' }).click();
+	await expect(page.getByRole('region', { name: /Atlas inspect Crimson Horizon/ })).toBeVisible();
+	await page.getByRole('button', { name: 'Back to Atlas' }).click();
+	await expect(page.getByRole('region', { name: 'Atlas home' })).toBeVisible();
 
 	await primary.getByRole('button', { name: 'Library' }).click();
 	await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();

@@ -1,9 +1,10 @@
 <script lang="ts">
 	import AtlasAssetInspect from './AtlasAssetInspect.svelte';
+	import AtlasHome from './AtlasHome.svelte';
 	import type { AtlasAssetSummary } from '$lib/atlas/types';
 	import FocusedAssetPreview from '$lib/components/inspector/FocusedAssetPreview.svelte';
 	import { loadLibrarySnapshot } from '$lib/library/client';
-	import { appState, openAtlasAsset } from '$lib/state/app-state.svelte';
+	import { appState, openAtlasHome } from '$lib/state/app-state.svelte';
 	import { libraryState, setLibrarySnapshot } from '$lib/state/library-state.svelte';
 	import type { Asset } from '$lib/types';
 
@@ -20,12 +21,11 @@
 	let libraryError = $state<string | null>(null);
 	let previewAsset = $state<Asset | null>(null);
 
-	let fallbackAsset = $derived(libraryState.snapshot.assets[0] ?? null);
-	let activeAssetId = $derived(
-		appState.activeAtlasAssetId ?? appState.selectedAssetId ?? fallbackAsset?.id ?? null
-	);
 	let asset = $derived(
-		libraryState.snapshot.assets.find((item) => item.id === activeAssetId) ?? fallbackAsset
+		appState.activeAtlasAssetId
+			? (libraryState.snapshot.assets.find((item) => item.id === appState.activeAtlasAssetId) ??
+					null)
+			: null
 	);
 
 	$effect(() => {
@@ -37,7 +37,8 @@
 				setLibrarySnapshot(snapshot);
 			})
 			.catch((loadError) => {
-				libraryError = loadError instanceof Error ? loadError.message : 'Library could not be loaded.';
+				libraryError =
+					loadError instanceof Error ? loadError.message : 'Library could not be loaded.';
 			})
 			.finally(() => {
 				libraryLoaded = true;
@@ -46,13 +47,7 @@
 	});
 
 	$effect(() => {
-		if (asset && appState.activeAtlasAssetId !== asset.id) {
-			openAtlasAsset(asset.id);
-		}
-	});
-
-	$effect(() => {
-		if (!asset) return;
+		if (appState.atlasView !== 'asset' || !asset) return;
 		void loadAtlas(asset.id);
 	});
 
@@ -78,12 +73,15 @@
 	}
 </script>
 
-{#if asset}
+{#if appState.atlasView === 'home'}
+	<AtlasHome assets={libraryState.snapshot.assets} loading={libraryLoading} error={libraryError} />
+{:else if asset}
 	<AtlasAssetInspect
 		{asset}
 		{atlas}
 		{loading}
 		{error}
+		onBack={openAtlasHome}
 		onPreview={(item) => (previewAsset = item)}
 	/>
 {:else if libraryLoading}
