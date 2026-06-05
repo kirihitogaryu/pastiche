@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { ensureAtlasSchema } from '$lib/server/atlas/schema';
 import { ensureLibraryArchive, resolveLibraryPaths } from './paths';
 
 export function openLibraryDatabase() {
@@ -105,6 +106,7 @@ export function openLibraryDatabase() {
 			primary key (project_id, folder_id)
 		);
 	`);
+	ensureAtlasSchema(db);
 	ensureColumn(db, 'assets', 'metadata_json', 'text');
 	ensureColumn(db, 'assets', 'favorite', 'integer not null default 0');
 	ensureDefaultTagFacets(db);
