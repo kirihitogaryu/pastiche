@@ -10,6 +10,7 @@
 	import CreateOrganizationPopover from '$lib/components/library/CreateOrganizationPopover.svelte';
 	import type { LibraryAssetRecord } from '$lib/library/types';
 	import type { LibraryResponse } from '$lib/library/types';
+	import { openAtlasAsset } from '$lib/state/app-state.svelte';
 	import { libraryState, setLibrarySnapshot } from '$lib/state/library-state.svelte';
 	import type { Asset } from '$lib/types';
 
@@ -361,6 +362,9 @@
 		<div class="actions">
 			<button type="button"><GridFourIcon size={19} /> Add to Canvas</button>
 			<button type="button"><CopyIcon size={19} /> Copy Palette</button>
+			<button type="button" onclick={() => asset && openAtlasAsset(asset.id)}>
+				<GridFourIcon size={19} /> Open in Atlas
+			</button>
 			<button type="button" disabled={!sourcePageUrl} onclick={openSource}
 				><ArrowSquareOutIcon size={19} /> Open Source</button
 			>
