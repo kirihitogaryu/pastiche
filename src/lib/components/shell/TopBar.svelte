@@ -25,6 +25,7 @@
 		home: 'Home',
 		library: 'Library',
 		explore: 'Explore',
+		atlas: 'Atlas',
 		canvas: 'Canvas',
 		colors: 'Colors',
 		resources: 'Resources'

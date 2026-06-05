@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BookOpenIcon from 'phosphor-svelte/lib/BookOpenIcon';
 	import CompassIcon from 'phosphor-svelte/lib/CompassIcon';
+	import DatabaseIcon from 'phosphor-svelte/lib/DatabaseIcon';
 	import HouseIcon from 'phosphor-svelte/lib/HouseIcon';
 	import PaletteIcon from 'phosphor-svelte/lib/PaletteIcon';
 	import ScribbleIcon from 'phosphor-svelte/lib/ScribbleIcon';
@@ -19,6 +20,7 @@
 		home: HouseIcon,
 		library: BookOpenIcon,
 		explore: CompassIcon,
+		atlas: DatabaseIcon,
 		canvas: ScribbleIcon,
 		colors: PaletteIcon,
 		resources: FolderIcon

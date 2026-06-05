@@ -16,9 +16,16 @@ export type AtlasClaimKind =
 	| 'date'
 	| 'dimensions'
 	| 'source_metadata'
-	| 'technical_metadata';
+	| 'technical_metadata'
+	| 'ai_generation';
 
-export type AtlasEvidence = 'observed' | 'metadata' | 'inferred' | 'interpretive' | 'computed';
+export type AtlasEvidence =
+	| 'observed'
+	| 'metadata'
+	| 'prompted'
+	| 'inferred'
+	| 'interpretive'
+	| 'computed';
 
 export type AtlasAssignmentStatus =
 	| 'approved'

@@ -158,6 +158,7 @@ export function defaultExploreFilterOptions(): ExploreFilterOptionsState {
 export const appState = $state({
 	mode: 'home' as AppMode,
 	selectedAssetId: null as string | null,
+	activeAtlasAssetId: null as string | null,
 	selectedAssetIds: [] as string[],
 	mobileState: 'browse' as MobileState,
 	addOpen: false,
@@ -201,6 +202,9 @@ export function setMode(mode: AppMode) {
 	}
 
 	appState.mode = mode;
+	if (mode === 'atlas' && !appState.activeAtlasAssetId && appState.selectedAssetId) {
+		appState.activeAtlasAssetId = appState.selectedAssetId;
+	}
 	appState.mobileState = 'browse';
 	appState.addOpen = false;
 	appState.inspectorOpen = mode === 'explore';
@@ -397,6 +401,18 @@ export function openProjectLibrary(id: string) {
 	appState.lastLibraryView = 'project';
 	appState.activeProjectId = id;
 	appState.mobileState = 'browse';
+}
+
+export function openAtlasAsset(assetId: string) {
+	appState.activeAtlasAssetId = assetId;
+	appState.selectedAssetId = assetId;
+	appState.mode = 'atlas';
+	appState.mobileState = 'browse';
+	appState.addOpen = false;
+	appState.filterOpen = false;
+	appState.inspectorOpen = false;
+	appState.shellScrolled = false;
+	appState.focusedPreviewOpen = false;
 }
 
 export function openFilter() {
