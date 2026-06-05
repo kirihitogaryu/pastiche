@@ -921,6 +921,91 @@ An imported Picasso work can create or resolve:
 - `rights` claim: public domain or unknown rights
 - visual tag suggestions only when source tags or analysis justify them
 
+## Atlas Ingestion Layer
+
+Atlas should have an ingestion layer between external source records and saved Library/Atlas records.
+
+This layer should normalize no-brainer source metadata before it reaches the user's tagging workflow. It should not behave like an AI tagger, and it should not make uncertain visual claims. Its job is to convert reliable import metadata into typed Atlas records, claims, and suggestions.
+
+Inputs can include:
+
+- Explore items
+- Explore detail records
+- IIIF manifests
+- Wikidata records
+- Wikimedia Commons file metadata
+- browser-extension capture payloads
+- manual import metadata
+- future AI-agent suggestion packets
+
+Outputs should be structured ingestion proposals:
+
+- resolved entities
+- source-backed claims
+- canonical tag suggestions
+- raw unmapped metadata
+- warnings or conflicts
+- provenance for every mapped field
+
+Examples:
+
+```txt
+artist: Pablo Picasso
+entity slug: pablo_picasso
+kind: artist
+evidence: metadata
+source: explore/met/wikidata/user
+
+medium: Oil on canvas
+claim key: medium
+normalized value: oil_on_canvas
+evidence: metadata
+
+rights: Public domain
+claim key: rights
+normalized value: public_domain
+evidence: metadata
+
+institution: The Metropolitan Museum of Art
+entity slug: the_met
+kind: institution
+evidence: metadata
+```
+
+The ingestion layer may auto-resolve low-risk, source-backed metadata such as:
+
+- artist names
+- institution names
+- source names
+- rights labels
+- medium labels
+- date/year labels
+- source identifiers
+- external URLs
+
+The ingestion layer should not auto-approve:
+
+- interpretive themes
+- uncertain visual tags
+- exact animal breed, sex, age, or health status
+- personal/protected identity attributes
+- material claims inferred only from appearance
+- style/movement claims unless source-backed or reviewed
+
+For visual/source tags from APIs, ingestion should resolve them as suggestions unless they are explicitly mapped to safe metadata claims or known canonical tags.
+
+The ingestion layer should be deterministic and testable. Given the same source payload and the same vocabulary state, it should produce the same proposal.
+
+This layer is the right place to normalize source quirks:
+
+- "Pablo Picasso" -> `pablo_picasso`
+- "The Metropolitan Museum of Art" -> `the_met`
+- "Oil on canvas" -> `oil_on_canvas`
+- "Public Domain" -> `public_domain`
+- "Wikimedia Commons" -> `wikimedia_commons`
+
+It should preserve original source text alongside normalized values so future users can inspect or remap the decision.
+
 ## Customization and Future Users
 
 Pastiche is local-first and personal. Users may eventually want their own vocabulary systems.
@@ -966,6 +1051,8 @@ Create the core model and service layer:
 
 - canonical tags
 - entities
+- ingestion proposals
+- source-backed claims
 - wiki entries
 - aliases
 - relationships
@@ -974,6 +1061,7 @@ Create the core model and service layer:
 - status
 - normalization
 - resolution
+- deterministic source metadata mapping
 
 Goal: Atlas can become the canonical metadata layer.
 
@@ -1057,6 +1145,7 @@ src/lib/atlas/tags.ts
 src/lib/atlas/entities.ts
 src/lib/atlas/wiki.ts
 src/lib/atlas/tagGroups.ts
+src/lib/atlas/ingestion.ts
 src/lib/atlas/normalization.ts
 src/lib/atlas/resolution.ts
 src/lib/atlas/assignments.ts
@@ -1065,6 +1154,7 @@ src/lib/atlas/relationships.ts
 src/lib/atlas/searchQuery.ts
 src/lib/atlas/agentGuidance.ts
 src/lib/server/atlas/schema.ts
+src/lib/server/atlas/ingest.ts
 src/lib/server/atlas/read.ts
 src/lib/server/atlas/write.ts
 ```
@@ -1074,6 +1164,8 @@ Required service functions:
 ```ts
 normalizeAtlasSlug(input: string): string;
 resolveAtlasTerm(input: string): AtlasResolution;
+createAtlasIngestionProposal(input: AtlasIngestionInput): AtlasIngestionProposal;
+applyAtlasIngestionProposal(proposalId: string): AtlasIngestionResult;
 suggestExistingAtlasTerms(input: string): AtlasSuggestion[];
 createDraftTag(input: DraftTagInput): AtlasTag;
 createDraftWikiEntry(input: DraftWikiEntryInput): TagWikiEntry;
