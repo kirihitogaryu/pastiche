@@ -4,6 +4,7 @@
 	import StackIcon from 'phosphor-svelte/lib/StackIcon';
 	import type { LibraryResponse } from '$lib/library/types';
 	import {
+		openFullLibrary,
 		openLibraryFolder,
 		openLibraryTag,
 		openProjectLibrary,
@@ -143,6 +144,10 @@
 		</button>
 	</div>
 
+	<button class="full-library-action" type="button" onclick={openFullLibrary}>
+		View Full Library
+	</button>
+
 	<ProjectCardGrid
 		projects={hubProjects}
 		onOpen={openProjectLibrary}
@@ -158,12 +163,14 @@
 			<button type="button" onclick={(event) => openCreate('folder', event)}>+ New Folder</button>
 		</header>
 		{#if folderTree.length}
-			<FolderTree
-				nodes={folderTree}
-				expanded={expandedFolders}
-				onToggle={toggleFolder}
-				onOpen={(folder) => openLibraryFolder(folder.path)}
-			/>
+			<nav aria-label="Top-level folders">
+				<FolderTree
+					nodes={folderTree}
+					expanded={expandedFolders}
+					onToggle={toggleFolder}
+					onOpen={(folder) => openLibraryFolder(folder.path)}
+				/>
+			</nav>
 		{:else}
 			<button class="empty-row" type="button" onclick={(event) => openCreate('folder', event)}>
 				<FolderIcon size={18} />
@@ -257,10 +264,31 @@
 
 	.create-actions button:hover,
 	.create-actions button:focus-visible,
+	.full-library-action:hover,
+	.full-library-action:focus-visible,
 	.empty-row:hover,
 	.empty-row:focus-visible {
 		border-color: var(--color-border-strong);
 		background: var(--color-surface-soft);
+	}
+
+	.full-library-action {
+		justify-self: start;
+		min-height: 2.75rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0 var(--space-4);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-pill);
+		background: var(--color-surface);
+		color: var(--color-text);
+		font: inherit;
+		font-weight: 700;
+		cursor: pointer;
+		transition:
+			background var(--duration-fast) var(--ease-out),
+			border-color var(--duration-fast) var(--ease-out);
 	}
 
 	.overview-section {

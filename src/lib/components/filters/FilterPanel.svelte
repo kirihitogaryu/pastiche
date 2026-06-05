@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import BugBeetleIcon from 'phosphor-svelte/lib/BugBeetleIcon';
 	import BuildingsIcon from 'phosphor-svelte/lib/BuildingsIcon';
 	import CameraIcon from 'phosphor-svelte/lib/CameraIcon';
@@ -235,11 +236,26 @@
 	let metDepartmentsLoaded = $state(false);
 	let metDepartmentsLoading = $state(false);
 	let metDepartmentsError = $state<string | null>(null);
+	let isMobilePanel = $state(false);
 
 	$effect(() => {
 		if (appState.mode === 'explore' && appState.exploreSourceId === 'met') {
 			void loadMetDepartments();
 		}
+	});
+
+	onMount(() => {
+		const media = window.matchMedia('(max-width: 759px)');
+		const syncPanelMode = () => {
+			isMobilePanel = media.matches;
+		};
+
+		syncPanelMode();
+		media.addEventListener('change', syncPanelMode);
+
+		return () => {
+			media.removeEventListener('change', syncPanelMode);
+		};
 	});
 
 	async function loadMetDepartments() {
@@ -372,11 +388,16 @@
 
 <button class="filter-scrim" type="button" aria-label="Close filters" onclick={closeFilter}
 ></button>
-<aside class="filter-panel" aria-label="Filters">
+<aside
+	class="filter-panel"
+	aria-label="Filters"
+	role={isMobilePanel ? 'dialog' : undefined}
+	aria-modal={isMobilePanel ? 'true' : undefined}
+>
 	<header>
 		<div>
 			<h2>Filters</h2>
-			<p>{appState.mode === 'library' ? 'Library' : sourceLabel}</p>
+			<p>{appState.mode === 'library' ? 'Library' : `${sourceLabel} results`}</p>
 		</div>
 		<button type="button" onclick={closeFilter} aria-label="Close filters"
 			><XIcon size={22} /></button
@@ -384,6 +405,15 @@
 	</header>
 
 	<div class="filter-scroll">
+		{#if appState.mode === 'explore'}
+			<section>
+				<h3>Source</h3>
+				<div class="chips">
+					<button class="active" type="button" aria-pressed="true">{sourceLabel}</button>
+				</div>
+			</section>
+		{/if}
+
 		{#if appState.mode === 'library'}
 			<section>
 				<h3>Status</h3>

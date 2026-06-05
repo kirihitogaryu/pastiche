@@ -34,7 +34,7 @@
 		<StarIcon size={20} />
 		<span>Smart Folders</span>
 	</h2>
-	<div class="smart-list">
+	<nav class="smart-list" aria-label="Smart folders">
 		{#each items as item (item.id)}
 			{@const Icon = iconFor(item.icon)}
 			<button type="button" onclick={() => onOpen(item.id)}>
@@ -44,7 +44,7 @@
 				<CaretRightIcon size={15} />
 			</button>
 		{/each}
-	</div>
+	</nav>
 </section>
 
 <style>

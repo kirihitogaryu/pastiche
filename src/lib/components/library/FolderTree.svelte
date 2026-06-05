@@ -22,7 +22,7 @@
 				<button
 					class="folder-toggle"
 					type="button"
-					aria-label={`Toggle ${node.name}`}
+					aria-label={expanded.has(node.id) ? 'Collapse folder' : 'Expand folder'}
 					onclick={() => onToggle(node.id)}
 				>
 					{#if expanded.has(node.id)}

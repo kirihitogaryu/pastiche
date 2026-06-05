@@ -15,13 +15,13 @@
 	<header>
 		<h2 id="library-projects-heading">
 			<StackIcon size={20} />
-			<span>Projects</span>
+			<span>Pinned Projects</span>
 		</h2>
 		<button type="button" onclick={onCreate}>+ New Project</button>
 	</header>
 
 	{#if projects.length}
-		<div class="project-grid" aria-label="Projects">
+		<div class="project-grid" aria-label="Pinned Projects">
 			{#each projects as project (project.id)}
 				<button
 					class="project-card"
