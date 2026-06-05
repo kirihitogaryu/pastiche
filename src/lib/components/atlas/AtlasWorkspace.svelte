@@ -2,8 +2,9 @@
 	import AtlasAssetInspect from './AtlasAssetInspect.svelte';
 	import type { AtlasAssetSummary } from '$lib/atlas/types';
 	import FocusedAssetPreview from '$lib/components/inspector/FocusedAssetPreview.svelte';
+	import { loadLibrarySnapshot } from '$lib/library/client';
 	import { appState, openAtlasAsset } from '$lib/state/app-state.svelte';
-	import { libraryState } from '$lib/state/library-state.svelte';
+	import { libraryState, setLibrarySnapshot } from '$lib/state/library-state.svelte';
 	import type { Asset } from '$lib/types';
 
 	type AtlasResponse = {
@@ -14,6 +15,9 @@
 	let atlas = $state<AtlasAssetSummary | null>(null);
 	let loading = $state(false);
 	let error = $state<string | null>(null);
+	let libraryLoading = $state(false);
+	let libraryLoaded = $state(false);
+	let libraryError = $state<string | null>(null);
 	let previewAsset = $state<Asset | null>(null);
 
 	let fallbackAsset = $derived(libraryState.snapshot.assets[0] ?? null);
@@ -23,6 +27,23 @@
 	let asset = $derived(
 		libraryState.snapshot.assets.find((item) => item.id === activeAssetId) ?? fallbackAsset
 	);
+
+	$effect(() => {
+		if (libraryState.snapshot.assets.length || libraryLoaded || libraryLoading) return;
+		libraryLoading = true;
+		libraryError = null;
+		void loadLibrarySnapshot()
+			.then((snapshot) => {
+				setLibrarySnapshot(snapshot);
+			})
+			.catch((loadError) => {
+				libraryError = loadError instanceof Error ? loadError.message : 'Library could not be loaded.';
+			})
+			.finally(() => {
+				libraryLoaded = true;
+				libraryLoading = false;
+			});
+	});
 
 	$effect(() => {
 		if (asset && appState.activeAtlasAssetId !== asset.id) {
@@ -65,9 +86,13 @@
 		{error}
 		onPreview={(item) => (previewAsset = item)}
 	/>
+{:else if libraryLoading}
+	<section class="empty" aria-label="Atlas loading state">
+		<p>Loading library assets...</p>
+	</section>
 {:else}
 	<section class="empty" aria-label="Atlas empty state">
-		<p>No library assets are available yet.</p>
+		<p>{libraryError ?? 'No library assets are available yet.'}</p>
 	</section>
 {/if}
 

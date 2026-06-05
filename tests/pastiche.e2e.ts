@@ -225,6 +225,10 @@ test('desktop library and explore surfaces are navigable', async ({ page }) => {
 	await page.goto('/');
 
 	const primary = page.getByRole('navigation', { name: 'Primary' });
+	await primary.getByRole('button', { name: 'Atlas' }).click();
+	await expect(page.getByRole('region', { name: /Atlas inspect Crimson Horizon/ })).toBeVisible();
+	await expect(page.getByText('No library assets are available yet.')).toHaveCount(0);
+
 	await primary.getByRole('button', { name: 'Library' }).click();
 	await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
 	await expect(page.getByRole('button', { name: /View Full Library/ })).toBeVisible();
