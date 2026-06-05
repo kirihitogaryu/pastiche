@@ -94,6 +94,9 @@ function mockAtlasAssetSummary(asset: Asset): AtlasAssetSummary {
 			sourceText: tag,
 			provenance: now,
 			status: 'suggested'
-		}))
+		})),
+		approvedConcepts: [],
+		annotations: [],
+		wikiHints: []
 	};
 }

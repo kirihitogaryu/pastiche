@@ -33,7 +33,13 @@ describe('Atlas schema', () => {
 				'atlas_entities',
 				'atlas_claims',
 				'atlas_tag_suggestions',
-				'atlas_ingestion_runs'
+				'atlas_ingestion_runs',
+				'atlas_concepts',
+				'atlas_wiki_entries',
+				'atlas_asset_concepts',
+				'atlas_annotations',
+				'atlas_annotation_concepts',
+				'atlas_annotation_classifiers'
 			])
 		);
 	});

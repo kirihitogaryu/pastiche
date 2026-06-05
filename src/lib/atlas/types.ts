@@ -1,5 +1,18 @@
 export type AtlasMetadataKind = 'visual_tag' | 'entity' | 'claim' | 'classifier' | 'computed';
 
+export type AtlasConceptKind = 'visual_tag' | 'entity' | 'claim' | 'classifier' | 'system';
+
+export type AtlasConceptMaturity = 'stub' | 'draft' | 'usable' | 'reviewed' | 'locked';
+
+export type AtlasConceptStatus =
+	| 'active'
+	| 'suggested'
+	| 'needs_review'
+	| 'deprecated'
+	| 'merged'
+	| 'alias'
+	| 'blocked';
+
 export type AtlasEntityKind =
 	| 'artist'
 	| 'work'
@@ -85,6 +98,50 @@ export type AtlasTagSuggestionProposal = {
 	status: 'suggested';
 };
 
+export type AtlasConceptSummary = {
+	id: string;
+	slug: string;
+	label: string;
+	kind: AtlasConceptKind;
+	category: string;
+	displayGroup: string;
+	status: AtlasConceptStatus;
+	maturity: AtlasConceptMaturity;
+	shortDefinition: string;
+};
+
+export type AtlasConceptAssignment = AtlasConceptSummary & {
+	assignmentId: string;
+	evidence: AtlasEvidence;
+	provenance: string;
+	assignmentStatus: AtlasAssignmentStatus;
+};
+
+export type AtlasAnnotationClassifier = {
+	id: string;
+	type: string;
+	value: string;
+	evidence: AtlasEvidence;
+	status: AtlasAssignmentStatus;
+};
+
+export type AtlasAnnotationSummary = {
+	id: string;
+	label: string;
+	regionJson: string | null;
+	concepts: AtlasConceptAssignment[];
+	classifiers: AtlasAnnotationClassifier[];
+};
+
+export type AtlasWikiEntrySummary = AtlasConceptSummary & {
+	aliases: string[];
+	broader: string[];
+	related: string[];
+	confusable: string[];
+	allowedClassifiers: string[];
+	aiGuidance: string;
+};
+
 export type AtlasIngestionProposal = {
 	assetId: string;
 	source: AtlasSourceKind;
@@ -102,4 +159,7 @@ export type AtlasAssetSummary = {
 	entities: Array<AtlasEntityProposal & { id: string }>;
 	claims: Array<AtlasClaimProposal & { id: string }>;
 	tagSuggestions: Array<AtlasTagSuggestionProposal & { id: string }>;
+	approvedConcepts: AtlasConceptAssignment[];
+	annotations: AtlasAnnotationSummary[];
+	wikiHints: AtlasWikiEntrySummary[];
 };

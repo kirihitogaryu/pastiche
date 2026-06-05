@@ -90,7 +90,10 @@ export function getAtlasAssetSummary(assetId: string): AtlasAssetSummary {
 				sourceText: row.source_text,
 				provenance: row.provenance,
 				status: row.status
-			}))
+			})),
+			approvedConcepts: [],
+			annotations: [],
+			wikiHints: []
 		};
 	} finally {
 		db.close();
