@@ -61,10 +61,21 @@ Examples:
 
 - `drawing_bow`
 - `shooting_arrow`
-- `standing_pose`
-- `reclining_creature`
 - `diagonal_composition`
 - `wide_composition`
+
+Use classifiers for pose, state, view, and position on a visible entity or annotation.
+
+Examples:
+
+```txt
+apollo_(deity) + pose:standing
+python_(mythology) + pose:reclining
+python_(mythology) + state:wounded
+serpent + position:right
+```
+
+Create a pose or state as a visual tag only when it is an independently useful scene-level concept and cannot be expressed clearly as an entity classifier.
 
 ### Level 3: Medium, Technique, Style, and Context
 
@@ -129,6 +140,7 @@ Prefer:
 bow + position:left
 serpent + position:right
 inscription + language:latin
+python_(mythology) + state:wounded
 ```
 
 Avoid:

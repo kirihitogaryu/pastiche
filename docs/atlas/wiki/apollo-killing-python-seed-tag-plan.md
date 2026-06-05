@@ -87,20 +87,19 @@ These are asset claims, not normal visual tags.
 8. `cloud`
 9. `cityscape`
 10. `rock`
-11. `standing_pose`
-12. `reclining_creature`
-13. `drawing_bow`
-14. `shooting_arrow`
-15. `wounded_creature`
-16. `wide_composition`
-17. `diagonal_composition`
-18. `figure_left_composition`
-19. `creature_right_composition`
-20. `monochrome`
-21. `line_art`
-22. `hatching`
-23. `cross_hatching`
-24. `mythological_scene`
+11. `drawing_bow`
+12. `shooting_arrow`
+13. `wide_composition`
+14. `diagonal_composition`
+15. `figure_left_composition`
+16. `creature_right_composition`
+17. `monochrome`
+18. `line_art`
+19. `hatching`
+20. `cross_hatching`
+21. `mythological_scene`
+
+Pose, state, view, and position should be classifiers on visible entities or annotations, not compound visual tags. Do not create `reclining_creature` or `wounded_creature` as canonical tags for this image.
 
 ## Theme and Mood Seeds
 
@@ -151,6 +150,21 @@ The exact relationship between medium, technique, and classification should be s
 
 7. `technique_visibility`
    - likely values: `hatching`, `cross_hatching`, `linework`
+
+## Initial Classifier Assignments
+
+Likely assignments for this image:
+
+```txt
+apollo_(deity).pose = standing
+apollo_(deity).position = left
+apollo_(deity).action_role = attacker
+python_(mythology).pose = reclining
+python_(mythology).state = wounded
+python_(mythology).position = right
+python_(mythology).action_role = target
+inscription.language = latin
+```
 
 ## Annotation Targets
 
