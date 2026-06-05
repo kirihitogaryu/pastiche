@@ -243,6 +243,14 @@ test('desktop library and explore surfaces are navigable', async ({ page }) => {
 	await expect(page.getByText('112%')).toBeVisible();
 	await page.getByRole('button', { name: 'Back to Atlas' }).click();
 	await expect(page.getByRole('region', { name: 'Atlas home' })).toBeVisible();
+	await page.getByRole('button', { name: 'Open Atlas wiki' }).click();
+	await expect(page.getByRole('region', { name: 'Atlas wiki' })).toBeVisible();
+	await page.getByLabel('Search wiki').fill('serpent');
+	await page.getByRole('button', { name: 'Open wiki entry serpent' }).click();
+	await expect(page.getByRole('heading', { name: 'Serpent' })).toBeVisible();
+	await expect(page.getByText('Allowed Classifiers')).toBeVisible();
+	await page.getByRole('button', { name: 'Back to Atlas home' }).click();
+	await expect(page.getByRole('region', { name: 'Atlas home' })).toBeVisible();
 
 	await primary.getByRole('button', { name: 'Library' }).click();
 	await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();

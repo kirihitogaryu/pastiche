@@ -1,6 +1,7 @@
 <script lang="ts">
 	import AtlasAssetInspect from './AtlasAssetInspect.svelte';
 	import AtlasHome from './AtlasHome.svelte';
+	import AtlasWiki from './AtlasWiki.svelte';
 	import type { AtlasAssetSummary } from '$lib/atlas/types';
 	import FocusedAssetPreview from '$lib/components/inspector/FocusedAssetPreview.svelte';
 	import { loadLibrarySnapshot } from '$lib/library/client';
@@ -75,6 +76,8 @@
 
 {#if appState.atlasView === 'home'}
 	<AtlasHome assets={libraryState.snapshot.assets} loading={libraryLoading} error={libraryError} />
+{:else if appState.atlasView === 'wiki'}
+	<AtlasWiki />
 {:else if asset}
 	<AtlasAssetInspect
 		{asset}

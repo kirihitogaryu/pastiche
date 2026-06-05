@@ -438,6 +438,18 @@ export function openAtlasHome() {
 	appState.focusedPreviewOpen = false;
 }
 
+export function openAtlasWiki() {
+	appState.mode = 'atlas';
+	appState.atlasView = 'wiki';
+	appState.activeAtlasAssetId = null;
+	appState.mobileState = 'browse';
+	appState.addOpen = false;
+	appState.filterOpen = false;
+	appState.inspectorOpen = false;
+	appState.shellScrolled = false;
+	appState.focusedPreviewOpen = false;
+}
+
 export function openFilter() {
 	appState.filterOpen = true;
 }
