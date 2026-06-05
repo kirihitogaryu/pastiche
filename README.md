@@ -71,6 +71,8 @@ Core Atlas principles:
 - Evidence matters: observed, metadata, inferred, interpretive, and computed claims are different.
 - Assignment status matters separately from tag status.
 
+The first implementation layer is deterministic Atlas ingestion: imported source metadata such as creator, institution, source, rights, date, and medium is normalized into typed Atlas entities and claims, while source tags stay as suggestions until reviewed.
+
 Atlas should eventually power Library tags, Inspector display, search, filters, review queues, AI guidance exports, color search, duplicate prevention, and image relationships.
 
 ## Important Docs For Agents
