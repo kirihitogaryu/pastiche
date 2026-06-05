@@ -142,13 +142,16 @@ The exact relationship between medium, technique, and classification should be s
 4. `state`
    - likely values: `wounded`, `dead`, `active`, `reclining`
 
-5. `view`
+5. `pose`
+   - likely values: `standing`, `reclining`, `coiled`, `twisting`, `rearing`
+
+6. `view`
    - likely values: `front`, `profile`, `three_quarter`
 
-6. `scale`
+7. `scale`
    - likely values: `dominant`, `large`, `small`
 
-7. `technique_visibility`
+8. `technique_visibility`
    - likely values: `hatching`, `cross_hatching`, `linework`
 
 ## Initial Classifier Assignments
@@ -163,8 +166,13 @@ python_(mythology).pose = reclining
 python_(mythology).state = wounded
 python_(mythology).position = right
 python_(mythology).action_role = target
+serpent.pose = reclining
+serpent.state = wounded
+serpent.position = right
 inscription.language = latin
 ```
+
+The Python annotation should be searchable through both `python_(mythology)` and `serpent`. Use `python_(mythology)` for the named mythological identity and `serpent` for broad visual retrieval such as "wounded serpent" or "reclining serpent".
 
 ## Annotation Targets
 

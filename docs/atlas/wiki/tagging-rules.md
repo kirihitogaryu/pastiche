@@ -72,10 +72,38 @@ Examples:
 apollo_(deity) + pose:standing
 python_(mythology) + pose:reclining
 python_(mythology) + state:wounded
+serpent + pose:reclining
+serpent + state:wounded
 serpent + position:right
 ```
 
 Create a pose or state as a visual tag only when it is an independently useful scene-level concept and cannot be expressed clearly as an entity classifier.
+
+## Classifier Targets
+
+Classifiers belong to visible instances or annotations. The target should support the way users will search.
+
+When a named entity also has a broad visual form, attach the classifier to the visible instance and allow search through both concepts.
+
+Example:
+
+```txt
+annotation: python_body
+tags: python_(mythology), serpent
+classifiers:
+  pose = reclining
+  state = wounded
+  position = right
+```
+
+This supports both:
+
+```txt
+python_(mythology).state:wounded
+serpent.state:wounded
+```
+
+Use the named entity for precision. Use the broad visual tag for retrieval.
 
 ### Level 3: Medium, Technique, Style, and Context
 
@@ -141,6 +169,7 @@ bow + position:left
 serpent + position:right
 inscription + language:latin
 python_(mythology) + state:wounded
+serpent + state:wounded
 ```
 
 Avoid:
