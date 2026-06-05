@@ -138,6 +138,8 @@ Prompt tokens should be list rows, not pills.
 
 Full prompts should open inline in the AI metadata section, not navigate to a separate page. Use an expandable scrollable text box with copy controls. A modal is acceptable for raw JSON or very large payloads, but the default interaction should keep the user on the inspect page.
 
+Large prompt-token collections and prompt-derived suggestion groups should use accordions rather than page-like `View all` links. Each prompt-related block should provide a quick copy action for its visible text or payload.
+
 ## Related And Similar Images
 
 Below the image:
