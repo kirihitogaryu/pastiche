@@ -101,8 +101,8 @@ function visual(
 		kind: 'visual_tag',
 		category: options.category ?? 'subject',
 		displayGroup: options.displayGroup ?? 'Subjects / Visual Entities',
-		status: options.status ?? 'active',
-		maturity: options.maturity ?? 'usable',
+		status: options.status ?? 'needs_review',
+		maturity: options.maturity ?? 'stub',
 		shortDefinition,
 		...options
 	});
@@ -121,8 +121,8 @@ function entity(
 		kind: 'entity',
 		category,
 		displayGroup: options.displayGroup ?? 'Identity and Source',
-		status: options.status ?? 'active',
-		maturity: options.maturity ?? 'draft',
+		status: options.status ?? 'needs_review',
+		maturity: options.maturity ?? 'stub',
 		shortDefinition,
 		...options
 	});
@@ -135,8 +135,8 @@ function classifier(slug: string, label: string, shortDefinition: string, values
 		kind: 'classifier',
 		category: 'classifier',
 		displayGroup: 'Classifiers',
-		status: 'active',
-		maturity: 'usable',
+		status: 'needs_review',
+		maturity: 'stub',
 		shortDefinition,
 		useWhen: [`Use to describe ${label} on a visible instance or annotation.`],
 		doNotUseWhen: ['Do not use as a standalone visual tag.'],
@@ -361,20 +361,16 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 		displayGroup: 'Theme and Mood',
 		broader: ['classical_mythology'],
 		related: ['apollo_killing_the_python'],
-		maturity: 'draft',
 		aiGuidance: 'AI may suggest this tag from source metadata; review before approval.'
 	}),
 	visual('violence', 'violence', 'Use when violence is depicted or directly implied.', {
 		category: 'theme',
 		displayGroup: 'Theme and Mood',
-		maturity: 'draft',
 		aiGuidance: 'AI may suggest this interpretive tag, but approval requires review.'
 	}),
 	visual('heroic_mood', 'heroic mood', 'Use for a clearly heroic presentation or tone.', {
 		category: 'mood',
 		displayGroup: 'Theme and Mood',
-		status: 'needs_review',
-		maturity: 'draft',
 		aiGuidance: 'AI must not auto-approve this mood tag.'
 	}),
 	visual('engraving', 'engraving', 'Use for engraving as a printmaking technique.', {
@@ -401,8 +397,6 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 		{
 			category: 'medium_technique',
 			displayGroup: 'Medium and Technique',
-			status: 'needs_review',
-			maturity: 'draft',
 			automaticImplications: ['print'],
 			citations: [LACMA_SOURCE]
 		}

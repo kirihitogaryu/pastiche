@@ -30,4 +30,11 @@ describe('Atlas wiki seed concepts', () => {
 
 		expect(slugs).toEqual(expect.arrayContaining(['python_(mythology)', 'serpent']));
 	});
+
+	it('marks first-pass seed wiki entries as stubs needing review', () => {
+		expect(ATLAS_WIKI_SEED_CONCEPTS.every((concept) => concept.status === 'needs_review')).toBe(
+			true
+		);
+		expect(ATLAS_WIKI_SEED_CONCEPTS.every((concept) => concept.maturity === 'stub')).toBe(true);
+	});
 });
