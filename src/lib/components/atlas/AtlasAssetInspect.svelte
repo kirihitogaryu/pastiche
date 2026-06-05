@@ -86,7 +86,7 @@
 
 	.top {
 		display: grid;
-		grid-template-columns: minmax(19rem, 24rem) minmax(0, 1fr);
+		grid-template-columns: minmax(0, 1fr) auto;
 		align-items: center;
 		border-bottom: 1px solid var(--color-border);
 		background: oklch(10% 0.007 70 / 0.96);
@@ -104,7 +104,6 @@
 		align-items: center;
 		gap: var(--space-3);
 		padding: 0 var(--space-4);
-		border-right: 1px solid var(--color-border);
 	}
 
 	.asset-title {
@@ -214,13 +213,14 @@
 
 	.main-scroll {
 		min-height: 0;
-		display: grid;
-		grid-template-rows: auto auto;
-		gap: var(--space-3);
 		padding: var(--space-3) var(--space-4) var(--space-6);
 		overflow: auto;
 		scrollbar-width: thin;
 		scrollbar-color: oklch(72% 0.012 75 / 0.18) transparent;
+	}
+
+	.main-scroll > :global(*) + :global(*) {
+		margin-top: var(--space-3);
 	}
 
 	.main-scroll::-webkit-scrollbar {
