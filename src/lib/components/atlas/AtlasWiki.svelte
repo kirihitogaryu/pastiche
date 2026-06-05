@@ -2,7 +2,7 @@
 	import ArrowLeftIcon from 'phosphor-svelte/lib/ArrowLeftIcon';
 	import MagnifyingGlassIcon from 'phosphor-svelte/lib/MagnifyingGlassIcon';
 	import type { AtlasWikiEntrySummary } from '$lib/atlas/types';
-	import { openAtlasHome } from '$lib/state/app-state.svelte';
+	import { appState, openAtlasHome } from '$lib/state/app-state.svelte';
 
 	type AtlasWikiEntry = AtlasWikiEntrySummary & {
 		longDescription: string | null;
@@ -50,7 +50,12 @@
 				);
 			}
 			entries = body.entries;
-			activeSlug = body.entries[0]?.slug ?? null;
+			activeSlug =
+				(appState.activeAtlasWikiSlug &&
+					body.entries.some((entry) => entry.slug === appState.activeAtlasWikiSlug) &&
+					appState.activeAtlasWikiSlug) ||
+				body.entries[0]?.slug ||
+				null;
 		} catch (loadError) {
 			error = loadError instanceof Error ? loadError.message : 'Atlas wiki could not be loaded.';
 		} finally {
@@ -92,6 +97,11 @@
 
 	function displayLabel(value: string) {
 		return value.replace(/_/g, ' ');
+	}
+
+	function selectEntry(slug: string) {
+		activeSlug = slug;
+		appState.activeAtlasWikiSlug = slug;
 	}
 </script>
 
@@ -143,7 +153,7 @@
 										type="button"
 										class:active={activeEntry?.slug === entry.slug}
 										aria-label={`Open wiki entry ${entry.slug}`}
-										onclick={() => (activeSlug = entry.slug)}
+										onclick={() => selectEntry(entry.slug)}
 									>
 										<span>{entry.label}</span>
 										<small>{entry.slug}</small>

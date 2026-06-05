@@ -115,14 +115,29 @@ describe('getAtlasAssetSummary', () => {
 					classifiers: expect.arrayContaining([
 						expect.objectContaining({ type: 'state', value: 'wounded' })
 					])
+				}),
+				expect.objectContaining({
+					label: 'background_lizard',
+					concepts: expect.arrayContaining([expect.objectContaining({ slug: 'lizard' })]),
+					classifiers: expect.arrayContaining([
+						expect.objectContaining({ type: 'visual_role', value: 'background_detail' })
+					])
 				})
 			])
 		);
 		expect(summary.wikiHints).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
+					slug: 'hendrick_goltzius',
+					shortDefinition: expect.stringContaining('Dutch artist')
+				}),
+				expect.objectContaining({
 					slug: 'serpent',
 					allowedClassifiers: expect.arrayContaining(['pose', 'state'])
+				}),
+				expect.objectContaining({
+					slug: 'visual_role',
+					allowedClassifiers: expect.arrayContaining(['background_detail'])
 				})
 			])
 		);

@@ -90,12 +90,23 @@ describe('Apollo/Python Atlas seed', () => {
 				.all();
 
 			expect(concepts).toEqual(
-				expect.arrayContaining(['apollo_(deity)', 'python_(mythology)', 'serpent'])
+				expect.arrayContaining([
+					'apollo_(deity)',
+					'python_(mythology)',
+					'serpent',
+					'castle',
+					'lizard',
+					'tree'
+				])
 			);
 			expect(classifiers).toEqual(
 				expect.arrayContaining([
 					expect.objectContaining({ classifier_type: 'state', classifier_value: 'wounded' }),
-					expect.objectContaining({ classifier_type: 'pose', classifier_value: 'reclining' })
+					expect.objectContaining({ classifier_type: 'pose', classifier_value: 'reclining' }),
+					expect.objectContaining({
+						classifier_type: 'visual_role',
+						classifier_value: 'background_detail'
+					})
 				])
 			);
 		} finally {

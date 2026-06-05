@@ -19,13 +19,13 @@ export type AtlasDisplayRow = {
 	meta?: string;
 };
 
-export type AtlasDisplayGroup = {
+export type AtlasDisplayGroup<Row extends AtlasDisplayRow = AtlasDisplayRow> = {
 	name: string;
-	rows: AtlasDisplayRow[];
+	rows: Row[];
 };
 
-export function groupAtlasRows(rows: AtlasDisplayRow[]): AtlasDisplayGroup[] {
-	const groups = new Map<string, AtlasDisplayGroup>();
+export function groupAtlasRows<Row extends AtlasDisplayRow>(rows: Row[]): AtlasDisplayGroup<Row>[] {
+	const groups = new Map<string, AtlasDisplayGroup<Row>>();
 	for (const row of rows) {
 		const group = groups.get(row.group) ?? { name: row.group, rows: [] };
 		group.rows.push(row);

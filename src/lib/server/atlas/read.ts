@@ -169,57 +169,70 @@ export function getAtlasAssetSummary(assetId: string): AtlasAssetSummary {
 			)
 			.all(assetId) as AnnotationClassifierRow[];
 
+		const entitySummaries = entities.map((row) => ({
+			id: row.id,
+			kind: row.kind,
+			slug: row.slug,
+			label: row.label,
+			sourceText: row.source_text ?? row.label,
+			provenance: row.provenance
+		}));
+		const claimSummaries = claims.map((row) => ({
+			id: row.id,
+			kind: row.kind,
+			slug: row.slug,
+			label: row.label,
+			value: row.value,
+			sourceText: row.source_text,
+			provenance: row.provenance
+		}));
+		const tagSuggestionSummaries = tagSuggestions.map((row) => ({
+			id: row.id,
+			slug: row.slug,
+			label: row.label,
+			sourceText: row.source_text,
+			provenance: row.provenance,
+			status: row.status
+		}));
 		const conceptAssignments = approvedConcepts.map(mapConceptRow);
-		const wikiHints = conceptAssignments
-			.map((concept) => readAtlasWikiEntry(db, concept.slug))
-			.filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
-			.slice(0, 8);
+		const annotationSummaries = annotations.map((annotation) => ({
+			id: annotation.id,
+			label: annotation.label,
+			regionJson: annotation.region_json,
+			concepts: annotationConcepts
+				.filter((concept) => concept.annotation_id === annotation.id)
+				.map(mapConceptRow),
+			classifiers: annotationClassifiers
+				.filter((classifier) => classifier.annotation_id === annotation.id)
+				.map((classifier) => ({
+					id: classifier.id,
+					type: classifier.classifier_type,
+					value: classifier.classifier_value,
+					evidence: classifier.evidence,
+					status: classifier.status
+				}))
+		}));
+		const wikiHintSlugs = new Set<string>([
+			...entitySummaries.map((entity) => entity.slug),
+			...claimSummaries.map((claim) => claim.slug),
+			...tagSuggestionSummaries.map((tag) => tag.slug),
+			...conceptAssignments.map((concept) => concept.slug),
+			...annotationSummaries.flatMap((annotation) => [
+				...annotation.concepts.map((concept) => concept.slug),
+				...annotation.classifiers.map((classifier) => classifier.type)
+			])
+		]);
+		const wikiHints = [...wikiHintSlugs]
+			.map((slug) => readAtlasWikiEntry(db, slug))
+			.filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
 
 		return {
 			assetId,
-			entities: entities.map((row) => ({
-				id: row.id,
-				kind: row.kind,
-				slug: row.slug,
-				label: row.label,
-				sourceText: row.source_text ?? row.label,
-				provenance: row.provenance
-			})),
-			claims: claims.map((row) => ({
-				id: row.id,
-				kind: row.kind,
-				slug: row.slug,
-				label: row.label,
-				value: row.value,
-				sourceText: row.source_text,
-				provenance: row.provenance
-			})),
-			tagSuggestions: tagSuggestions.map((row) => ({
-				id: row.id,
-				slug: row.slug,
-				label: row.label,
-				sourceText: row.source_text,
-				provenance: row.provenance,
-				status: row.status
-			})),
+			entities: entitySummaries,
+			claims: claimSummaries,
+			tagSuggestions: tagSuggestionSummaries,
 			approvedConcepts: conceptAssignments,
-			annotations: annotations.map((annotation) => ({
-				id: annotation.id,
-				label: annotation.label,
-				regionJson: annotation.region_json,
-				concepts: annotationConcepts
-					.filter((concept) => concept.annotation_id === annotation.id)
-					.map(mapConceptRow),
-				classifiers: annotationClassifiers
-					.filter((classifier) => classifier.annotation_id === annotation.id)
-					.map((classifier) => ({
-						id: classifier.id,
-						type: classifier.classifier_type,
-						value: classifier.classifier_value,
-						evidence: classifier.evidence,
-						status: classifier.status
-					}))
-			})),
+			annotations: annotationSummaries,
 			wikiHints
 		};
 	} finally {

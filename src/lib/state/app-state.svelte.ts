@@ -162,6 +162,7 @@ export const appState = $state({
 	selectedAssetId: null as string | null,
 	atlasView: 'home' as AtlasView,
 	activeAtlasAssetId: null as string | null,
+	activeAtlasWikiSlug: null as string | null,
 	selectedAssetIds: [] as string[],
 	mobileState: 'browse' as MobileState,
 	addOpen: false,
@@ -415,6 +416,7 @@ export function openProjectLibrary(id: string) {
 
 export function openAtlasAsset(assetId: string) {
 	appState.activeAtlasAssetId = assetId;
+	appState.activeAtlasWikiSlug = null;
 	appState.selectedAssetId = assetId;
 	appState.atlasView = 'asset';
 	appState.mode = 'atlas';
@@ -430,6 +432,7 @@ export function openAtlasHome() {
 	appState.mode = 'atlas';
 	appState.atlasView = 'home';
 	appState.activeAtlasAssetId = null;
+	appState.activeAtlasWikiSlug = null;
 	appState.mobileState = 'browse';
 	appState.addOpen = false;
 	appState.filterOpen = false;
@@ -438,10 +441,11 @@ export function openAtlasHome() {
 	appState.focusedPreviewOpen = false;
 }
 
-export function openAtlasWiki() {
+export function openAtlasWiki(slug: string | null = null) {
 	appState.mode = 'atlas';
 	appState.atlasView = 'wiki';
 	appState.activeAtlasAssetId = null;
+	appState.activeAtlasWikiSlug = slug;
 	appState.mobileState = 'browse';
 	appState.addOpen = false;
 	appState.filterOpen = false;

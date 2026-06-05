@@ -31,7 +31,7 @@
 			<h1>Atlas</h1>
 			<span>All library assets, newest first.</span>
 		</div>
-		<button type="button" class="wiki-link" onclick={openAtlasWiki}>Open Atlas wiki</button>
+		<button type="button" class="wiki-link" onclick={() => openAtlasWiki()}>Open Atlas wiki</button>
 	</header>
 
 	{#if loading}

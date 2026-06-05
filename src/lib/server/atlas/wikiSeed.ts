@@ -71,8 +71,8 @@ function concept(
 ): AtlasWikiSeedConcept {
 	return {
 		seedSet: [APOLLO_SEED],
-		useWhen: [`Use when ${input.label} is relevant to the asset.`],
-		doNotUseWhen: [`Do not use when ${input.label} is only a loose association.`],
+		useWhen: defaultUseWhen(input),
+		doNotUseWhen: defaultDoNotUseWhen(input),
 		aliases: [],
 		broader: [],
 		narrower: [],
@@ -83,10 +83,56 @@ function concept(
 		allowedClassifiers: [],
 		examples: [APOLLO_EXAMPLE],
 		counterexamples: [],
-		aiGuidance: 'AI may suggest this concept only when the evidence rule is satisfied.',
+		aiGuidance: defaultAiGuidance(input),
 		citations: [],
 		...input
 	};
+}
+
+function defaultUseWhen(input: {
+	kind: AtlasWikiSeedConcept['kind'];
+	label: string;
+	shortDefinition: string;
+}) {
+	if (/^use when/i.test(input.shortDefinition)) return [input.shortDefinition];
+	if (input.kind === 'entity') {
+		return [
+			`Use when source metadata, title text, inscription, or clear iconographic context identifies ${input.label}.`
+		];
+	}
+	if (input.kind === 'classifier') {
+		return [`Use to describe ${input.label} on a specific visible instance or annotation.`];
+	}
+	return [input.shortDefinition];
+}
+
+function defaultDoNotUseWhen(input: { kind: AtlasWikiSeedConcept['kind']; label: string }) {
+	if (input.kind === 'entity') {
+		return [
+			`Do not use ${input.label} when it is only a stylistic resemblance or unsupported guess.`,
+			'Do not use named entities as substitutes for ordinary visual tags.'
+		];
+	}
+	if (input.kind === 'classifier') {
+		return [
+			'Do not use as a standalone visual tag.',
+			'Do not use when the attribute target is not identified.'
+		];
+	}
+	return [
+		`Do not use ${input.label} when it is only mentioned in metadata and not visible.`,
+		'Do not use for loose resemblance; choose a broader or confusable tag when uncertain.'
+	];
+}
+
+function defaultAiGuidance(input: { kind: AtlasWikiSeedConcept['kind']; label: string }) {
+	if (input.kind === 'entity') {
+		return `AI may suggest ${input.label} only from source metadata, title text, inscription, or strong iconographic evidence.`;
+	}
+	if (input.kind === 'classifier') {
+		return `AI may assign ${input.label} only to a specific visible instance or annotation, never as a free-floating tag.`;
+	}
+	return `AI may suggest ${input.label} only when the visual evidence is clear; uncertain cases should remain suggested.`;
 }
 
 function visual(
@@ -233,13 +279,47 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 	visual('serpent', 'serpent', 'Use when a snake-like creature is visibly depicted.', {
 		category: 'animal',
 		broader: ['animal'],
-		related: ['dragon', 'python_(mythology)'],
-		confusable: ['dragon'],
-		allowedClassifiers: ['pose', 'state', 'view', 'position', 'scale'],
+		related: ['dragon', 'python_(mythology)', 'lizard'],
+		confusable: ['dragon', 'lizard'],
+		allowedClassifiers: ['pose', 'state', 'view', 'position', 'scale', 'visual_role'],
 		useWhen: ['A snake or serpent-like creature is visible.'],
 		doNotUseWhen: ['The image only names a mythological serpent but does not depict one.'],
 		aiGuidance:
 			'AI may apply when a snake-like creature is clearly visible. Do not identify it as Python without metadata or iconographic support.'
+	}),
+	visual('castle', 'castle', 'Use when a castle or fortified castle-like structure is visible.', {
+		category: 'architecture',
+		displayGroup: 'Setting and Architecture',
+		related: ['cityscape', 'landscape'],
+		confusable: ['cityscape', 'tower'],
+		allowedClassifiers: ['position', 'visual_role', 'scale'],
+		useWhen: [
+			'Use for visible fortified architecture, including distant castles and castle ruins.',
+			'Use when the structure is visually identifiable as a castle even if it is incidental.'
+		],
+		doNotUseWhen: [
+			'Do not use for a generic distant city, tower, wall, or palace unless castle-like fortification is clear.',
+			'Do not use when the castle appears only in source text and is not visible.'
+		],
+		aiGuidance:
+			'AI may suggest castle when fortification is visible. Mark incidental examples with visual_role:background_detail.'
+	}),
+	visual('lizard', 'lizard', 'Use when a lizard or visibly lizard-like reptile is depicted.', {
+		category: 'animal',
+		displayGroup: 'Subjects / Visual Entities',
+		related: ['serpent'],
+		confusable: ['serpent', 'dragon'],
+		allowedClassifiers: ['position', 'visual_role', 'pose', 'scale', 'view'],
+		useWhen: [
+			'Use for visible lizards, including small background lizards when identifiable.',
+			'Use for stylized lizard-like reptiles when legs and body shape distinguish them from serpents.'
+		],
+		doNotUseWhen: [
+			'Do not use for serpents, dragons, crocodiles, or indistinct reptiles.',
+			'Do not use for mythological Python unless a separate small lizard is visible.'
+		],
+		aiGuidance:
+			'AI may suggest lizard only when a small reptile is visibly legged or otherwise clearly lizard-like. Mark incidental examples with visual_role:background_detail.'
 	}),
 	visual('bow', 'bow', 'Use when an archer bow is visible.', {
 		category: 'object',
@@ -265,7 +345,18 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 	}),
 	visual('tree', 'tree', 'Use when a tree is visible.', {
 		category: 'plant',
-		displayGroup: 'Setting and Architecture'
+		displayGroup: 'Setting and Architecture',
+		allowedClassifiers: ['position', 'visual_role', 'scale'],
+		useWhen: [
+			'Use for visible trees, including partial trunks, branches, or distant trees when identifiable.',
+			'Use with visual_role:background_detail when trees are setting texture rather than focal subject matter.'
+		],
+		doNotUseWhen: [
+			'Do not use for generic foliage, bushes, vines, or decorative plant motifs without a visible tree form.',
+			'Do not use when trees are mentioned in metadata but not visible.'
+		],
+		aiGuidance:
+			'AI may apply tree when a tree form is visible. Background trees should be classified as visual_role:background_detail.'
 	}),
 	visual('cloud', 'cloud', 'Use when clouds are visible.', {
 		category: 'setting',
@@ -441,6 +532,12 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 		'large',
 		'small'
 	]),
+	classifier(
+		'visual_role',
+		'visual role',
+		'Describes how important a visible instance is in the image.',
+		['focal_point', 'supporting_subject', 'background_detail', 'setting_context']
+	),
 	classifier(
 		'technique_visibility',
 		'technique visibility',

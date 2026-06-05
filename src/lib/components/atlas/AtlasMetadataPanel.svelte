@@ -8,7 +8,14 @@
 		type AtlasDisplayRow
 	} from '$lib/atlas/display';
 	import type { AtlasAssetSummary } from '$lib/atlas/types';
+	import { openAtlasWiki } from '$lib/state/app-state.svelte';
 	import type { Asset } from '$lib/types';
+
+	type MetadataDisplayRow = AtlasDisplayRow & {
+		slug?: string;
+		definition?: string;
+		missingWiki?: boolean;
+	};
 
 	type Props = {
 		asset: Asset;
@@ -18,6 +25,7 @@
 	let { asset, atlas }: Props = $props();
 	let filter = $state('');
 
+	let wikiBySlug = $derived(new Map((atlas?.wikiHints ?? []).map((entry) => [entry.slug, entry])));
 	let rows = $derived(buildRows(asset, atlas));
 	let conceptGroups = $derived(groupConceptAssignments(atlas?.approvedConcepts ?? [], filter));
 	let filteredAnnotations = $derived(
@@ -33,8 +41,10 @@
 			: rows
 	);
 	let groups = $derived(groupAtlasRows(filteredRows));
+	let identityGroup = $derived(groups.find((group) => group.name === 'Identity') ?? null);
+	let otherGroups = $derived(groups.filter((group) => group.name !== 'Identity'));
 
-	function buildRows(asset: Asset, atlas: AtlasAssetSummary | null): AtlasDisplayRow[] {
+	function buildRows(asset: Asset, atlas: AtlasAssetSummary | null): MetadataDisplayRow[] {
 		const identity = (
 			[
 				{ group: 'Identity', label: 'Title', value: asset.title, tone: 'work' },
@@ -45,43 +55,59 @@
 			] satisfies AtlasDisplayRow[]
 		).filter((row) => row.value.trim());
 
-		const entities: AtlasDisplayRow[] =
-			atlas?.entities.map((entity) => ({
-				group: 'Source Entities',
-				label: displayLabel(entity.kind),
-				value: entity.label,
-				tone: atlasRowTone(entity),
-				meta: entity.provenance
-			})) ?? [];
+		const entities: MetadataDisplayRow[] =
+			atlas?.entities.map((entity) => {
+				const wiki = wikiBySlug.get(entity.slug);
+				return {
+					group: 'Source Entities',
+					label: displayLabel(entity.kind),
+					value: entity.label,
+					slug: entity.slug,
+					definition: wiki?.shortDefinition,
+					tone: atlasRowTone(entity),
+					meta: entity.provenance,
+					missingWiki: !wiki
+				};
+			}) ?? [];
 
-		const claims: AtlasDisplayRow[] =
+		const claims: MetadataDisplayRow[] =
 			atlas?.claims.map((claim) => ({
 				group: 'Source Claims',
 				label: displayLabel(claim.kind),
 				value: claim.value,
+				slug: wikiBySlug.has(claim.slug) ? claim.slug : undefined,
+				definition: wikiBySlug.get(claim.slug)?.shortDefinition,
 				tone: atlasRowTone(claim),
 				meta: claim.provenance
 			})) ?? [];
 
-		const legacyTags: AtlasDisplayRow[] = asset.tags.map((tag) => {
+		const legacyTags: MetadataDisplayRow[] = asset.tags.map((tag) => {
 			const normalized = normalizeDisplayTag(tag);
+			const wiki = wikiBySlug.get(normalized.value);
 			return {
 				group: 'Legacy Library Tags',
 				label: normalized.label,
 				value: normalized.value,
+				slug: wiki ? normalized.value : undefined,
+				definition: wiki?.shortDefinition,
 				tone: 'visual',
 				meta: 'library tag'
 			};
 		});
 
-		const suggestions: AtlasDisplayRow[] =
-			atlas?.tagSuggestions.map((tag) => ({
-				group: 'Suggested Tags Needing Review',
-				label: tag.label,
-				value: tag.sourceText,
-				tone: 'prompt',
-				meta: `${tag.status} / ${tag.provenance}`
-			})) ?? [];
+		const suggestions: MetadataDisplayRow[] =
+			atlas?.tagSuggestions.map((tag) => {
+				const wiki = wikiBySlug.get(tag.slug);
+				return {
+					group: 'Suggested Tags Needing Review',
+					label: tag.label,
+					value: tag.sourceText,
+					slug: wiki ? tag.slug : undefined,
+					definition: wiki?.shortDefinition,
+					tone: 'prompt',
+					meta: `${tag.status} / ${tag.provenance}`
+				};
+			}) ?? [];
 
 		return [...identity, ...entities, ...claims, ...legacyTags, ...suggestions];
 	}
@@ -139,6 +165,11 @@
 	function displayLabel(value: string) {
 		return value.replace(/_/g, ' ');
 	}
+
+	function openWiki(slug: string | undefined) {
+		if (!slug) return;
+		openAtlasWiki(slug);
+	}
 </script>
 
 <aside class="metadata-panel" aria-label="Atlas asset metadata">
@@ -162,6 +193,26 @@
 		</button>
 	</div>
 
+	{#if identityGroup}
+		<details class="group" open>
+			<summary>
+				<span>{identityGroup.name}</span>
+				<span>{identityGroup.rows.length}</span>
+			</summary>
+			<ul>
+				{#each identityGroup.rows as row}
+					<li class={`tone-${row.tone}`}>
+						<span class="label">{row.label}</span>
+						<span class="value">{row.value}</span>
+						{#if row.meta}
+							<small>{row.meta}</small>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		</details>
+	{/if}
+
 	{#if conceptGroups.length}
 		<details class="group concept-section" open>
 			<summary>
@@ -175,7 +226,15 @@
 						<ul class="tag-list">
 							{#each group.concepts as concept (concept.assignmentId)}
 								<li class={`tag-line tone-${atlasRowTone(concept)}`}>
-									<span class="tag-value">{concept.slug}</span>
+									<button
+										type="button"
+										class="tag-value tag-button"
+										title={concept.shortDefinition}
+										aria-label={`Open wiki entry ${concept.slug}`}
+										onclick={() => openWiki(concept.slug)}
+									>
+										{concept.slug}
+									</button>
 									<span class="tag-meta">{concept.evidence}</span>
 								</li>
 							{/each}
@@ -199,7 +258,15 @@
 						<ul class="annotation-concepts">
 							{#each annotation.concepts as concept (concept.assignmentId)}
 								<li class={`annotation-concept tone-${atlasRowTone(concept)}`}>
-									<span class="branch">{concept.slug}</span>
+									<button
+										type="button"
+										class="branch tag-button"
+										title={concept.shortDefinition}
+										aria-label={`Open wiki entry ${concept.slug}`}
+										onclick={() => openWiki(concept.slug)}
+									>
+										{concept.slug}
+									</button>
 									{#if concept.assignmentStatus !== 'approved'}
 										<span class="status">{concept.assignmentStatus}</span>
 									{/if}
@@ -207,7 +274,17 @@
 							{/each}
 							{#each annotation.classifiers as classifier (classifier.id)}
 								<li class="classifier-line tone-classifier">
-									<span class="branch classifier">{classifier.type}: {classifier.value}</span>
+									<button
+										type="button"
+										class="branch classifier tag-button"
+										title={wikiBySlug.get(classifier.type)?.shortDefinition ??
+											`${classifier.type}: ${classifier.value}`}
+										aria-label={`Open wiki entry ${classifier.type}`}
+										disabled={!wikiBySlug.has(classifier.type)}
+										onclick={() => openWiki(classifier.type)}
+									>
+										{classifier.type}: {classifier.value}
+									</button>
 									<span class="status">{classifier.evidence}</span>
 								</li>
 							{/each}
@@ -218,7 +295,7 @@
 		</details>
 	{/if}
 
-	{#each groups as group (group.name)}
+	{#each otherGroups as group (group.name)}
 		<details class="group" open>
 			<summary>
 				<span>{group.name}</span>
@@ -226,9 +303,23 @@
 			</summary>
 			<ul>
 				{#each group.rows as row}
-					<li class={`tone-${row.tone}`}>
+					<li class={`tone-${row.tone}`} class:missing-wiki={row.missingWiki}>
 						<span class="label">{row.label}</span>
-						<span class="value">{row.value}</span>
+						{#if row.slug}
+							<button
+								type="button"
+								class="value row-link"
+								title={row.definition ?? `Open wiki entry ${row.slug}`}
+								aria-label={`Open wiki entry ${row.slug}`}
+								onclick={() => openWiki(row.slug)}
+							>
+								{row.value}
+							</button>
+						{:else}
+							<span class="value" title={row.missingWiki ? 'No Atlas wiki entry yet.' : undefined}
+								>{row.value}</span
+							>
+						{/if}
 						{#if row.meta}
 							<small>{row.meta}</small>
 						{/if}
@@ -404,6 +495,50 @@
 		line-height: 1.35;
 	}
 
+	.tag-button,
+	.row-link {
+		appearance: none;
+		min-width: 0;
+		border: 0;
+		border-radius: var(--radius-sm);
+		background: transparent;
+		color: inherit;
+		text-align: left;
+		cursor: pointer;
+	}
+
+	.tag-button {
+		width: fit-content;
+		padding: 0;
+	}
+
+	.row-link {
+		width: fit-content;
+		max-width: 100%;
+		padding: 0;
+		font: inherit;
+		overflow-wrap: anywhere;
+	}
+
+	.tag-button:hover,
+	.tag-button:focus-visible,
+	.row-link:hover,
+	.row-link:focus-visible {
+		text-decoration: underline;
+		text-underline-offset: 0.18em;
+	}
+
+	.tag-button:focus-visible,
+	.row-link:focus-visible {
+		outline: 1px solid var(--color-border-strong);
+		outline-offset: 2px;
+	}
+
+	.tag-button:disabled {
+		cursor: default;
+		text-decoration: none;
+	}
+
 	.tag-meta,
 	.status {
 		color: var(--color-dim);
@@ -467,6 +602,15 @@
 	.value {
 		min-width: 0;
 		overflow-wrap: anywhere;
+	}
+
+	.missing-wiki .value {
+		color: oklch(68% 0.18 28);
+	}
+
+	.missing-wiki small::after {
+		content: ' / missing wiki';
+		color: oklch(68% 0.18 28);
 	}
 
 	small {

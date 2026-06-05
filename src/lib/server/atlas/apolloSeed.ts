@@ -8,6 +8,9 @@ const ASSET_CONCEPT_SLUGS = [
 	'apollo_(deity)',
 	'python_(mythology)',
 	'serpent',
+	'castle',
+	'lizard',
+	'tree',
 	'bow',
 	'arrow',
 	'inscription',
@@ -23,7 +26,8 @@ const ANNOTATIONS = [
 		classifiers: [
 			['pose', 'standing'],
 			['position', 'left'],
-			['action_role', 'attacker']
+			['action_role', 'attacker'],
+			['visual_role', 'focal_point']
 		]
 	},
 	{
@@ -33,13 +37,38 @@ const ANNOTATIONS = [
 			['pose', 'reclining'],
 			['state', 'wounded'],
 			['position', 'right'],
-			['action_role', 'target']
+			['action_role', 'target'],
+			['visual_role', 'focal_point']
 		]
 	},
 	{
 		label: 'latin_inscription',
 		concepts: ['inscription'],
 		classifiers: [['language', 'latin']]
+	},
+	{
+		label: 'background_castle',
+		concepts: ['castle'],
+		classifiers: [
+			['position', 'background'],
+			['visual_role', 'background_detail']
+		]
+	},
+	{
+		label: 'background_lizard',
+		concepts: ['lizard'],
+		classifiers: [
+			['position', 'background'],
+			['visual_role', 'background_detail']
+		]
+	},
+	{
+		label: 'background_trees',
+		concepts: ['tree'],
+		classifiers: [
+			['position', 'background'],
+			['visual_role', 'background_detail']
+		]
 	}
 ] as const;
 

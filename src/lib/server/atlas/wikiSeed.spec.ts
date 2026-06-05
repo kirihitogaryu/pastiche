@@ -37,4 +37,15 @@ describe('Atlas wiki seed concepts', () => {
 		);
 		expect(ATLAS_WIKI_SEED_CONCEPTS.every((concept) => concept.maturity === 'stub')).toBe(true);
 	});
+
+	it('avoids placeholder-quality default wiki guidance', () => {
+		const articleText = ATLAS_WIKI_SEED_CONCEPTS.flatMap((concept) => [
+			...concept.useWhen,
+			...concept.doNotUseWhen,
+			concept.aiGuidance
+		]).join('\n');
+
+		expect(articleText).not.toMatch(/relevant to the asset/i);
+		expect(articleText).not.toMatch(/loose association/i);
+	});
 });
