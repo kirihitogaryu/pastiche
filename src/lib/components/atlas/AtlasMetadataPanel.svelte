@@ -1,4 +1,6 @@
 <script lang="ts">
+	import MagnifyingGlassIcon from 'phosphor-svelte/lib/MagnifyingGlassIcon';
+	import XIcon from 'phosphor-svelte/lib/XIcon';
 	import {
 		atlasRowTone,
 		groupAtlasRows,
@@ -87,12 +89,23 @@
 
 <aside class="metadata-panel" aria-label="Atlas asset metadata">
 	<div class="filter">
-		<input
-			bind:value={filter}
-			type="search"
-			placeholder="Filter metadata..."
-			aria-label="Filter metadata"
-		/>
+		<div class="filter-field">
+			<MagnifyingGlassIcon size={16} />
+			<input
+				bind:value={filter}
+				type="search"
+				placeholder="Filter metadata..."
+				aria-label="Filter metadata"
+			/>
+		</div>
+		<button
+			type="button"
+			aria-label="Clear metadata filter"
+			disabled={!filter}
+			onclick={() => (filter = '')}
+		>
+			<XIcon size={15} />
+		</button>
 	</div>
 
 	{#each groups as group (group.name)}
@@ -121,28 +134,102 @@
 		min-height: 0;
 		overflow: auto;
 		border-right: 1px solid var(--color-border);
-		background: oklch(12% 0.008 70 / 0.82);
-		padding: var(--space-3);
+		background:
+			linear-gradient(90deg, oklch(18% 0.01 70 / 0.2), transparent 42%),
+			oklch(10.5% 0.007 70 / 0.94);
+		padding: var(--space-3) var(--space-3) var(--space-5);
+		scrollbar-width: thin;
+		scrollbar-color: oklch(72% 0.012 75 / 0.18) transparent;
+	}
+
+	.metadata-panel::-webkit-scrollbar {
+		width: 8px;
+	}
+
+	.metadata-panel::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	.metadata-panel::-webkit-scrollbar-thumb {
+		border: 2px solid transparent;
+		border-radius: 999px;
+		background: oklch(72% 0.012 75 / 0.14);
+		background-clip: padding-box;
+	}
+
+	.metadata-panel::-webkit-scrollbar-thumb:hover {
+		background: oklch(72% 0.012 75 / 0.26);
+		background-clip: padding-box;
 	}
 
 	.filter {
 		position: sticky;
 		top: 0;
 		z-index: 1;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 2rem;
+		gap: var(--space-2);
 		padding-bottom: var(--space-3);
-		background: oklch(12% 0.008 70);
+		background: oklch(10.5% 0.007 70);
+	}
+
+	.filter-field {
+		min-width: 0;
+		height: 2.15rem;
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		align-items: center;
+		gap: var(--space-2);
+		padding: 0 var(--space-3);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: oklch(13% 0.008 70);
+		color: var(--color-muted);
+		transition:
+			border-color var(--duration-fast) var(--ease-out),
+			background var(--duration-fast) var(--ease-out);
+	}
+
+	.filter-field:focus-within {
+		border-color: var(--color-border-strong);
+		background: oklch(15% 0.009 70);
 	}
 
 	input {
 		width: 100%;
-		min-height: 2.35rem;
-		padding: 0 var(--space-3);
+		min-height: 2rem;
+		padding: 0;
+		border: 0;
+		outline: 0;
+		background: transparent;
+		color: var(--color-text);
+		font-size: 0.78rem;
+	}
+
+	input::placeholder {
+		color: var(--color-dim);
+	}
+
+	.filter button {
+		width: 2rem;
+		height: 2.15rem;
+		display: grid;
+		place-items: center;
+		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
+		background: oklch(13% 0.008 70);
+		color: var(--color-muted);
+		cursor: pointer;
+	}
+
+	.filter button:disabled {
+		cursor: not-allowed;
+		opacity: 0.35;
 	}
 
 	.group {
 		border-top: 1px solid var(--color-border-soft);
-		padding: var(--space-2) 0;
+		padding: 0.8rem 0;
 	}
 
 	summary {
@@ -152,9 +239,9 @@
 		gap: var(--space-2);
 		cursor: pointer;
 		color: var(--color-muted);
-		font-size: 0.72rem;
+		font-size: 0.68rem;
 		font-weight: 800;
-		letter-spacing: 0.08em;
+		letter-spacing: 0.12em;
 		text-transform: uppercase;
 	}
 
@@ -168,10 +255,11 @@
 
 	li {
 		display: grid;
-		grid-template-columns: minmax(5.5rem, 0.38fr) 1fr;
+		grid-template-columns: minmax(6.6rem, 0.42fr) minmax(0, 1fr);
 		gap: var(--space-2);
-		padding: 0.12rem 0;
-		font-size: 0.78rem;
+		padding: 0.13rem 0;
+		font-size: 0.76rem;
+		line-height: 1.32;
 	}
 
 	.label {

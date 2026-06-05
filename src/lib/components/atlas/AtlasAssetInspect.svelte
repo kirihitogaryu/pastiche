@@ -2,6 +2,11 @@
 	import AtlasAiMetadataSection from './AtlasAiMetadataSection.svelte';
 	import AtlasImageStage from './AtlasImageStage.svelte';
 	import AtlasMetadataPanel from './AtlasMetadataPanel.svelte';
+	import ArrowLeftIcon from 'phosphor-svelte/lib/ArrowLeftIcon';
+	import ArrowSquareOutIcon from 'phosphor-svelte/lib/ArrowSquareOutIcon';
+	import CaretLeftIcon from 'phosphor-svelte/lib/CaretLeftIcon';
+	import CaretRightIcon from 'phosphor-svelte/lib/CaretRightIcon';
+	import DotsThreeIcon from 'phosphor-svelte/lib/DotsThreeIcon';
 	import type { AtlasAssetSummary } from '$lib/atlas/types';
 	import type { Asset } from '$lib/types';
 
@@ -15,30 +20,53 @@
 	};
 
 	let { asset, atlas, loading = false, error = null, onBack, onPreview }: Props = $props();
-	let subtitle = $derived([asset.creator, asset.year, asset.medium].filter(Boolean).join(' / '));
+	let subtitle = $derived([asset.creator, asset.year, asset.medium].filter(Boolean).join(' · '));
+
+	function openSource() {
+		if (!asset.sourceUrl) return;
+		window.open(asset.sourceUrl, '_blank', 'noreferrer');
+	}
 </script>
 
 <section class="atlas-inspect" aria-label={`Atlas inspect ${asset.title}`}>
 	<header class="top">
-		<div>
+		<div class="title-zone">
 			{#if onBack}
-				<button class="back" type="button" onclick={onBack}>Back to Atlas</button>
+				<button class="back" type="button" onclick={onBack}>
+					<ArrowLeftIcon size={16} />
+					Back to Atlas
+				</button>
 			{/if}
-			<p>Atlas Inspect</p>
-			<h1>{asset.title}</h1>
-			{#if subtitle}
-				<span>{subtitle}</span>
-			{/if}
+			<div class="asset-title">
+				<h1>{asset.title}</h1>
+				{#if subtitle}
+					<span>{subtitle}</span>
+				{/if}
+			</div>
 		</div>
 		<div class="actions">
+			<span class="position">1 of 1</span>
+			<button class="icon" type="button" aria-label="Previous asset" disabled>
+				<CaretLeftIcon size={18} />
+			</button>
+			<button class="icon" type="button" aria-label="Next asset" disabled>
+				<CaretRightIcon size={18} />
+			</button>
+			<button type="button" disabled={!asset.sourceUrl} onclick={openSource}>
+				<ArrowSquareOutIcon size={17} />
+				Open source
+			</button>
 			<button type="button" disabled={loading}>Edit metadata</button>
 			<button type="button">Add to project</button>
+			<button class="icon" type="button" aria-label="More Atlas actions" disabled>
+				<DotsThreeIcon size={20} />
+			</button>
 		</div>
 	</header>
 
 	<div class="body">
 		<AtlasMetadataPanel {asset} {atlas} />
-		<div class="main">
+		<div class="main-scroll">
 			{#if error}
 				<p class="error">{error}</p>
 			{/if}
@@ -52,63 +80,130 @@
 	.atlas-inspect {
 		height: 100%;
 		display: grid;
-		grid-template-rows: auto minmax(0, 1fr);
+		grid-template-rows: 3.6rem minmax(0, 1fr);
 		background: var(--color-bg);
 	}
 
 	.top {
-		display: flex;
+		display: grid;
+		grid-template-columns: minmax(19rem, 24rem) minmax(0, 1fr);
 		align-items: center;
-		justify-content: space-between;
-		gap: var(--space-4);
-		padding: var(--space-3) var(--space-4);
 		border-bottom: 1px solid var(--color-border);
+		background: oklch(10% 0.007 70 / 0.96);
 	}
 
-	p,
 	h1 {
 		margin: 0;
 	}
 
-	p {
-		color: var(--color-dim);
-		font-size: 0.72rem;
-		font-weight: 800;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
+	.title-zone {
+		min-width: 0;
+		height: 100%;
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		align-items: center;
+		gap: var(--space-3);
+		padding: 0 var(--space-4);
+		border-right: 1px solid var(--color-border);
+	}
+
+	.asset-title {
+		min-width: 0;
 	}
 
 	h1 {
-		font-size: 1.25rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: 1rem;
+		font-weight: 760;
+		letter-spacing: 0;
 	}
 
-	span {
+	.asset-title span {
+		display: block;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 		color: var(--color-muted);
+		font-size: 0.76rem;
 	}
 
 	.actions {
 		display: flex;
+		min-width: 0;
+		height: 100%;
+		align-items: center;
+		justify-content: flex-end;
 		gap: var(--space-2);
+		padding: 0 var(--space-4);
+		overflow: hidden;
 	}
 
-	.actions button {
-		min-height: 2.35rem;
-		padding: 0 var(--space-3);
+	button {
+		border: 1px solid var(--color-border);
+		background: oklch(14% 0.008 70);
+		color: var(--color-text);
+		cursor: pointer;
+		transition:
+			transform var(--duration-fast) var(--ease-out),
+			border-color var(--duration-fast) var(--ease-out),
+			background var(--duration-fast) var(--ease-out);
+	}
+
+	button:hover,
+	button:focus-visible {
+		border-color: var(--color-border-strong);
+		background: oklch(18% 0.01 70);
+	}
+
+	button:active {
+		transform: translateY(1px);
+	}
+
+	button:disabled {
+		cursor: not-allowed;
+		opacity: 0.45;
+		transform: none;
+	}
+
+	.actions button,
+	.back {
+		min-height: 2rem;
 		border-radius: var(--radius-md);
 	}
 
-	.back {
-		margin: 0 0 var(--space-2);
-		border: 0;
-		background: transparent;
-		color: var(--color-muted);
-		cursor: pointer;
-		padding: 0;
+	.actions button {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		padding: 0 var(--space-3);
+		white-space: nowrap;
+		font-size: 0.78rem;
 	}
 
-	.back:hover,
-	.back:focus-visible {
-		color: var(--color-text);
+	.actions .icon {
+		width: 2rem;
+		padding: 0;
+		justify-content: center;
+	}
+
+	.position {
+		margin-right: var(--space-2);
+		color: var(--color-dim);
+		font-size: 0.72rem;
+		white-space: nowrap;
+	}
+
+	.back {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		border-color: transparent;
+		background: transparent;
+		color: var(--color-muted);
+		padding: 0 var(--space-2);
+		white-space: nowrap;
 	}
 
 	.body {
@@ -117,20 +212,60 @@
 		grid-template-columns: minmax(19rem, 24rem) minmax(0, 1fr);
 	}
 
-	.main {
+	.main-scroll {
 		min-height: 0;
 		display: grid;
-		grid-template-rows: minmax(22rem, 1fr) auto;
+		grid-template-rows: auto auto;
 		gap: var(--space-3);
-		padding: var(--space-3);
+		padding: var(--space-3) var(--space-4) var(--space-6);
 		overflow: auto;
+		scrollbar-width: thin;
+		scrollbar-color: oklch(72% 0.012 75 / 0.18) transparent;
+	}
+
+	.main-scroll::-webkit-scrollbar {
+		width: 8px;
+		height: 8px;
+	}
+
+	.main-scroll::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	.main-scroll::-webkit-scrollbar-thumb {
+		border: 2px solid transparent;
+		border-radius: 999px;
+		background: oklch(72% 0.012 75 / 0.16);
+		background-clip: padding-box;
+	}
+
+	.main-scroll::-webkit-scrollbar-thumb:hover {
+		background: oklch(72% 0.012 75 / 0.28);
+		background-clip: padding-box;
 	}
 
 	.error {
 		color: var(--color-danger);
 	}
 
-	@media (max-width: 900px) {
+	@media (max-width: 980px) {
+		.atlas-inspect {
+			grid-template-rows: auto minmax(0, 1fr);
+		}
+
+		.top {
+			grid-template-columns: 1fr;
+			gap: var(--space-2);
+			padding: var(--space-3);
+		}
+
+		.title-zone,
+		.actions {
+			height: auto;
+			padding: 0;
+			border-right: 0;
+		}
+
 		.body {
 			grid-template-columns: 1fr;
 		}
