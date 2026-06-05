@@ -143,6 +143,50 @@ describe('POST /api/library/save-explore', () => {
 		]);
 	});
 
+	it('normalizes safe Explore metadata into Atlas records while keeping source tags suggested', async () => {
+		getById.mockResolvedValue({
+			...sampleItem,
+			title: 'Picasso metadata study',
+			artistRaw: 'Pablo Picasso',
+			dateDisplay: '1937',
+			medium: 'Oil on canvas',
+			objectName: 'Painting',
+			department: 'Paintings',
+			description: 'Public domain image according to The Met.',
+			tags: ['horse', 'mourning']
+		});
+		const { POST } = await import('./+server');
+		const { getLibrarySnapshot } = await import('$lib/server/library/read');
+		const { getAtlasAssetSummary } = await import('$lib/server/atlas/read');
+
+		const response = await POST({
+			request: new Request('http://localhost/api/library/save-explore', {
+				method: 'POST',
+				body: JSON.stringify({ item_id: 'met-1', destination_folder_id: null })
+			})
+		});
+		const snapshot = getLibrarySnapshot();
+		const summary = getAtlasAssetSummary(snapshot.assets[0].id);
+
+		expect(response.status).toBe(200);
+		expect(summary.entities).toEqual([
+			expect.objectContaining({ kind: 'artist', slug: 'pablo_picasso' }),
+			expect.objectContaining({ kind: 'source', slug: 'the_met' })
+		]);
+		expect(summary.claims).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ kind: 'date', slug: '1937' }),
+				expect.objectContaining({ kind: 'medium', slug: 'oil_on_canvas' }),
+				expect.objectContaining({ kind: 'rights', slug: 'public_domain' })
+			])
+		);
+		expect(summary.tagSuggestions).toEqual([
+			expect.objectContaining({ slug: 'horse', status: 'suggested' }),
+			expect.objectContaining({ slug: 'mourning', status: 'suggested' })
+		]);
+		expect(snapshot.assets[0].tags).toEqual([]);
+	});
+
 	it('uses Art Institute thumbnail dimensions when IIIF info is unavailable', async () => {
 		vi.stubGlobal(
 			'fetch',
