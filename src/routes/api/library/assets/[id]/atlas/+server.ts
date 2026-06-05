@@ -1,5 +1,5 @@
 import { normalizeAtlasSlug } from '$lib/atlas/normalization';
-import type { AtlasAssetSummary } from '$lib/atlas/types';
+import type { AtlasAssetSummary, AtlasConceptAssignment } from '$lib/atlas/types';
 import { mockLibrarySnapshot } from '$lib/library/mock';
 import { getAtlasAssetSummary } from '$lib/server/atlas/read';
 import { getLibrarySnapshot } from '$lib/server/library/read';
@@ -28,6 +28,7 @@ export function GET({ params }: { params: { id: string } }) {
 
 function mockAtlasAssetSummary(asset: Asset): AtlasAssetSummary {
 	const now = 'mock-library';
+	const approvedConcepts = mockApprovedConcepts(asset);
 	return {
 		assetId: asset.id,
 		entities: [
@@ -95,8 +96,48 @@ function mockAtlasAssetSummary(asset: Asset): AtlasAssetSummary {
 			provenance: now,
 			status: 'suggested'
 		})),
-		approvedConcepts: [],
-		annotations: [],
+		approvedConcepts,
+		annotations:
+			approvedConcepts.length > 0
+				? [
+						{
+							id: `mock-annotation-${asset.id}-main-subject`,
+							label: 'main_subject',
+							regionJson: null,
+							concepts: approvedConcepts.filter((concept) => concept.slug === 'landscape'),
+							classifiers: [
+								{
+									id: `mock-classifier-${asset.id}-position`,
+									type: 'position',
+									value: 'center',
+									evidence: 'observed',
+									status: 'approved'
+								}
+							]
+						}
+					]
+				: [],
 		wikiHints: []
 	};
+}
+
+function mockApprovedConcepts(asset: Asset): AtlasConceptAssignment[] {
+	if (asset.title !== 'Crimson Horizon') return [];
+	return [
+		{
+			assignmentId: `mock-concept-${asset.id}-landscape`,
+			id: 'mock-concept-landscape',
+			slug: 'landscape',
+			label: 'Landscape',
+			kind: 'visual_tag',
+			category: 'subject',
+			displayGroup: 'subjects_entities',
+			status: 'active',
+			maturity: 'usable',
+			shortDefinition: 'Use when a landscape is visibly depicted.',
+			evidence: 'observed',
+			provenance: 'mock-library',
+			assignmentStatus: 'approved'
+		}
+	];
 }

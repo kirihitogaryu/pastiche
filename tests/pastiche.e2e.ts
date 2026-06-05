@@ -266,6 +266,10 @@ test('desktop library and explore surfaces are navigable', async ({ page }) => {
 	await expect(page.getByPlaceholder('Search artwork, artists, or collections...')).toHaveCount(0);
 	await expect(page.getByRole('complementary', { name: 'Atlas asset metadata' })).toBeVisible();
 	await expect(page.getByLabel('Filter metadata')).toBeVisible();
+	await expect(page.getByText('Canonical Visual Tags')).toBeVisible();
+	await expect(page.getByText('Annotations / Regions')).toBeVisible();
+	await expect(page.getByText('landscape')).toBeVisible();
+	await expect(page.getByText('position: center')).toBeVisible();
 	await page.getByLabel('Filter metadata').fill('source');
 	await expect(page.getByText('Source Claims')).toBeVisible();
 	await expect(page.getByText('AI Generation Metadata')).toBeVisible();

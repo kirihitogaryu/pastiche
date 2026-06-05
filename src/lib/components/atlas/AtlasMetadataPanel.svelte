@@ -19,6 +19,10 @@
 	let filter = $state('');
 
 	let rows = $derived(buildRows(asset, atlas));
+	let conceptGroups = $derived(groupConceptAssignments(atlas?.approvedConcepts ?? [], filter));
+	let filteredAnnotations = $derived(
+		(atlas?.annotations ?? []).filter((annotation) => annotationMatches(annotation, filter))
+	);
 	let filteredRows = $derived(
 		filter.trim()
 			? rows.filter((row) =>
@@ -82,6 +86,56 @@
 		return [...identity, ...entities, ...claims, ...legacyTags, ...suggestions];
 	}
 
+	function groupConceptAssignments(concepts: AtlasAssetSummary['approvedConcepts'], query: string) {
+		const groups = new Map<string, AtlasAssetSummary['approvedConcepts']>();
+		for (const concept of concepts) {
+			if (!conceptMatches(concept, query)) continue;
+			const key = displayLabel(concept.displayGroup);
+			const group = groups.get(key) ?? [];
+			group.push(concept);
+			groups.set(key, group);
+		}
+		return [...groups.entries()].map(([name, concepts]) => ({ name, concepts }));
+	}
+
+	function annotationMatches(annotation: AtlasAssetSummary['annotations'][number], query: string) {
+		const clean = query.trim().toLowerCase();
+		if (!clean) return true;
+		return [
+			annotation.label,
+			...annotation.concepts.flatMap((concept) => [
+				concept.label,
+				concept.slug,
+				concept.displayGroup,
+				concept.shortDefinition
+			]),
+			...annotation.classifiers.flatMap((classifier) => [
+				classifier.type,
+				classifier.value,
+				classifier.evidence,
+				classifier.status
+			])
+		]
+			.join(' ')
+			.toLowerCase()
+			.includes(clean);
+	}
+
+	function conceptMatches(concept: AtlasAssetSummary['approvedConcepts'][number], query: string) {
+		const clean = query.trim().toLowerCase();
+		if (!clean) return true;
+		return [
+			concept.label,
+			concept.slug,
+			concept.displayGroup,
+			concept.shortDefinition,
+			concept.evidence
+		]
+			.join(' ')
+			.toLowerCase()
+			.includes(clean);
+	}
+
 	function displayLabel(value: string) {
 		return value.replace(/_/g, ' ');
 	}
@@ -107,6 +161,62 @@
 			<XIcon size={15} />
 		</button>
 	</div>
+
+	{#if conceptGroups.length}
+		<details class="group concept-section" open>
+			<summary>
+				<span>Canonical Visual Tags</span>
+				<span>{conceptGroups.reduce((count, group) => count + group.concepts.length, 0)}</span>
+			</summary>
+			<div class="concept-list">
+				{#each conceptGroups as group (group.name)}
+					<section class="concept-group" aria-label={`${group.name} concepts`}>
+						<h3>{group.name}</h3>
+						<ul class="tag-list">
+							{#each group.concepts as concept (concept.assignmentId)}
+								<li class={`tag-line tone-${atlasRowTone(concept)}`}>
+									<span class="tag-value">{concept.slug}</span>
+									<span class="tag-meta">{concept.evidence}</span>
+								</li>
+							{/each}
+						</ul>
+					</section>
+				{/each}
+			</div>
+		</details>
+	{/if}
+
+	{#if filteredAnnotations.length}
+		<details class="group annotation-section" open>
+			<summary>
+				<span>Annotations / Regions</span>
+				<span>{filteredAnnotations.length}</span>
+			</summary>
+			<ul class="annotation-list">
+				{#each filteredAnnotations as annotation (annotation.id)}
+					<li class="annotation">
+						<div class="annotation-title">{displayLabel(annotation.label)}</div>
+						<ul class="annotation-concepts">
+							{#each annotation.concepts as concept (concept.assignmentId)}
+								<li class={`annotation-concept tone-${atlasRowTone(concept)}`}>
+									<span class="branch">{concept.slug}</span>
+									{#if concept.assignmentStatus !== 'approved'}
+										<span class="status">{concept.assignmentStatus}</span>
+									{/if}
+								</li>
+							{/each}
+							{#each annotation.classifiers as classifier (classifier.id)}
+								<li class="classifier-line tone-classifier">
+									<span class="branch classifier">{classifier.type}: {classifier.value}</span>
+									<span class="status">{classifier.evidence}</span>
+								</li>
+							{/each}
+						</ul>
+					</li>
+				{/each}
+			</ul>
+		</details>
+	{/if}
 
 	{#each groups as group (group.name)}
 		<details class="group" open>
@@ -253,7 +363,95 @@
 		list-style: none;
 	}
 
-	li {
+	.concept-list {
+		display: grid;
+		gap: 0.65rem;
+		margin-top: var(--space-2);
+	}
+
+	.concept-group h3 {
+		margin: 0 0 0.18rem;
+		color: var(--color-muted);
+		font-size: 0.75rem;
+		font-weight: 780;
+		letter-spacing: 0;
+		text-transform: none;
+	}
+
+	.tag-list,
+	.annotation-list,
+	.annotation-concepts {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.tag-line {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: var(--space-2);
+		align-items: baseline;
+		padding: 0.1rem 0;
+		font-size: 0.78rem;
+	}
+
+	.tag-value,
+	.branch {
+		min-width: 0;
+		overflow-wrap: anywhere;
+		font-family: var(--font-mono);
+		font-size: 0.74rem;
+		line-height: 1.35;
+	}
+
+	.tag-meta,
+	.status {
+		color: var(--color-dim);
+		font-size: 0.67rem;
+		white-space: nowrap;
+	}
+
+	.annotation-list {
+		display: grid;
+		gap: 0.65rem;
+		margin-top: var(--space-2);
+	}
+
+	.annotation-title {
+		margin-bottom: 0.2rem;
+		color: var(--color-muted);
+		font-size: 0.75rem;
+		font-weight: 760;
+	}
+
+	.annotation-concepts {
+		display: grid;
+		gap: 0.1rem;
+		border-left: 1px solid var(--color-border-soft);
+		margin-left: 0.26rem;
+		padding-left: 0.65rem;
+	}
+
+	.annotation-concept,
+	.classifier-line {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: var(--space-2);
+		align-items: baseline;
+		padding: 0.04rem 0;
+	}
+
+	.branch::before {
+		content: '└ ';
+		color: var(--color-dim);
+		font-family: var(--font-mono);
+	}
+
+	.classifier {
+		color: oklch(72% 0.055 130);
+	}
+
+	.group > ul > li {
 		display: grid;
 		grid-template-columns: minmax(6.6rem, 0.42fr) minmax(0, 1fr);
 		gap: var(--space-2);
@@ -276,39 +474,57 @@
 		color: var(--color-dim);
 	}
 
-	.tone-artist .value {
+	.tone-artist .value,
+	.tone-artist .tag-value,
+	.tone-artist .branch {
 		color: oklch(76% 0.075 295);
 	}
 
-	.tone-work .value {
+	.tone-work .value,
+	.tone-work .tag-value,
+	.tone-work .branch {
 		color: oklch(76% 0.07 320);
 	}
 
-	.tone-entity .value {
+	.tone-entity .value,
+	.tone-entity .tag-value,
+	.tone-entity .branch {
 		color: oklch(76% 0.07 230);
 	}
 
-	.tone-visual .value {
+	.tone-visual .value,
+	.tone-visual .tag-value,
+	.tone-visual .branch {
 		color: oklch(74% 0.07 245);
 	}
 
-	.tone-classifier .value {
+	.tone-classifier .value,
+	.tone-classifier .tag-value,
+	.tone-classifier .branch {
 		color: oklch(72% 0.055 130);
 	}
 
-	.tone-source .value {
+	.tone-source .value,
+	.tone-source .tag-value,
+	.tone-source .branch {
 		color: oklch(70% 0.025 235);
 	}
 
-	.tone-prompt .value {
+	.tone-prompt .value,
+	.tone-prompt .tag-value,
+	.tone-prompt .branch {
 		color: oklch(76% 0.07 78);
 	}
 
-	.tone-review .value {
+	.tone-review .value,
+	.tone-review .tag-value,
+	.tone-review .branch {
 		color: oklch(76% 0.1 65);
 	}
 
-	.tone-muted .value {
+	.tone-muted .value,
+	.tone-muted .tag-value,
+	.tone-muted .branch {
 		color: var(--color-muted);
 	}
 </style>
