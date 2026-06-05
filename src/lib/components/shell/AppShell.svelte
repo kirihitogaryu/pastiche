@@ -8,6 +8,7 @@
 		setShellScrolled,
 		setMode
 	} from '$lib/state/app-state.svelte';
+	import AtlasWorkspace from '$lib/components/atlas/AtlasWorkspace.svelte';
 	import ExploreWorkspace from '$lib/components/explore/ExploreWorkspace.svelte';
 	import FilterPanel from '$lib/components/filters/FilterPanel.svelte';
 	import HomeHub from '$lib/components/home/HomeHub.svelte';
@@ -45,6 +46,8 @@
 				<LibraryWorkspace />
 			{:else if appState.mode === 'explore'}
 				<ExploreWorkspace />
+			{:else if appState.mode === 'atlas'}
+				<AtlasWorkspace />
 			{:else}
 				<section class="placeholder" aria-label={`${appState.mode} workspace placeholder`}>
 					<p>{appState.mode}</p>

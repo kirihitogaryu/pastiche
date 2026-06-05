@@ -35,8 +35,9 @@ describe('GET /api/library/assets/[id]/atlas', () => {
 					alt_text: null,
 					captured_at: '2026-05-27T12:00:00.000Z',
 					metadata: {
-						source: 'met',
+						sourceId: 'met',
 						sourceName: 'The Met',
+						sourceType: 'museum',
 						creator: 'Pablo Picasso',
 						dateDisplay: '1937',
 						medium: 'Oil on canvas',
