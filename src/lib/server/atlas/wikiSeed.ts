@@ -8,6 +8,7 @@ export type AtlasWikiSeedConcept = {
 	status: 'active' | 'needs_review';
 	maturity: 'stub' | 'draft' | 'usable' | 'reviewed';
 	shortDefinition: string;
+	longDescription: string;
 	useWhen: string[];
 	doNotUseWhen: string[];
 	aliases: string[];
@@ -47,6 +48,7 @@ function concept(
 		| 'counterexamples'
 		| 'aiGuidance'
 		| 'citations'
+		| 'longDescription'
 	> &
 		Partial<
 			Pick<
@@ -66,11 +68,13 @@ function concept(
 				| 'counterexamples'
 				| 'aiGuidance'
 				| 'citations'
+				| 'longDescription'
 			>
 		>
 ): AtlasWikiSeedConcept {
 	return {
 		seedSet: [APOLLO_SEED],
+		longDescription: defaultLongDescription(input),
 		useWhen: defaultUseWhen(input),
 		doNotUseWhen: defaultDoNotUseWhen(input),
 		aliases: [],
@@ -87,6 +91,30 @@ function concept(
 		citations: [],
 		...input
 	};
+}
+
+function defaultLongDescription(input: {
+	kind: AtlasWikiSeedConcept['kind'];
+	label: string;
+	category: string;
+	shortDefinition: string;
+}) {
+	if (input.kind === 'entity') {
+		return `${input.label} is stored as an entity because it names a source-backed person, institution, tradition, character, work, or narrative subject rather than an ordinary visible object. Use the entity alongside visual tags that describe what is actually depicted.`;
+	}
+	if (input.kind === 'classifier') {
+		return `${input.label} is a controlled classifier, not a standalone tag. Apply it to a visible annotation or entity instance so searches can distinguish the thing from the attribute attached to it.`;
+	}
+	if (input.category === 'composition') {
+		return `${input.label} describes how the image is organized. Use it when the arrangement materially changes retrieval, comparison, or study value, not when it is a minor incidental feature.`;
+	}
+	if (input.category === 'medium_technique') {
+		return `${input.label} describes a visible medium or technique. Prefer source-confirmed medium claims for factual catalog metadata, and use this tag when the medium or mark-making is useful for visual search.`;
+	}
+	if (['theme', 'mood'].includes(input.category)) {
+		return `${input.label} is interpretive. It can be useful for reference search, but it should be applied cautiously and kept separate from directly observed objects or source-backed identity metadata.`;
+	}
+	return `${input.label} is a reusable Atlas concept for visual retrieval. Apply it when the image clearly supports the definition, and use classifiers for attributes such as pose, state, position, scale, or visual role.`;
 }
 
 function defaultUseWhen(input: {
@@ -148,7 +176,7 @@ function visual(
 		category: options.category ?? 'subject',
 		displayGroup: options.displayGroup ?? 'Subjects / Visual Entities',
 		status: options.status ?? 'needs_review',
-		maturity: options.maturity ?? 'stub',
+		maturity: options.maturity ?? 'draft',
 		shortDefinition,
 		...options
 	});
@@ -168,13 +196,19 @@ function entity(
 		category,
 		displayGroup: options.displayGroup ?? 'Identity and Source',
 		status: options.status ?? 'needs_review',
-		maturity: options.maturity ?? 'stub',
+		maturity: options.maturity ?? 'draft',
 		shortDefinition,
 		...options
 	});
 }
 
-function classifier(slug: string, label: string, shortDefinition: string, values: string[]) {
+function classifier(
+	slug: string,
+	label: string,
+	shortDefinition: string,
+	values: string[],
+	options: Partial<AtlasWikiSeedConcept> = {}
+) {
 	return concept({
 		slug,
 		label,
@@ -182,13 +216,14 @@ function classifier(slug: string, label: string, shortDefinition: string, values
 		category: 'classifier',
 		displayGroup: 'Classifiers',
 		status: 'needs_review',
-		maturity: 'stub',
+		maturity: 'draft',
 		shortDefinition,
 		useWhen: [`Use to describe ${label} on a visible instance or annotation.`],
 		doNotUseWhen: ['Do not use as a standalone visual tag.'],
 		allowedClassifiers: values,
 		examples: [`${APOLLO_EXAMPLE}:${slug}`],
-		aiGuidance: `AI may assign ${slug} values only to a specific visible instance or annotation.`
+		aiGuidance: `AI may assign ${slug} values only to a specific visible instance or annotation.`,
+		...options
 	});
 }
 
@@ -462,7 +497,8 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 	visual('heroic_mood', 'heroic mood', 'Use for a clearly heroic presentation or tone.', {
 		category: 'mood',
 		displayGroup: 'Theme and Mood',
-		aiGuidance: 'AI must not auto-approve this mood tag.'
+		aiGuidance:
+			'AI may suggest heroic_mood when pose, action, framing, and source context support a heroic reading, but it must not auto-approve this mood tag.'
 	}),
 	visual('engraving', 'engraving', 'Use for engraving as a printmaking technique.', {
 		category: 'medium_technique',
@@ -536,7 +572,23 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 		'visual_role',
 		'visual role',
 		'Describes how important a visible instance is in the image.',
-		['focal_point', 'supporting_subject', 'background_detail', 'setting_context']
+		['focal_point', 'supporting_subject', 'background_detail', 'setting_context'],
+		{
+			longDescription:
+				'Visual role controls whether a tagged instance should count as a strong search result or a good wiki example. Use focal_point for the main subject matter, supporting_subject for relevant but secondary content, background_detail for incidental visible material, and setting_context for environmental context.',
+			useWhen: [
+				'Use visual_role on annotations to state whether a tagged thing is central, supporting, incidental, or contextual.',
+				'Use focal_point and supporting_subject when the asset should be considered a useful example for that tag.',
+				'Use background_detail or setting_context when the tag is visible but should not make the asset a good example or top search result for that tag.'
+			],
+			doNotUseWhen: [
+				'Do not use as a standalone visual tag.',
+				'Do not use to describe physical position. Use position for foreground, background, left, or right.',
+				'Do not mark incidental background material as focal_point just because it is identifiable.'
+			],
+			aiGuidance:
+				'AI must assign visual_role whenever an annotation is used as evidence for examples or search ranking. Background_detail and setting_context should suppress the asset from good-example slots for that tag.'
+		}
 	),
 	classifier(
 		'technique_visibility',

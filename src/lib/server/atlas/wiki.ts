@@ -1,5 +1,8 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import type { AtlasWikiEntrySummary } from '$lib/atlas/types';
+import { resolveLibraryPaths } from '$lib/server/library/paths';
 import { ATLAS_WIKI_SEED_CONCEPTS } from './wikiSeed';
 
 type WikiRow = {
@@ -29,6 +32,30 @@ type WikiRow = {
 	citations_json: string;
 };
 
+type ExampleAssetRow = {
+	id: string;
+	title: string;
+	filename: string;
+	storage_mode: string;
+	width: number;
+	height: number;
+	original_path: string | null;
+	thumbnail_path: string | null;
+	source_image_url: string | null;
+	source_url: string;
+	page_title: string | null;
+};
+
+export type AtlasWikiExampleAsset = {
+	id: string;
+	title: string;
+	thumbnailUrl: string | null;
+	width: number;
+	height: number;
+	sourceUrl: string;
+	visualRole: string | null;
+};
+
 export type AtlasWikiEntry = AtlasWikiEntrySummary & {
 	longDescription: string | null;
 	useWhen: string[];
@@ -38,6 +65,12 @@ export type AtlasWikiEntry = AtlasWikiEntrySummary & {
 	suggestedImplications: string[];
 	examples: string[];
 	counterexamples: string[];
+	exampleAssetIds: string[];
+	counterexampleAssetIds: string[];
+	exampleAssets: AtlasWikiExampleAsset[];
+	counterexampleAssets: AtlasWikiExampleAsset[];
+	missingExampleAssetIds: string[];
+	missingCounterexampleAssetIds: string[];
 	citations: string[];
 };
 
@@ -102,7 +135,7 @@ export function applyAtlasWikiSeed(db: Database.Database, now = new Date().toISO
 			const row = selectConcept.get(concept.slug) as { id: string };
 			insertWiki.run(
 				row.id,
-				null,
+				concept.longDescription,
 				JSON.stringify(concept.useWhen),
 				JSON.stringify(concept.doNotUseWhen),
 				JSON.stringify(concept.aliases),
@@ -137,7 +170,7 @@ export function readAtlasWikiEntries(db: Database.Database): AtlasWikiEntry[] {
 		)
 		.all() as WikiRow[];
 
-	return rows.map(mapWikiRow);
+	return rows.map((row) => mapWikiRow(row, db));
 }
 
 export function readAtlasWikiEntry(db: Database.Database, slug: string): AtlasWikiEntry | null {
@@ -152,7 +185,37 @@ export function readAtlasWikiEntry(db: Database.Database, slug: string): AtlasWi
 		)
 		.get(slug) as WikiRow | undefined;
 
-	return row ? mapWikiRow(row) : null;
+	return row ? mapWikiRow(row, db) : null;
+}
+
+export function setAtlasWikiExampleAssetIds(
+	db: Database.Database,
+	slug: string,
+	input: {
+		exampleAssetIds: string[];
+		counterexampleAssetIds: string[];
+		updatedAt: string;
+	}
+) {
+	const result = db
+		.prepare(
+			`
+			update atlas_wiki_entries
+			set
+				examples_json = ?,
+				counterexamples_json = ?,
+				updated_at = ?
+			where concept_id = (select id from atlas_concepts where slug = ?)
+		`
+		)
+		.run(
+			JSON.stringify(normalizeAssetIds(input.exampleAssetIds)),
+			JSON.stringify(normalizeAssetIds(input.counterexampleAssetIds)),
+			input.updatedAt,
+			slug
+		);
+
+	return result.changes > 0;
 }
 
 function wikiSelectColumns() {
@@ -184,7 +247,16 @@ function wikiSelectColumns() {
 	`;
 }
 
-function mapWikiRow(row: WikiRow): AtlasWikiEntry {
+function mapWikiRow(row: WikiRow, db: Database.Database): AtlasWikiEntry {
+	const manualExampleAssetIds = parseJsonList(row.examples_json);
+	const counterexampleAssetIds = parseJsonList(row.counterexamples_json);
+	const derivedExamples = deriveExampleAssets(db, row.id);
+	const roleByAssetId = new Map(derivedExamples.map((example) => [example.id, example.visualRole]));
+	const derivedExampleAssetIds = derivedExamples.map((example) => example.id);
+	const exampleAssetIds = normalizeAssetIds([...manualExampleAssetIds, ...derivedExampleAssetIds]);
+	const examples = resolveExampleAssets(db, exampleAssetIds, roleByAssetId);
+	const counterexamples = resolveExampleAssets(db, counterexampleAssetIds);
+
 	return {
 		id: row.id,
 		slug: row.slug,
@@ -206,11 +278,201 @@ function mapWikiRow(row: WikiRow): AtlasWikiEntry {
 		automaticImplications: parseJsonList(row.automatic_implications_json),
 		suggestedImplications: parseJsonList(row.suggested_implications_json),
 		allowedClassifiers: parseJsonList(row.allowed_classifiers_json),
-		examples: parseJsonList(row.examples_json),
-		counterexamples: parseJsonList(row.counterexamples_json),
+		examples: exampleAssetIds,
+		counterexamples: counterexampleAssetIds,
+		exampleAssetIds,
+		counterexampleAssetIds,
+		exampleAssets: examples.assets,
+		counterexampleAssets: counterexamples.assets,
+		missingExampleAssetIds: examples.missingAssetIds,
+		missingCounterexampleAssetIds: counterexamples.missingAssetIds,
 		aiGuidance: row.ai_guidance,
 		citations: parseJsonList(row.citations_json)
 	};
+}
+
+function resolveExampleAssets(
+	db: Database.Database,
+	assetIds: string[],
+	visualRoleByAssetId = new Map<string, string | null>()
+) {
+	const assets: AtlasWikiExampleAsset[] = [];
+	const missingAssetIds: string[] = [];
+	const select = db.prepare(`
+		select
+			id,
+			title,
+			filename,
+			storage_mode,
+			width,
+			height,
+			original_path,
+			thumbnail_path,
+			source_image_url,
+			source_url,
+			page_title
+		from assets
+		where id = ?
+	`);
+
+	for (const assetId of assetIds) {
+		const row = select.get(assetId) as ExampleAssetRow | undefined;
+		if (!row) {
+			missingAssetIds.push(assetId);
+			continue;
+		}
+		assets.push(mapExampleAsset(row, visualRoleByAssetId.get(assetId) ?? null));
+	}
+
+	return { assets, missingAssetIds };
+}
+
+function deriveExampleAssets(db: Database.Database, conceptId: string) {
+	const rows = db
+		.prepare(
+			`
+			select distinct
+				assets.id,
+				assets.imported_at,
+				(
+					select atlas_annotation_classifiers.classifier_value
+					from atlas_annotations
+					join atlas_annotation_concepts
+						on atlas_annotation_concepts.annotation_id = atlas_annotations.id
+					join atlas_annotation_classifiers
+						on atlas_annotation_classifiers.annotation_id = atlas_annotations.id
+					where atlas_annotations.asset_id = assets.id
+						and atlas_annotation_concepts.concept_id = ?
+						and atlas_annotation_classifiers.classifier_type = 'visual_role'
+						and atlas_annotation_classifiers.classifier_value not in (
+							'background_detail',
+							'setting_context'
+						)
+					order by
+						case atlas_annotation_classifiers.classifier_value
+							when 'focal_point' then 1
+							when 'supporting_subject' then 2
+							else 3
+						end
+					limit 1
+				) as visual_role
+			from assets
+			where exists (
+				select 1
+				from atlas_asset_concepts
+				where atlas_asset_concepts.asset_id = assets.id
+					and atlas_asset_concepts.concept_id = ?
+					and atlas_asset_concepts.status = 'approved'
+			)
+			and (
+				not exists (
+					select 1
+					from atlas_annotations
+					join atlas_annotation_concepts
+						on atlas_annotation_concepts.annotation_id = atlas_annotations.id
+					where atlas_annotations.asset_id = assets.id
+						and atlas_annotation_concepts.concept_id = ?
+				)
+				or exists (
+					select 1
+					from atlas_annotations
+					join atlas_annotation_concepts
+						on atlas_annotation_concepts.annotation_id = atlas_annotations.id
+					where atlas_annotations.asset_id = assets.id
+						and atlas_annotation_concepts.concept_id = ?
+						and atlas_annotation_concepts.status = 'approved'
+						and not exists (
+							select 1
+							from atlas_annotation_classifiers
+							where atlas_annotation_classifiers.annotation_id = atlas_annotations.id
+								and atlas_annotation_classifiers.classifier_type = 'visual_role'
+								and atlas_annotation_classifiers.classifier_value in (
+									'background_detail',
+									'setting_context'
+								)
+						)
+				)
+			)
+			union
+			select distinct
+				assets.id,
+				assets.imported_at,
+				(
+					select atlas_annotation_classifiers.classifier_value
+					from atlas_annotation_classifiers
+					where atlas_annotation_classifiers.annotation_id = atlas_annotations.id
+						and atlas_annotation_classifiers.classifier_type = 'visual_role'
+						and atlas_annotation_classifiers.classifier_value not in (
+							'background_detail',
+							'setting_context'
+						)
+					order by
+						case atlas_annotation_classifiers.classifier_value
+							when 'focal_point' then 1
+							when 'supporting_subject' then 2
+							else 3
+						end
+					limit 1
+				) as visual_role
+			from assets
+			join atlas_annotations on atlas_annotations.asset_id = assets.id
+			join atlas_annotation_concepts
+				on atlas_annotation_concepts.annotation_id = atlas_annotations.id
+			where atlas_annotation_concepts.concept_id = ?
+				and atlas_annotation_concepts.status = 'approved'
+				and not exists (
+					select 1
+					from atlas_annotation_classifiers
+					where atlas_annotation_classifiers.annotation_id = atlas_annotations.id
+						and atlas_annotation_classifiers.classifier_type = 'visual_role'
+						and atlas_annotation_classifiers.classifier_value in (
+							'background_detail',
+							'setting_context'
+						)
+				)
+			order by imported_at desc
+			limit 12
+		`
+		)
+		.all(conceptId, conceptId, conceptId, conceptId, conceptId) as Array<{
+		id: string;
+		visual_role: string | null;
+	}>;
+
+	return rows.map((row) => ({ id: row.id, visualRole: row.visual_role }));
+}
+
+function mapExampleAsset(row: ExampleAssetRow, visualRole: string | null): AtlasWikiExampleAsset {
+	return {
+		id: row.id,
+		title: row.page_title?.trim() || row.title?.trim() || row.filename,
+		thumbnailUrl: exampleThumbnailUrl(row),
+		width: row.width,
+		height: row.height,
+		sourceUrl: row.source_url,
+		visualRole
+	};
+}
+
+function exampleThumbnailUrl(row: ExampleAssetRow) {
+	if (row.thumbnail_path && localFileAvailable(row.thumbnail_path)) {
+		return imageApiUrl(row.id, 'thumb');
+	}
+	if (row.original_path && localFileAvailable(row.original_path)) {
+		return imageApiUrl(row.id, 'original');
+	}
+	if (row.storage_mode === 'url_reference' || row.storage_mode === 'lazy_download') {
+		return row.source_image_url;
+	}
+	return null;
+}
+
+function localFileAvailable(relativePath: string) {
+	return existsSync(join(resolveLibraryPaths().root, relativePath));
+}
+
+function imageApiUrl(id: string, variant: 'thumb' | 'original') {
+	return `/api/library/assets/${encodeURIComponent(id)}/image?variant=${variant}`;
 }
 
 function parseJsonList(value: string): string[] {
@@ -218,4 +480,16 @@ function parseJsonList(value: string): string[] {
 	return Array.isArray(parsed)
 		? parsed.filter((item): item is string => typeof item === 'string')
 		: [];
+}
+
+function normalizeAssetIds(values: string[]) {
+	const seen = new Set<string>();
+	const normalized: string[] = [];
+	for (const value of values) {
+		const trimmed = value.trim();
+		if (!trimmed || seen.has(trimmed)) continue;
+		seen.add(trimmed);
+		normalized.push(trimmed);
+	}
+	return normalized;
 }

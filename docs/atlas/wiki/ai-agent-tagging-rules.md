@@ -61,6 +61,51 @@ An agent may create a draft tag or entity only when it provides:
 - classifier alternative check
 - example asset
 
+## Required Draft Format
+
+Agents must write wiki drafts as Markdown with YAML frontmatter.
+
+The frontmatter must contain machine-readable relationships and policy fields. The Markdown body must contain concise usage guidance.
+
+Required frontmatter fields:
+
+- `slug`
+- `label`
+- `kind`
+- `category` or `entity_type`
+- `display_group`
+- `status`
+- `maturity`
+- `aliases`
+- `broader`
+- `narrower`
+- `related`
+- `confusable`
+- `automatic_implications`
+- `suggested_implications`
+- `allowed_classifiers`
+- `example_assets`
+- `counterexample_assets`
+- `ai_auto_apply_allowed`
+- `confirmation_required`
+- `citations`
+
+Required Markdown headings:
+
+- `Definition`
+- `Use When`
+- `Do Not Use When`
+- `Common Mistakes`
+- `AI Tagging Guidance`
+
+Agent writing rules:
+
+- Use one claim per bullet.
+- Use canonical slugs in backticks when referring to tags or entities.
+- Do not invent prose-only relationships. Put relationships in frontmatter.
+- Do not bury AI permissions in prose only. Use explicit frontmatter policy fields.
+- If a field is unknown, use an empty array or `false`, not a vague sentence.
+
 ## Agent Approval Limits
 
 Agents may not auto-approve:

@@ -51,4 +51,28 @@ describe('GET /api/atlas/wiki', () => {
 		expect(response.status).toBe(404);
 		expect(body.error).toBe('Wiki entry not found');
 	});
+
+	it('returns an allowlisted documentation page', async () => {
+		const { GET } = await import('./docs/[slug]/+server');
+
+		const response = await GET({ params: { slug: 'tagging-rules' } });
+		const body = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(body.doc).toMatchObject({
+			slug: 'tagging-rules',
+			title: 'Tagging Rules'
+		});
+		expect(body.doc.markdown).toContain('# Tagging Rules');
+	});
+
+	it('returns 404 for non-allowlisted documentation', async () => {
+		const { GET } = await import('./docs/[slug]/+server');
+
+		const response = await GET({ params: { slug: '../README' } });
+		const body = await response.json();
+
+		expect(response.status).toBe(404);
+		expect(body.error).toBe('Wiki document not found');
+	});
 });

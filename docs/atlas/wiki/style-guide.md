@@ -33,6 +33,29 @@ Write like a Wikipedia contributor who knows that brevity is the soul of wit.
 - Remove filler, hedging, and decorative phrasing.
 - Avoid "Claudisms", purple prose, and generic AI-style transitions.
 
+## Markdown Structure
+
+Use stable section names. Do not invent clever headings.
+
+Recommended order:
+
+1. `Definition`
+2. `Use When`
+3. `Do Not Use When`
+4. `Common Mistakes`
+5. `Related Tags`
+6. `AI Tagging Guidance`
+7. `Citations`
+
+Rules:
+
+- Use one claim per bullet.
+- Put tag slugs in backticks, such as `serpent`.
+- Keep relationship lists in frontmatter and explain only important boundaries in prose.
+- Keep examples and counterexamples short enough to scan.
+- Use Markdown links for external citations.
+- Avoid tables unless the structure is genuinely tabular.
+
 ## Links
 
 Inline links to other tags are strongly encouraged.

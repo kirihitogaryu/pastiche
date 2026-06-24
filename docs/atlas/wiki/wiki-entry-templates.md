@@ -6,6 +6,58 @@ Use these templates when creating new Atlas wiki pages.
 
 Templates are checklists. Keep final pages concise.
 
+## Canonical Markdown Shape
+
+Every editable wiki page should use YAML frontmatter followed by Markdown sections.
+
+```md
+---
+slug: serpent
+label: serpent
+kind: visual_tag
+category: animal
+display_group: Animals
+status: needs_review
+maturity: draft
+aliases: []
+broader: [animal]
+narrower: []
+related: [dragon, lizard, python_(mythology)]
+confusable: [dragon, lizard]
+automatic_implications: []
+suggested_implications: []
+allowed_classifiers: [pose, state, view, position, scale, visual_role]
+example_assets: []
+counterexample_assets: []
+ai_auto_apply_allowed: true
+confirmation_required: false
+citations: []
+---
+
+# serpent
+
+## Definition
+
+Use when a snake-like creature is visibly depicted.
+
+## Use When
+
+- A snake or serpent-like creature is visible.
+
+## Do Not Use When
+
+- The image only names a mythological serpent but does not depict one.
+- The creature is better identified as `dragon`, `lizard`, or `python_(mythology)`.
+
+## Common Mistakes
+
+- Do not use `python_(mythology)` unless source metadata, title text, inscription, or iconography identifies Python.
+
+## AI Tagging Guidance
+
+AI may auto-apply `serpent` when a snake-like creature is clearly visible. AI may not identify the creature as `python_(mythology)` without source or iconographic support.
+```
+
 ## Visual Tag Template
 
 ```txt

@@ -25,21 +25,51 @@ describe('Atlas wiki seed concepts', () => {
 		expect(slugs).not.toContain('wounded_creature');
 	});
 
+	it('documents visual role as search and example governance, not a minor qualifier', () => {
+		const visualRole = ATLAS_WIKI_SEED_CONCEPTS.find((concept) => concept.slug === 'visual_role');
+
+		expect(visualRole).toMatchObject({
+			kind: 'classifier',
+			allowedClassifiers: expect.arrayContaining(['focal_point', 'background_detail'])
+		});
+		expect(
+			[visualRole?.longDescription, ...(visualRole?.useWhen ?? []), visualRole?.aiGuidance]
+				.join('\n')
+				.toLowerCase()
+		).toContain('example');
+		expect(
+			[visualRole?.longDescription, ...(visualRole?.useWhen ?? []), visualRole?.aiGuidance]
+				.join('\n')
+				.toLowerCase()
+		).toContain('search');
+	});
+
 	it('includes both named and broad visual concepts for Python retrieval', () => {
 		const slugs = ATLAS_WIKI_SEED_CONCEPTS.map((concept) => concept.slug);
 
 		expect(slugs).toEqual(expect.arrayContaining(['python_(mythology)', 'serpent']));
 	});
 
-	it('marks first-pass seed wiki entries as stubs needing review', () => {
+	it('keeps first-pass seed wiki entries review-gated but draft-readable', () => {
 		expect(ATLAS_WIKI_SEED_CONCEPTS.every((concept) => concept.status === 'needs_review')).toBe(
 			true
 		);
-		expect(ATLAS_WIKI_SEED_CONCEPTS.every((concept) => concept.maturity === 'stub')).toBe(true);
+		expect(ATLAS_WIKI_SEED_CONCEPTS.every((concept) => concept.maturity === 'draft')).toBe(true);
+	});
+
+	it('gives every seeded concept article-grade baseline documentation', () => {
+		for (const concept of ATLAS_WIKI_SEED_CONCEPTS) {
+			expect(concept.shortDefinition.length).toBeGreaterThan(20);
+			expect(concept.longDescription.length).toBeGreaterThan(80);
+			expect(concept.useWhen.length).toBeGreaterThan(0);
+			expect(concept.doNotUseWhen.length).toBeGreaterThan(0);
+			expect(concept.aiGuidance.length).toBeGreaterThan(50);
+		}
 	});
 
 	it('avoids placeholder-quality default wiki guidance', () => {
 		const articleText = ATLAS_WIKI_SEED_CONCEPTS.flatMap((concept) => [
+			concept.longDescription,
 			...concept.useWhen,
 			...concept.doNotUseWhen,
 			concept.aiGuidance
@@ -47,5 +77,6 @@ describe('Atlas wiki seed concepts', () => {
 
 		expect(articleText).not.toMatch(/relevant to the asset/i);
 		expect(articleText).not.toMatch(/loose association/i);
+		expect(articleText).not.toMatch(/todo|placeholder/i);
 	});
 });

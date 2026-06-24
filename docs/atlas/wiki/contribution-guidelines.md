@@ -36,6 +36,46 @@ A new tag or entity may exist as `draft` when it has:
 
 Anything below this bar should remain an unstructured note or suggestion.
 
+## Source Format
+
+Wiki entries should be stored and edited as Markdown with YAML frontmatter.
+
+Frontmatter is for stable machine-readable fields. Markdown is for human-readable guidance.
+
+Use frontmatter for:
+
+- `slug`
+- `label`
+- `kind`
+- `category` or `entity_type`
+- `display_group`
+- `status`
+- `maturity`
+- `aliases`
+- `broader`
+- `narrower`
+- `related`
+- `confusable`
+- `automatic_implications`
+- `suggested_implications`
+- `allowed_classifiers`
+- `example_assets`
+- `counterexample_assets`
+- `citations`
+- AI policy fields such as `ai_auto_apply_allowed` and `confirmation_required`
+
+Use Markdown body sections for:
+
+- definition
+- use guidance
+- do-not-use guidance
+- common mistakes
+- distinction from nearby tags
+- AI decision rules
+- citation notes
+
+Do not hide rules in prose when a field should be machine-readable. Do not hide nuanced usage guidance in frontmatter when humans need to read it.
+
 ## Approval Gate
 
 A tag or entity becomes `usable` only when it has:
