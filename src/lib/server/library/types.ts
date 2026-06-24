@@ -1,4 +1,18 @@
-import type { LibraryAsset, LibraryResponse, StorageMode } from '$lib/library/types';
+import type {
+	AiGenerationMetadata,
+	LibraryAsset,
+	LibraryAssetFacts,
+	LibraryAssetImage,
+	LibraryAssetRecord,
+	LibraryAssetSource,
+	LibraryProject,
+	LibraryResponse,
+	LibrarySourceType,
+	LibraryTag,
+	LibraryTagFacet,
+	SourceTagSuggestion,
+	StorageMode
+} from '$lib/library/types';
 
 export type ImportRequest = {
 	destination_folder_id: string | null;
@@ -18,6 +32,24 @@ export type ImportItem = {
 	page_title: string | null;
 	alt_text: string | null;
 	captured_at: string;
+	metadata?: LibraryImportMetadata | null;
+};
+
+export type LibraryImportMetadata = {
+	sourceId?: string | null;
+	sourceName?: string | null;
+	sourceType?: 'local' | 'web' | 'museum' | 'collection' | null;
+	detailUrl?: string | null;
+	creator?: string | null;
+	dateDisplay?: string | null;
+	medium?: string | null;
+	objectName?: string | null;
+	department?: string | null;
+	culture?: string | null;
+	period?: string | null;
+	rights?: string | null;
+	tags?: string[];
+	rawMetadata?: Record<string, unknown>;
 };
 
 export type ImportedItem = {
@@ -52,4 +84,18 @@ export type StatusResponse = {
 	}>;
 };
 
-export type { LibraryAsset, LibraryResponse, StorageMode };
+export type {
+	AiGenerationMetadata,
+	LibraryAsset,
+	LibraryAssetFacts,
+	LibraryAssetImage,
+	LibraryAssetRecord,
+	LibraryAssetSource,
+	LibraryProject,
+	LibraryResponse,
+	LibrarySourceType,
+	LibraryTag,
+	LibraryTagFacet,
+	SourceTagSuggestion,
+	StorageMode
+};

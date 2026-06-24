@@ -1,4 +1,4 @@
-export type AppMode = 'home' | 'library' | 'explore' | 'canvas' | 'colors' | 'resources';
+export type AppMode = 'home' | 'library' | 'explore' | 'atlas' | 'canvas' | 'colors' | 'resources';
 export type AssetSource = 'library' | 'explore';
 export type MobileState = 'browse' | 'selecting' | 'adding' | 'inspecting';
 

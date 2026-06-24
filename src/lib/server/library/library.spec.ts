@@ -4,9 +4,17 @@ import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ensureLibraryArchive, resolveLibraryPaths } from './paths';
-import { initializeLibrary } from './schema';
+import { initializeLibrary, openLibraryDatabase } from './schema';
 import { getLibraryStatus } from './status';
 import { importLibraryItems } from './import';
+import {
+	addProjectFolderRef,
+	attachTagToAsset,
+	createFolder,
+	createProject,
+	createTag
+} from './organization';
+import { getLibrarySnapshot } from './read';
 
 describe('local library archive', () => {
 	let archiveRoot: string;
@@ -51,9 +59,190 @@ describe('local library archive', () => {
 			.prepare("select name from sqlite_master where type = 'table' order by name")
 			.all()
 			.map((row) => (row as { name: string }).name);
+		const projectColumns = db
+			.prepare('pragma table_info(projects)')
+			.all()
+			.map((row) => (row as { name: string }).name);
 		db.close();
 
-		expect(tables).toEqual(['asset_import_failures', 'assets', 'folders', 'lazy_download_jobs']);
+		expect(tables).toEqual([
+			'asset_import_failures',
+			'asset_tags',
+			'assets',
+			'atlas_annotation_classifiers',
+			'atlas_annotation_concepts',
+			'atlas_annotations',
+			'atlas_asset_concepts',
+			'atlas_asset_entities',
+			'atlas_claims',
+			'atlas_concepts',
+			'atlas_entities',
+			'atlas_ingestion_runs',
+			'atlas_tag_suggestions',
+			'atlas_wiki_entries',
+			'folders',
+			'lazy_download_jobs',
+			'project_asset_refs',
+			'project_folder_refs',
+			'projects',
+			'tag_facets',
+			'tags'
+		]);
+
+		expect(projectColumns).not.toContain('path');
+	});
+
+	it('creates the reserved General tag group first', () => {
+		const db = openLibraryDatabase();
+		const groups = db.prepare('select slug, name from tag_facets order by rowid').all() as Array<{
+			slug: string;
+			name: string;
+		}>;
+		db.close();
+
+		expect(groups[0]).toEqual({ slug: 'general', name: 'General' });
+		expect(groups.map((group) => group.slug)).toContain('subject');
+		expect(groups.map((group) => group.slug)).toContain('medium');
+	});
+
+	it('creates empty folder directories with collision-safe slugged paths', async () => {
+		initializeLibrary();
+
+		const first = createFolder({ name: 'Character Poses ✨' });
+		const second = createFolder({ name: 'Character Poses' });
+
+		expect(first.path).toBe('library/character-poses');
+		expect(second.path).toBe('library/character-poses-2');
+		expect(existsSync(join(archiveRoot, first.path))).toBe(true);
+		expect(existsSync(join(archiveRoot, second.path))).toBe(true);
+
+		const snapshot = getLibrarySnapshot();
+		expect(snapshot.folders).toEqual([
+			expect.objectContaining({ name: 'Character Poses ✨', assetCount: 0 }),
+			expect.objectContaining({ name: 'Character Poses', assetCount: 0 })
+		]);
+	});
+
+	it('creates empty grouped tags and attaches them to assets', async () => {
+		const result = await importLibraryItems({
+			destination_folder_id: null,
+			items: [
+				{
+					filename: 'Tagged ref',
+					storage_mode: 'url_reference',
+					image_data: null,
+					source_image_url: 'https://example.com/tagged.jpg',
+					mime_type: 'image/jpeg',
+					natural_width: 800,
+					natural_height: 600,
+					source_url: 'https://example.com/page',
+					page_title: 'Tagged Ref',
+					alt_text: null,
+					captured_at: '2026-05-27T12:00:00.000Z'
+				}
+			]
+		});
+
+		const loose = createTag({ label: 'usage intent: lighting study' });
+		const attached = createTag({ facet: 'subject', value: 'hands' });
+		attachTagToAsset(result.imported[0].asset_id, attached.id);
+
+		const snapshot = getLibrarySnapshot();
+		expect(snapshot.stats.tags).toBeGreaterThanOrEqual(2);
+		expect(snapshot.tagFacets.find((facet) => facet.slug === 'usage-intent')?.tagCount).toBe(1);
+		expect(snapshot.assets[0].record?.organization.tags).toEqual([
+			expect.objectContaining({ name: 'Subject: hands', assetCount: 1 })
+		]);
+		expect(loose.assetCount).toBe(0);
+	});
+
+	it('creates Atlas metadata records from reliable import metadata', async () => {
+		const result = await importLibraryItems({
+			destination_folder_id: null,
+			items: [
+				{
+					filename: 'Picasso ref',
+					storage_mode: 'url_reference',
+					image_data: null,
+					source_image_url: 'https://example.com/picasso.jpg',
+					mime_type: 'image/jpeg',
+					natural_width: 1200,
+					natural_height: 900,
+					source_url: 'https://www.metmuseum.org/art/collection/search/1',
+					page_title: 'Picasso ref',
+					alt_text: null,
+					captured_at: '2026-06-05T12:00:00.000Z',
+					metadata: {
+						sourceId: 'met',
+						sourceName: 'The Metropolitan Museum of Art',
+						sourceType: 'museum',
+						detailUrl: 'https://www.metmuseum.org/art/collection/search/1',
+						creator: 'Pablo Picasso',
+						dateDisplay: '1937',
+						medium: 'Oil on canvas',
+						objectName: 'Painting',
+						department: 'Paintings',
+						rights: 'Public domain image according to The Met.',
+						tags: ['horse', 'mourning'],
+						rawMetadata: { objectID: 1 }
+					}
+				}
+			]
+		});
+
+		const db = new Database(join(archiveRoot, 'workspace.sqlite'), { readonly: true });
+		const entities = db.prepare('select kind, slug, label from atlas_entities order by kind').all();
+		const claims = db.prepare('select kind, slug, value from atlas_claims order by kind').all();
+		const suggestions = db
+			.prepare('select slug, label, status from atlas_tag_suggestions order by slug')
+			.all();
+		const runs = db.prepare('select asset_id, source, source_id from atlas_ingestion_runs').all();
+		db.close();
+
+		expect(result.failed).toEqual([]);
+		expect(entities).toEqual([
+			{ kind: 'artist', slug: 'pablo_picasso', label: 'Pablo Picasso' },
+			{ kind: 'source', slug: 'the_met', label: 'The Met' }
+		]);
+		expect(claims).toEqual([
+			expect.objectContaining({ kind: 'date', slug: '1937', value: '1937' }),
+			expect.objectContaining({ kind: 'medium', slug: 'oil_on_canvas', value: 'Oil on canvas' }),
+			expect.objectContaining({ kind: 'rights', slug: 'public_domain', value: 'Public Domain' })
+		]);
+		expect(suggestions).toEqual([
+			{ slug: 'horse', label: 'horse', status: 'suggested' },
+			{ slug: 'mourning', label: 'mourning', status: 'suggested' }
+		]);
+		expect(runs).toEqual([
+			{ asset_id: result.imported[0].asset_id, source: 'explore', source_id: 'met' }
+		]);
+	});
+
+	it('uses live direct-only project folder refs for project membership', async () => {
+		const folder = createFolder({ name: 'Hands' });
+		const nested = createFolder({ name: 'Fingers', parentId: folder.id });
+		const direct = await importLibraryItems({
+			destination_folder_id: folder.id,
+			items: [referenceImport('Direct hand', 'https://example.com/direct.jpg')]
+		});
+		await importLibraryItems({
+			destination_folder_id: nested.id,
+			items: [referenceImport('Nested finger', 'https://example.com/nested.jpg')]
+		});
+		const project = createProject({ name: 'Hand study' });
+		addProjectFolderRef(project.id, folder.id);
+
+		const snapshot = getLibrarySnapshot();
+		const directAsset = snapshot.assets.find((asset) => asset.id === direct.imported[0].asset_id);
+		const nestedAsset = snapshot.assets.find((asset) => asset.title === 'Nested finger');
+
+		expect(snapshot.projects[0]).toMatchObject({
+			name: 'Hand study',
+			assetCount: 1,
+			folderCount: 1
+		});
+		expect(directAsset?.projects).toEqual([project.id]);
+		expect(nestedAsset?.projects).toEqual([]);
 	});
 
 	it('imports downloaded image data to originals and records the asset', async () => {
@@ -241,4 +430,20 @@ describe('local library archive', () => {
 
 function tinyPngBase64() {
 	return 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
+}
+
+function referenceImport(filename: string, sourceImageUrl: string) {
+	return {
+		filename,
+		storage_mode: 'url_reference' as const,
+		image_data: null,
+		source_image_url: sourceImageUrl,
+		mime_type: 'image/jpeg',
+		natural_width: 800,
+		natural_height: 600,
+		source_url: sourceImageUrl.replace('/direct.jpg', '/page').replace('/nested.jpg', '/page'),
+		page_title: filename,
+		alt_text: null,
+		captured_at: '2026-05-27T12:00:00.000Z'
+	};
 }

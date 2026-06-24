@@ -6,6 +6,7 @@
 	import XIcon from 'phosphor-svelte/lib/XIcon';
 	import WikidataRelatedStrip from '$lib/components/explore/WikidataRelatedStrip.svelte';
 	import { getExploreDisplayImageUrl } from '$lib/explore/image-url';
+	import { exploreSourceLabel } from '$lib/explore/source-display';
 	import { loadLibrarySnapshot } from '$lib/library/client';
 	import { setLibrarySnapshot } from '$lib/state/library-state.svelte';
 	import type { ExploreItem } from '$lib/explore/types';
@@ -32,10 +33,8 @@
 	let saved = $state(false);
 	let saveError = $state<string | null>(null);
 
-	function sourceLabel(source: ExploreItem['source']) {
-		if (source === 'artic') return 'Art Institute';
-		if (source === 'wikidata') return 'Wikidata';
-		return 'The Met';
+	function sourceLabel(item: ExploreItem) {
+		return exploreSourceLabel(item);
 	}
 
 	$effect(() => {
@@ -110,7 +109,7 @@
 		<dl class="facts">
 			<div>
 				<dt>Source</dt>
-				<dd>{sourceLabel(item.source)}</dd>
+				<dd>{sourceLabel(item)}</dd>
 			</div>
 			<div>
 				<dt>Date</dt>
@@ -142,7 +141,7 @@
 			<h3>Rights</h3>
 			<p>
 				{item.isPublicDomain
-					? `Public domain image according to ${sourceLabel(item.source)}.`
+					? `Public domain image according to ${sourceLabel(item)}.`
 					: 'Rights status unknown.'}
 			</p>
 		</section>
@@ -172,7 +171,7 @@
 			{/if}
 			<button type="button" disabled><PaletteIcon size={19} /> Open in Colors</button>
 			<button type="button" onclick={() => window.open(item.detailUrl, '_blank', 'noreferrer')}>
-				<ArrowSquareOutIcon size={19} /> Open {sourceLabel(item.source)} Source
+				<ArrowSquareOutIcon size={19} /> Open {sourceLabel(item)} Source
 			</button>
 		</div>
 	{:else}

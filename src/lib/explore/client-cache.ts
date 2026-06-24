@@ -5,6 +5,7 @@ export const CLIENT_OBJECT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const CLIENT_SEARCH_TTL_MS = 60 * 60 * 1000;
 export const CLIENT_SEARCH_STALE_TTL_MS = 24 * 60 * 60 * 1000;
 export const CLIENT_THUMB_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const EXPLORE_SEARCH_CACHE_VERSION = 'v2';
 
 type CachedValue<T> = {
 	value: T;
@@ -65,7 +66,7 @@ export function exploreObjectKey(itemId: string): string {
 }
 
 export function exploreSearchKey(source: SourceId, query: ExploreQuery): string {
-	return `explore:search:${source}:${hashString(stableStringify(normalizeQuery(query)))}`;
+	return `explore:search:${EXPLORE_SEARCH_CACHE_VERSION}:${source}:${hashString(stableStringify(normalizeQuery(query)))}`;
 }
 
 export function exploreThumbKey(itemId: string): string {

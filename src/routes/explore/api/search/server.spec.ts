@@ -132,6 +132,102 @@ describe('POST /explore/api/search', () => {
 		expect(searchWikidata).toHaveBeenCalledWith(query);
 	});
 
+	it('accepts Wikimedia reference token queries', async () => {
+		searchWikidata.mockResolvedValue({ items: [], total: null, nextCursor: null });
+		const { POST } = await import('./+server');
+
+		const query = {
+			wikimediaMode: 'reference',
+			wikimediaReferenceTokens: [
+				{
+					kind: 'entity',
+					id: 'Q140',
+					label: 'lion',
+					description: 'species of mammal',
+					role: 'subject'
+				},
+				{ kind: 'text', value: 'female', match: 'boost' }
+			],
+			wikimediaReferenceFilters: {
+				subjects: ['animals', 'faces'],
+				qualifiers: [],
+				formats: ['photograph', 'artwork', 'illustration'],
+				quality: 'valued',
+				includeWikidataArt: true,
+				includeCommonsStructured: true,
+				includeCommonsCategories: true,
+				includeCommonsText: true,
+				excludeSvg: true,
+				minResolution: 'standard'
+			},
+			limit: 20
+		};
+		const response = await POST({
+			request: new Request('http://localhost/explore/api/search', {
+				method: 'POST',
+				body: JSON.stringify({ source: 'wikidata', query })
+			})
+		});
+
+		expect(response.status).toBe(200);
+		expect(searchWikidata).toHaveBeenCalledWith(query);
+	});
+
+	it('rejects malformed Wikimedia reference tokens', async () => {
+		const { POST } = await import('./+server');
+
+		const response = await POST({
+			request: new Request('http://localhost/explore/api/search', {
+				method: 'POST',
+				body: JSON.stringify({
+					source: 'wikidata',
+					query: {
+						wikimediaMode: 'reference',
+						wikimediaReferenceTokens: [{ kind: 'entity', id: 'lion', label: 'lion' }],
+						limit: 20
+					}
+				})
+			})
+		});
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'Invalid Explore query' });
+		expect(searchWikidata).not.toHaveBeenCalled();
+	});
+
+	it('rejects malformed Wikimedia reference filter subjects', async () => {
+		const { POST } = await import('./+server');
+
+		const response = await POST({
+			request: new Request('http://localhost/explore/api/search', {
+				method: 'POST',
+				body: JSON.stringify({
+					source: 'wikidata',
+					query: {
+						wikimediaMode: 'reference',
+						wikimediaReferenceFilters: {
+							subjects: ['animals', 'cartoon_actor'],
+							qualifiers: [],
+							formats: ['photograph'],
+							quality: 'valued',
+							includeWikidataArt: true,
+							includeCommonsStructured: true,
+							includeCommonsCategories: true,
+							includeCommonsText: true,
+							excludeSvg: true,
+							minResolution: 'standard'
+						},
+						limit: 20
+					}
+				})
+			})
+		});
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'Invalid Explore query' });
+		expect(searchWikidata).not.toHaveBeenCalled();
+	});
+
 	it('rejects malformed Wikimedia artwork modes', async () => {
 		const { POST } = await import('./+server');
 

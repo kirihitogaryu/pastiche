@@ -6,6 +6,7 @@
 	import MagnifyingGlassPlusIcon from 'phosphor-svelte/lib/MagnifyingGlassPlusIcon';
 	import XIcon from 'phosphor-svelte/lib/XIcon';
 	import { getExplorePreviewImageUrl } from '$lib/explore/image-url';
+	import { exploreSourceLabel } from '$lib/explore/source-display';
 	import type { ExploreItem } from '$lib/explore/types';
 
 	type Props = {
@@ -165,10 +166,8 @@
 		return Math.hypot(first.x - second.x, first.y - second.y);
 	}
 
-	function sourceLabel(source: ExploreItem['source']) {
-		if (source === 'artic') return 'Art Institute';
-		if (source === 'wikidata') return 'Wikidata';
-		return 'The Met';
+	function sourceLabel(item: ExploreItem) {
+		return exploreSourceLabel(item);
 	}
 </script>
 
@@ -189,7 +188,7 @@
 			<button
 				class="icon"
 				type="button"
-				aria-label={`Open ${sourceLabel(item.source)} source`}
+				aria-label={`Open ${sourceLabel(item)} source`}
 				onclick={() => window.open(item.detailUrl, '_blank', 'noreferrer')}
 			>
 				<ArrowSquareOutIcon size={21} />

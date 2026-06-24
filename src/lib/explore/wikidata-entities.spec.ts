@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ServerCache } from './server-cache';
-import { buildWikidataEntitySearchUrl, searchWikidataEntities } from './wikidata-entities';
+import {
+	buildWikidataEntitySearchUrl,
+	buildWikidataEntityUsageQuery,
+	searchWikidataEntities
+} from './wikidata-entities';
 
 function testCache() {
 	return new ServerCache(20);
@@ -151,6 +155,87 @@ describe('Wikidata entity search ranking', () => {
 
 		expect(url.searchParams.get('maxlag')).toBe('5');
 		expect(url.searchParams.get('search')).toBe('hand');
+	});
+
+	it('counts artwork usage when verifying entity suggestions', () => {
+		const query = buildWikidataEntityUsageQuery(
+			[
+				{ id: 'Q33767', label: 'hand', description: null },
+				{ id: 'Q5', label: 'human', description: null }
+			],
+			'main_subject'
+		);
+
+		expect(query).toContain('COUNT(DISTINCT ?item) AS ?usage');
+		expect(query).toContain('?item wdt:P921 ?entity.');
+		expect(query).toContain('GROUP BY ?entity');
+	});
+
+	it('keeps useful suggestions when usage verification is temporarily throttled', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(
+				Response.json({
+					search: [
+						{ id: 'Q467', label: 'woman', description: 'adult female human' },
+						{ id: 'Q171283', label: 'Women', description: 'painting by Willem de Kooning' }
+					]
+				})
+			)
+			.mockResolvedValueOnce(Response.json({ error: { code: 'maxlag', lag: 8 } }, { status: 503 }));
+
+		const entities = await searchWikidataEntities('woman', {
+			mode: 'main_subject',
+			fetch: fetchMock,
+			limit: 8,
+			cache: testCache()
+		});
+
+		expect(entities).toEqual([expect.objectContaining({ id: 'Q467', label: 'woman' })]);
+	});
+
+	it('keeps taxonomy entities in reference mode without artwork usage verification', async () => {
+		const fetchMock = vi.fn().mockResolvedValueOnce(
+			Response.json({
+				search: [
+					{ id: 'Q184018', label: 'pythons', description: 'family of snakes' },
+					{ id: 'Q28865', label: 'Python', description: 'general-purpose programming language' }
+				]
+			})
+		);
+
+		const entities = await searchWikidataEntities('pythonidae', {
+			mode: 'depicts',
+			context: 'reference',
+			fetch: fetchMock,
+			limit: 8,
+			cache: testCache()
+		});
+
+		expect(entities[0]).toMatchObject({ id: 'Q184018', label: 'pythons' });
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	it('prefers animal taxa over software entities in reference mode', async () => {
+		const fetchMock = vi.fn().mockResolvedValueOnce(
+			Response.json({
+				search: [
+					{ id: 'Q28865', label: 'Python', description: 'general-purpose programming language' },
+					{ id: 'Q271218', label: 'Python', description: 'genus of reptiles' },
+					{ id: 'Q184018', label: 'pythons', description: 'family of snakes' }
+				]
+			})
+		);
+
+		const entities = await searchWikidataEntities('python', {
+			mode: 'depicts',
+			context: 'reference',
+			fetch: fetchMock,
+			limit: 8,
+			cache: testCache()
+		});
+
+		expect(entities.map((entity) => entity.id).slice(0, 2)).toEqual(['Q271218', 'Q184018']);
 	});
 
 	it('caches repeated autocomplete terms server-side', async () => {

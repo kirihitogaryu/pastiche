@@ -1,17 +1,166 @@
 <script lang="ts">
 	import { getExtensionApi } from '../shared/browser';
-	import { MESSAGE_GET_STATUS, MESSAGE_SMOKE_IMPORT } from '../shared/messages';
-	import type { ConnectionState, SmokeImportResponse } from '../shared/types';
+	import {
+		MESSAGE_GET_STATUS,
+		MESSAGE_DO_IMPORT,
+		MESSAGE_FETCH_IMAGE,
+		MESSAGE_ITEM_READY,
+		MESSAGE_BATCH_READY,
+		MESSAGE_FETCH_COMPLETE,
+		MESSAGE_CONTEXT_IMPORT_STARTED,
+		MESSAGE_CONTEXT_IMPORT_FINISHED,
+		MESSAGE_QUEUE_UPDATED,
+		MESSAGE_QUEUE_REPLAYED,
+		MESSAGE_CAPTURE_TAB_IMAGE,
+		MESSAGE_CONTENT_PING,
+		MESSAGE_CAPTURE_ACTIVATE,
+		MESSAGE_CAPTURE_ACTIVATE_LASSO,
+		MESSAGE_SWEEP,
+		MESSAGE_DESELECT_ITEM,
+		MESSAGE_CLEAR_SELECTION
+	} from '../shared/messages';
+	import type { ConnectionState, EnrichedItem, ImportResult } from '../shared/types';
+	import type { TabInfo } from '../shared/browser';
+	import StatusBar from './components/StatusBar.svelte';
+	import SelectionList from './components/SelectionList.svelte';
+	import FolderDropdown from './components/FolderDropdown.svelte';
+	import EmptyState from './components/EmptyState.svelte';
+	import { importNotificationFromMessage, type ImportNotification } from './import-notification';
 
 	const api = getExtensionApi();
+
+	// ---------------------------------------------------------------------------
+	// State
+	// ---------------------------------------------------------------------------
+
 	let status = $state<ConnectionState | null>(null);
 	let loading = $state(true);
+	let items = $state<EnrichedItem[]>([]);
 	let importing = $state(false);
-	let message = $state('');
+	let importResult = $state<ImportResult | null>(null);
+	let importNotification = $state<ImportNotification | null>(null);
+	let captureError = $state<string | null>(null);
+	let importNotificationTimer: ReturnType<typeof setTimeout> | null = null;
+
+	// Folder assignment
+	let selectedFolderId = $state<string | null>(null);
+	let createFolderName = $state('');
+
+	// ---------------------------------------------------------------------------
+	// Boot: status check + incoming message listener
+	// ---------------------------------------------------------------------------
 
 	$effect(() => {
 		void reconnect();
+
+		// Listen for messages pushed from the service worker.
+		api.runtime.onMessage.addListener(handleIncomingMessage);
+		return () => {
+			api.runtime.onMessage.removeListener(handleIncomingMessage);
+			if (importNotificationTimer) clearTimeout(importNotificationTimer);
+		};
 	});
+
+	function handleIncomingMessage(message: Record<string, unknown>) {
+		switch (message.type) {
+			case MESSAGE_ITEM_READY: {
+				const item = message.item as EnrichedItem;
+				// Newest at top; deduplicate by id.
+				items = [item, ...items.filter((i) => i.id !== item.id)];
+				break;
+			}
+
+			case MESSAGE_BATCH_READY: {
+				const incoming = message.items as EnrichedItem[];
+				// Add new items at top; skip any already in the list.
+				const existingIds = new Set(items.map((i) => i.id));
+				const fresh = incoming.filter((i) => !existingIds.has(i.id));
+				items = [...fresh, ...items];
+				break;
+			}
+
+			case MESSAGE_FETCH_COMPLETE: {
+				const { url, ok } = message as { url: string; ok: boolean };
+				items = items.map((item) => {
+					if (item.url !== url) return item;
+					if (ok) {
+						return {
+							...item,
+							fetchStatus: {
+								state: 'done' as const,
+								base64: message.base64 as string,
+								mimeType: message.mimeType as string
+							}
+						};
+					} else {
+						// Fetch failed — downgrade to url_reference so import still works.
+						return {
+							...item,
+							storageMode: 'url_reference' as const,
+							storageModeReason: 'Download failed',
+							fetchStatus: { state: 'error' as const, error: message.error as string }
+						};
+					}
+				});
+				break;
+			}
+
+			case MESSAGE_QUEUE_UPDATED: {
+				if (status) {
+					status = { ...status, queuedCount: message.count as number };
+				}
+				break;
+			}
+
+			case MESSAGE_QUEUE_REPLAYED: {
+				// A queued job succeeded — clear the import result banner and refresh status.
+				importResult = message as unknown as ImportResult;
+				void reconnect();
+				break;
+			}
+
+			case MESSAGE_CONTEXT_IMPORT_STARTED: {
+				showImportNotification(
+					importNotificationFromMessage({
+						type: MESSAGE_CONTEXT_IMPORT_STARTED,
+						sourceImageUrl: message.sourceImageUrl as string
+					})
+				);
+				break;
+			}
+
+			case MESSAGE_CONTEXT_IMPORT_FINISHED: {
+				const result = message.result as ImportResult;
+				importResult = result;
+				showImportNotification(
+					importNotificationFromMessage({
+						type: MESSAGE_CONTEXT_IMPORT_FINISHED,
+						result
+					})
+				);
+				void reconnect();
+				break;
+			}
+		}
+	}
+
+	function showImportNotification(notification: ImportNotification) {
+		if (importNotificationTimer) {
+			clearTimeout(importNotificationTimer);
+			importNotificationTimer = null;
+		}
+		importNotification = notification;
+		if (notification.state !== 'working') {
+			importNotificationTimer = setTimeout(() => {
+				importNotification = null;
+				importNotificationTimer = null;
+			}, 6500);
+		}
+	}
+
+	// ---------------------------------------------------------------------------
+	// Connection
+	// ---------------------------------------------------------------------------
 
 	async function reconnect() {
 		loading = true;
@@ -19,16 +168,221 @@
 		loading = false;
 	}
 
-	async function smokeImport() {
-		importing = true;
-		message = '';
-		const result = (await api.runtime.sendMessage({
-			type: MESSAGE_SMOKE_IMPORT
-		})) as SmokeImportResponse;
-		message = result.ok ? 'Smoke import sent.' : (result.error ?? 'Import failed.');
-		importing = false;
-		await reconnect();
+	// ---------------------------------------------------------------------------
+	// Capture activation (forwards to active tab's content script via SW)
+	// ---------------------------------------------------------------------------
+
+	async function activeTab() {
+		const [tab] = await api.tabs.query({ active: true, currentWindow: true });
+		return tab ?? null;
 	}
+
+	async function ensureContentScript(tabId: number) {
+		try {
+			await api.tabs.sendMessage(tabId, { type: MESSAGE_CONTENT_PING });
+			return;
+		} catch {
+			// Existing tabs do not receive manifest content scripts after extension reload.
+		}
+
+		if (!api.scripting) throw new Error('Content script injection is unavailable.');
+		await api.scripting.executeScript({
+			target: { tabId },
+			files: ['content/index.js']
+		});
+		await api.tabs.sendMessage(tabId, { type: MESSAGE_CONTENT_PING });
+	}
+
+	async function captureActiveTabImage(tab: TabInfo) {
+		if (!tab.url) throw new Error('No active tab URL found.');
+		const result = (await api.runtime.sendMessage({
+			type: MESSAGE_CAPTURE_TAB_IMAGE,
+			url: tab.url,
+			pageTitle: tab.title ?? null
+		})) as { ok?: boolean; error?: string };
+		if (!result?.ok) throw new Error(result?.error ?? 'Active tab is not a selectable image.');
+	}
+
+	async function sendActiveTabMessage(
+		message: Record<string, unknown>,
+		options: { directImageFallback?: boolean } = {}
+	) {
+		const tab = await activeTab();
+		if (!tab?.id) {
+			captureError = 'No active tab found.';
+			return;
+		}
+
+		try {
+			await ensureContentScript(tab.id);
+			await api.tabs.sendMessage(tab.id, message);
+			captureError = null;
+		} catch (error) {
+			if (options.directImageFallback) {
+				try {
+					await captureActiveTabImage(tab);
+					captureError = null;
+					return;
+				} catch (fallbackError) {
+					console.error(fallbackError);
+					captureError =
+						fallbackError instanceof Error
+							? fallbackError.message
+							: 'Could not capture this page as an image.';
+					return;
+				}
+			}
+			console.error(error);
+			captureError =
+				error instanceof Error
+					? error.message
+					: 'Could not talk to this page. Refresh the tab and try again.';
+		}
+	}
+
+	async function activateSingleCapture() {
+		await sendActiveTabMessage({ type: MESSAGE_CAPTURE_ACTIVATE }, { directImageFallback: true });
+	}
+
+	async function captureCurrentTabImage() {
+		const tab = await activeTab();
+		if (!tab) {
+			captureError = 'No active tab found.';
+			return;
+		}
+
+		try {
+			await captureActiveTabImage(tab);
+			captureError = null;
+		} catch (error) {
+			console.error(error);
+			captureError =
+				error instanceof Error ? error.message : 'Could not capture this tab as an image.';
+		}
+	}
+
+	async function activateLasso() {
+		await sendActiveTabMessage(
+			{ type: MESSAGE_CAPTURE_ACTIVATE_LASSO },
+			{ directImageFallback: true }
+		);
+	}
+
+	async function runSweep() {
+		await sendActiveTabMessage(
+			{
+				type: MESSAGE_SWEEP,
+				minDimension: 300
+			},
+			{ directImageFallback: true }
+		);
+	}
+
+	// ---------------------------------------------------------------------------
+	// Selection management
+	// ---------------------------------------------------------------------------
+
+	async function removeItem(id: string) {
+		const item = items.find((i) => i.id === id);
+		if (!item) return;
+
+		items = items.filter((i) => i.id !== id);
+
+		// Tell the content script to remove the badge from the page element.
+		await sendActiveTabMessage({ type: MESSAGE_DESELECT_ITEM, url: item.url });
+	}
+
+	async function clearAll() {
+		items = [];
+		await sendActiveTabMessage({ type: MESSAGE_CLEAR_SELECTION });
+	}
+
+	function renameItem(id: string, name: string) {
+		items = items.map((i) => (i.id === id ? { ...i, suggestedName: name } : i));
+	}
+
+	function toggleStorageMode(id: string) {
+		items = items.map((item) => {
+			if (item.id !== id) return item;
+			// Cycle: url_reference ↔ download (lazy_download → download for override)
+			const next = item.storageMode === 'url_reference' ? 'download' : 'url_reference';
+			return {
+				...item,
+				storageMode: next,
+				storageModeReason: next === 'download' ? 'Manual override' : 'Manual override',
+				fetchStatus:
+					next === 'download' ? { state: 'fetching' as const } : { state: 'idle' as const }
+			};
+		});
+
+		// If we just switched to download, kick off the fetch via SW.
+		const toggled = items.find((i) => i.id === id);
+		if (toggled?.storageMode === 'download' && toggled.fetchStatus.state === 'fetching') {
+			void api.runtime.sendMessage({ type: MESSAGE_FETCH_IMAGE, url: toggled.url });
+		}
+	}
+
+	// ---------------------------------------------------------------------------
+	// Import
+	// ---------------------------------------------------------------------------
+
+	const canImport = $derived(
+		items.length > 0 &&
+			!importing &&
+			status?.connected === true &&
+			// All download-mode items must have resolved (done or error — error
+			// falls back to url_reference so that's fine too).
+			items.every(
+				(i) =>
+					i.storageMode !== 'download' ||
+					i.fetchStatus.state === 'done' ||
+					i.fetchStatus.state === 'error'
+			)
+	);
+
+	const importButtonLabel = $derived(() => {
+		if (importing) return 'Importing…';
+		const n = items.length;
+		if (n === 0) return 'Import images';
+		return `Import ${n} image${n === 1 ? '' : 's'}`;
+	});
+
+	async function doImport() {
+		if (!canImport) return;
+		importing = true;
+		importResult = null;
+
+		const result = (await api.runtime.sendMessage({
+			type: MESSAGE_DO_IMPORT,
+			payload: {
+				destinationFolderId: selectedFolderId,
+				createFolderName: createFolderName.trim() || undefined,
+				items
+			}
+		})) as ImportResult;
+
+		importing = false;
+		importResult = result;
+
+		if (result.ok) {
+			// Remove successfully imported items from the list.
+			const successIndexes = new Set(result.imported.map((r) => r.index));
+			items = items.filter((_, i) => !successIndexes.has(i));
+
+			// Clear badges for removed items.
+			const [tab] = await api.tabs.query({ active: true, currentWindow: true });
+			if (tab?.id && items.length === 0) {
+				await sendActiveTabMessage({ type: MESSAGE_CLEAR_SELECTION });
+			}
+
+			// Refresh status so unassigned count updates.
+			void reconnect();
+		}
+	}
+
+	// ---------------------------------------------------------------------------
+	// Settings
+	// ---------------------------------------------------------------------------
 
 	function openSettings() {
 		api.runtime.openOptionsPage?.();
@@ -36,121 +390,374 @@
 </script>
 
 <main>
-	<header>
-		<div class="status">
-			<span class:online={status?.connected} class="dot"></span>
-			<strong>{loading ? 'Checking...' : status?.connected ? 'Connected' : 'Offline'}</strong>
-			{#if status?.queuedCount}
-				<small>{status.queuedCount} queued</small>
+	<!-- Status bar — always visible at top -->
+	<StatusBar {status} {loading} onreconnect={reconnect} onsettings={openSettings} />
+
+	<!-- Capture toolbar -->
+	{#if status?.connected}
+		<div class="capture-bar">
+			<button
+				class="capture-btn"
+				type="button"
+				onclick={activateSingleCapture}
+				title="Single-click capture"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="14"
+					height="14"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.75"
+					stroke-linecap="round"
+					aria-hidden="true"
+				>
+					<circle cx="12" cy="12" r="3" />
+					<path d="M3 12h2M19 12h2M12 3v2M12 19v2" />
+					<path d="M5.6 5.6l1.4 1.4M16.9 16.9l1.4 1.4M5.6 18.4l1.4-1.4M16.9 7.1l1.4-1.4" />
+				</svg>
+				Click
+			</button>
+			<button
+				class="capture-btn"
+				type="button"
+				onclick={captureCurrentTabImage}
+				title="Capture active tab image"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="14"
+					height="14"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.75"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<rect x="3" y="5" width="18" height="14" rx="2" />
+					<circle cx="8" cy="10" r="1.5" />
+					<path d="M21 16l-5-5L5 19" />
+				</svg>
+				Tab
+			</button>
+			<button class="capture-btn" type="button" onclick={activateLasso} title="Lasso selection">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="14"
+					height="14"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.75"
+					stroke-linecap="round"
+					aria-hidden="true"
+				>
+					<path d="M4 7c0-1.1 3.6-3 8-3s8 1.9 8 3-3.6 3-8 3-8-1.9-8-3z" />
+					<path d="M4 7v10c0 1.1 3.6 3 8 3 1.4 0 2.7-.2 3.8-.5" />
+					<path d="M12 17l4 4 6-6" />
+				</svg>
+				Lasso
+			</button>
+			<button class="capture-btn" type="button" onclick={runSweep} title="Sweep all images on page">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="14"
+					height="14"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.75"
+					stroke-linecap="round"
+					aria-hidden="true"
+				>
+					<rect x="3" y="3" width="7" height="7" rx="1" />
+					<rect x="14" y="3" width="7" height="7" rx="1" />
+					<rect x="3" y="14" width="7" height="7" rx="1" />
+					<rect x="14" y="14" width="7" height="7" rx="1" />
+				</svg>
+				Sweep
+			</button>
+			{#if items.length > 0}
+				<button class="clear-btn" type="button" onclick={clearAll}>Clear all</button>
 			{/if}
 		</div>
-		<button type="button" aria-label="Open settings" onclick={openSettings}>Settings</button>
-	</header>
-
-	{#if status?.unassignedCount}
-		<p class="unassigned">{status.unassignedCount} unassigned</p>
 	{/if}
 
-	<section class="empty">
-		<h1>Capture references</h1>
-		<p>
-			Single-click, page sweep, and lasso capture will appear here as the capture tools come online.
-		</p>
-	</section>
+	{#if captureError}
+		<div class="capture-error">{captureError}</div>
+	{/if}
 
-	<div class="actions">
-		<button type="button" onclick={reconnect}>Reconnect</button>
-		<button type="button" disabled={importing || !status?.connected} onclick={smokeImport}>
-			{importing ? 'Sending...' : 'Smoke import'}
-		</button>
-	</div>
+	{#if importNotification}
+		<div
+			class="import-notification"
+			class:notification-error={importNotification.state === 'error'}
+		>
+			<span class={`notification-dot ${importNotification.state}`}></span>
+			<div>
+				<strong>{importNotification.title}</strong>
+				<span>{importNotification.detail}</span>
+			</div>
+			<button
+				type="button"
+				aria-label="Dismiss import notification"
+				onclick={() => (importNotification = null)}>×</button
+			>
+		</div>
+	{/if}
 
-	{#if message}
-		<p class="message">{message}</p>
+	<!-- Selection list or empty state -->
+	{#if items.length > 0}
+		<SelectionList
+			{items}
+			onremove={removeItem}
+			onrename={renameItem}
+			onoverridemodetoggle={toggleStorageMode}
+		/>
+	{:else}
+		<EmptyState connected={status?.connected ?? false} onsweep={runSweep} />
+	{/if}
+
+	<!-- Folder assignment + import (only when there's something to import) -->
+	{#if items.length > 0}
+		<div class="bottom">
+			<FolderDropdown
+				folders={status?.recentFolders ?? []}
+				selected={selectedFolderId}
+				createName={createFolderName}
+				onselect={(id) => (selectedFolderId = id)}
+				oncreatenamechange={(name) => (createFolderName = name)}
+			/>
+
+			<div class="import-row">
+				<button class="import-btn" type="button" disabled={!canImport} onclick={doImport}>
+					{importButtonLabel()}
+				</button>
+			</div>
+
+			<!-- Per-item import results -->
+			{#if importResult}
+				<div class="result-banner" class:result-error={!importResult.ok}>
+					{#if importResult.ok}
+						{importResult.imported.length} imported
+						{#if importResult.failed.length}
+							· {importResult.failed.length} failed
+						{/if}
+					{:else}
+						{importResult.error ?? 'Import failed'}
+					{/if}
+				</div>
+			{/if}
+		</div>
 	{/if}
 </main>
 
 <style>
+	:global(*, *::before, *::after) {
+		box-sizing: border-box;
+	}
+
 	:global(body) {
 		margin: 0;
 		background: #1d1914;
 		color: #eee7dc;
 		font-family: Montserrat, system-ui, sans-serif;
+		font-size: 13px;
+		-webkit-font-smoothing: antialiased;
 	}
 
 	main {
-		min-height: 100vh;
-		display: grid;
-		grid-template-rows: auto auto 1fr auto auto;
-		gap: 14px;
-		padding: 14px;
-		box-sizing: border-box;
+		height: 100vh;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
 	}
 
-	header,
-	.status,
-	.actions {
+	/* Capture toolbar */
+	.capture-bar {
 		display: flex;
 		align-items: center;
-		gap: 10px;
+		gap: 4px;
+		padding: 7px 10px;
+		border-bottom: 1px solid rgb(255 255 255 / 8%);
+		flex-shrink: 0;
 	}
 
-	header {
-		justify-content: space-between;
+	.capture-btn {
+		display: flex;
+		align-items: center;
+		gap: 5px;
+		background: #28231d;
+		border: 1px solid rgb(255 255 255 / 12%);
+		border-radius: 5px;
+		color: #aaa196;
+		font-size: 11px;
+		font-family: inherit;
+		padding: 5px 8px;
+		cursor: pointer;
+		flex-shrink: 0;
 	}
 
-	.dot {
-		width: 9px;
-		height: 9px;
-		border-radius: 999px;
+	.capture-btn:hover {
+		background: #312b24;
+		color: #eee7dc;
+		border-color: rgb(255 255 255 / 20%);
+	}
+
+	.clear-btn {
+		margin-left: auto;
+		background: none;
+		border: none;
+		color: #6b6258;
+		font-size: 11px;
+		font-family: inherit;
+		cursor: pointer;
+		padding: 4px 6px;
+	}
+
+	.clear-btn:hover {
+		color: #e06c75;
+	}
+
+	.capture-error {
+		padding: 7px 12px;
+		border-bottom: 1px solid rgb(224 108 117 / 24%);
+		color: #e06c75;
+		font-size: 11px;
+		line-height: 1.35;
+		background: rgb(224 108 117 / 9%);
+		flex-shrink: 0;
+	}
+
+	.import-notification {
+		display: grid;
+		grid-template-columns: auto 1fr auto;
+		align-items: center;
+		gap: 9px;
+		margin: 10px 12px 0;
+		padding: 10px;
+		border: 1px solid rgb(255 255 255 / 10%);
+		border-radius: 7px;
+		background: #28231d;
+		box-shadow: 0 10px 28px rgb(0 0 0 / 22%);
+		flex-shrink: 0;
+	}
+
+	.import-notification.notification-error {
+		border-color: rgb(224 108 117 / 28%);
+		background: rgb(224 108 117 / 9%);
+	}
+
+	.notification-dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
 		background: #8f7765;
 	}
 
-	.dot.online {
+	.notification-dot.working {
+		background: #d0a85c;
+		animation: pulse 1s ease-in-out infinite;
+	}
+
+	.notification-dot.success {
 		background: #98c379;
 	}
 
-	button {
-		border: 1px solid rgb(255 255 255 / 14%);
-		border-radius: 6px;
-		background: #28231d;
-		color: inherit;
-		padding: 8px 10px;
-		cursor: pointer;
+	.notification-dot.queued {
+		background: #b67aff;
 	}
 
-	button:disabled {
-		color: #766d62;
-		cursor: not-allowed;
+	.notification-dot.error {
+		background: #e06c75;
 	}
 
-	.empty {
-		align-self: center;
+	.import-notification div {
+		min-width: 0;
 		display: grid;
-		gap: 8px;
+		gap: 2px;
 	}
 
-	h1,
-	p {
-		margin: 0;
+	.import-notification strong {
+		color: #eee7dc;
+		font-size: 12px;
+		font-weight: 600;
 	}
 
-	h1 {
-		font-family: Georgia, serif;
-		font-size: 1.25rem;
+	.import-notification span:not(.notification-dot) {
+		min-width: 0;
+		color: #8f7765;
+		font-size: 11px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
-	p,
-	small {
-		color: #aaa196;
-		line-height: 1.45;
+	.import-notification button {
+		width: 24px;
+		height: 24px;
+		border: 0;
+		border-radius: 5px;
+		background: transparent;
+		color: #8f7765;
+		cursor: pointer;
+		font: inherit;
 	}
 
-	.actions {
-		justify-content: stretch;
+	.import-notification button:hover {
+		background: rgb(255 255 255 / 7%);
+		color: #eee7dc;
 	}
 
-	.actions button {
-		flex: 1;
+	/* Bottom zone */
+	.bottom {
+		display: flex;
+		flex-direction: column;
+		gap: 7px;
+		padding: 10px 0;
+		border-top: 1px solid rgb(255 255 255 / 8%);
+		flex-shrink: 0;
+	}
+
+	.import-row {
+		padding: 0 12px;
+	}
+
+	.import-btn {
+		width: 100%;
+		padding: 10px;
+		background: #b67aff;
+		border: none;
+		border-radius: 6px;
+		color: #0f0c0a;
+		font-size: 13px;
+		font-weight: 600;
+		font-family: inherit;
+		cursor: pointer;
+		letter-spacing: 0.01em;
+	}
+
+	.import-btn:hover:not(:disabled) {
+		background: #c48fff;
+	}
+
+	.import-btn:disabled {
+		background: #28231d;
+		color: #6b6258;
+		cursor: not-allowed;
+		border: 1px solid rgb(255 255 255 / 10%);
+	}
+
+	/* Result banner */
+	.result-banner {
+		padding: 4px 12px;
+		font-size: 11px;
+		color: #98c379;
+	}
+
+	.result-banner.result-error {
+		color: #e06c75;
 	}
 </style>

@@ -1,0 +1,1062 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pastiche Atlas Search Browser — Picasso / Horse</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #090908;
+    --surface-0: #0c0c0b;
+    --surface-1: #11100f;
+    --surface-2: #171614;
+    --surface-3: #201e1b;
+    --line: rgba(238,232,220,.105);
+    --line-strong: rgba(238,232,220,.18);
+    --text: #e9e2d7;
+    --text-soft: #c7bfb4;
+    --text-muted: #8c857d;
+    --heading-muted: #b9b0a4;
+    --accent: #c79a52;
+    --accent-soft: #ddba74;
+    --positive: #95af76;
+    --review: #d2a25b;
+    --visual: #76a7d7;
+    --entity: #84b8e6;
+    --artist: #9c9fde;
+    --work: #b995dd;
+    --classifier: #a7ae78;
+    --theme: #68bbc4;
+    --source: #98a7b1;
+    --prompt: #d3a158;
+    --rail: 74px;
+    --left: clamp(300px, 23vw, 360px);
+    --radius: 10px;
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --serif: Georgia, "Times New Roman", serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 75% -20%, rgba(156,132,89,.12), transparent 36%),
+      linear-gradient(135deg, #080807, #10100f 48%, #090908);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+  }
+
+  button, input, select { font: inherit; color: inherit; }
+  button {
+    border: 1px solid var(--line-strong);
+    background: rgba(255,255,255,.025);
+    min-height: 38px;
+    border-radius: 9px;
+    padding: 0 13px;
+    cursor: pointer;
+    transition: background .16s ease, border-color .16s ease, transform .16s ease, color .16s ease;
+  }
+  button:hover {
+    background: rgba(255,255,255,.055);
+    border-color: rgba(238,232,220,.32);
+    transform: translateY(-1px);
+  }
+  button:focus-visible, input:focus-visible, summary:focus-visible, a:focus-visible, .card:focus-visible, .facet-token:focus-visible {
+    outline: 2px solid rgba(199,154,82,.72);
+    outline-offset: 2px;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  .app {
+    height: 100vh;
+    display: grid;
+    grid-template-columns: var(--rail) 1fr;
+  }
+
+  .rail {
+    background: rgba(9,9,8,.94);
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px 8px;
+  }
+  .rail a {
+    height: 46px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    color: var(--text-soft);
+    transition: background .16s ease, color .16s ease, transform .16s ease;
+  }
+  .rail a:hover { background: rgba(255,255,255,.045); color: var(--text); transform: translateX(1px); }
+  .rail a.active {
+    color: var(--accent-soft);
+    background: rgba(199,154,82,.10);
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+  .rail svg { width: 22px; height: 22px; }
+  .rail-spacer { flex: 1; }
+
+  .search-shell {
+    min-width: 0;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    height: 100vh;
+  }
+
+  .top {
+    border-bottom: 1px solid var(--line);
+    background: rgba(12,12,11,.90);
+    backdrop-filter: blur(12px);
+    padding: 14px 20px 10px;
+    z-index: 5;
+  }
+  .command-row {
+    display: grid;
+    grid-template-columns: minmax(340px, 1fr) auto auto auto;
+    gap: 12px;
+    align-items: center;
+  }
+  .search-box {
+    position: relative;
+  }
+  .search-box input {
+    width: 100%;
+    min-height: 48px;
+    border: 1px solid var(--line-strong);
+    background: rgba(255,255,255,.025);
+    border-radius: 10px;
+    padding: 0 46px 0 48px;
+    outline: 0;
+    font-family: var(--serif);
+    font-size: 24px;
+    letter-spacing: .01em;
+    color: var(--text);
+    transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+  }
+  .search-box input:focus {
+    border-color: rgba(199,154,82,.58);
+    box-shadow: 0 0 0 3px rgba(199,154,82,.12);
+    background: rgba(255,255,255,.035);
+  }
+  .search-icon, .clear-search {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  .search-icon {
+    left: 17px;
+    color: var(--text-muted);
+    font-size: 22px;
+  }
+  .clear-search {
+    right: 10px;
+    min-height: 28px;
+    width: 28px;
+    padding: 0;
+    border-radius: 50%;
+    color: var(--text-muted);
+  }
+  .state-switch {
+    display: flex;
+    gap: 6px;
+    padding-left: 2px;
+  }
+  .state-btn {
+    min-height: 34px;
+    color: var(--text-soft);
+    background: transparent;
+  }
+  .state-btn.active {
+    color: var(--text);
+    background: rgba(255,255,255,.035);
+    border-color: rgba(199,154,82,.68);
+    box-shadow: inset 0 0 0 1px rgba(199,154,82,.30);
+  }
+
+  .local-modes {
+    display: flex;
+    align-items: flex-end;
+    gap: 32px;
+    height: 42px;
+    padding-left: 4px;
+  }
+  .local-mode {
+    color: var(--text-muted);
+    padding: 13px 0 10px;
+    border-bottom: 1px solid transparent;
+  }
+  .local-mode.active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+  }
+
+  .content {
+    min-height: 0;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: var(--left) minmax(0, 1fr);
+  }
+
+  .facet-panel {
+    border-right: 1px solid var(--line);
+    background: rgba(13,13,12,.72);
+    overflow: hidden;
+  }
+  .facet-scroll {
+    height: 100%;
+    overflow-y: auto;
+    padding: 14px 14px 28px;
+    scrollbar-color: rgba(238,232,220,.28) transparent;
+  }
+
+  .facet-section {
+    border-bottom: 1px solid rgba(238,232,220,.075);
+    padding: 10px 0;
+  }
+  .facet-section summary {
+    min-height: 28px;
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--heading-muted);
+    font-size: 11px;
+    font-weight: 760;
+    letter-spacing: .10em;
+    text-transform: uppercase;
+    border-radius: 6px;
+  }
+  .facet-section summary::-webkit-details-marker { display: none; }
+  .facet-section summary:hover { color: var(--text); }
+  .chev {
+    color: var(--text-muted);
+    display: inline-block;
+    transition: transform .18s ease;
+  }
+  details:not([open]) > summary .chev { transform: rotate(-90deg); }
+  .facet-tokens {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-top: 7px;
+  }
+  .facet-token {
+    border: 1px solid rgba(238,232,220,.105);
+    background: rgba(255,255,255,.026);
+    border-radius: 7px;
+    color: var(--text-soft);
+    padding: 4px 8px;
+    font-size: 12px;
+    transition: background .14s ease, border-color .14s ease, transform .14s ease;
+  }
+  .facet-token:hover {
+    background: rgba(255,255,255,.052);
+    border-color: rgba(238,232,220,.22);
+    transform: translateY(-1px);
+  }
+  .facet-token .count {
+    color: var(--text-muted);
+    margin-left: 4px;
+  }
+  .facet-token.visual { color: var(--visual); }
+  .facet-token.entity { color: var(--entity); }
+  .facet-token.artist { color: var(--artist); }
+  .facet-token.work { color: var(--work); }
+  .facet-token.theme { color: var(--theme); }
+  .facet-token.source { color: var(--source); }
+  .facet-token.classifier { color: var(--classifier); font-family: var(--mono); font-size: 11px; }
+
+  .classifier-list {
+    padding-top: 6px;
+  }
+  .classifier-list details {
+    border: 1px solid rgba(238,232,220,.08);
+    background: rgba(255,255,255,.018);
+    border-radius: 8px;
+    margin: 6px 0;
+    overflow: hidden;
+  }
+  .classifier-list summary {
+    min-height: 34px;
+    padding: 0 9px;
+    color: var(--classifier);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .classifier-values {
+    border-top: 1px solid rgba(238,232,220,.07);
+    padding: 7px 8px 9px 18px;
+    display: grid;
+    gap: 5px;
+  }
+  .classifier-value {
+    color: var(--text-soft);
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    border-radius: 5px;
+    padding: 2px 4px;
+  }
+  .classifier-value:hover { background: rgba(255,255,255,.04); }
+  .classifier-value strong {
+    color: var(--classifier);
+    font-weight: 520;
+  }
+  .classifier-value span {
+    color: var(--text-muted);
+  }
+
+  .main-scroll {
+    min-width: 0;
+    overflow-y: auto;
+    padding: 14px 18px 30px;
+    scrollbar-color: rgba(238,232,220,.30) transparent;
+  }
+
+  .wiki-preview {
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background:
+      radial-gradient(circle at 12% 20%, rgba(255,255,255,.035), transparent 32%),
+      rgba(17,16,15,.82);
+    margin-bottom: 18px;
+    overflow: hidden;
+  }
+  .wiki-preview > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 0;
+  }
+  .wiki-preview > summary::-webkit-details-marker { display: none; }
+  .preview-summary {
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    border-bottom: 1px solid rgba(238,232,220,.08);
+  }
+  .preview-summary .label {
+    color: var(--heading-muted);
+    font-size: 11px;
+    font-weight: 760;
+    letter-spacing: .10em;
+    text-transform: uppercase;
+  }
+  .preview-summary .hint {
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+  .wiki-preview:not([open]) .preview-summary { border-bottom: 0; }
+
+  .preview-body {
+    display: grid;
+    grid-template-columns: minmax(270px, 1.3fr) 1fr 1fr 1fr;
+    gap: 0;
+    animation: reveal .18s ease both;
+  }
+  @keyframes reveal {
+    from { opacity: .72; transform: translateY(-3px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .preview-block {
+    padding: 16px 18px 17px;
+    border-right: 1px solid var(--line);
+    min-width: 0;
+  }
+  .preview-block:last-child { border-right: 0; }
+  .concept-title {
+    display: flex;
+    align-items: baseline;
+    gap: 9px;
+    margin-bottom: 6px;
+  }
+  .concept-title h1 {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 31px;
+    font-weight: 500;
+    letter-spacing: -.02em;
+  }
+  .star {
+    color: var(--accent-soft);
+    font-size: 19px;
+  }
+  .concept-type {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-bottom: 12px;
+  }
+  .reviewed { color: var(--positive); }
+  .preview-copy {
+    color: var(--text-soft);
+    line-height: 1.55;
+    font-size: 13px;
+  }
+  .preview-heading {
+    color: var(--heading-muted);
+    font-size: 11px;
+    letter-spacing: .10em;
+    text-transform: uppercase;
+    font-weight: 760;
+    margin-bottom: 9px;
+  }
+  .mini-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+  .mini-chip {
+    border: 1px solid rgba(238,232,220,.11);
+    border-radius: 7px;
+    padding: 4px 7px;
+    color: var(--text-soft);
+    background: rgba(255,255,255,.023);
+    font-size: 12px;
+  }
+  .mini-chip.visual { color: var(--visual); }
+  .mini-chip.artist { color: var(--artist); }
+  .mini-chip.classifier { color: var(--classifier); font-family: var(--mono); font-size: 11px; }
+  .mini-chip.theme { color: var(--theme); }
+  .mini-chip.work { color: var(--work); }
+  .mini-artworks {
+    display: grid;
+    grid-template-columns: repeat(4, 42px);
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .mini-thumb {
+    height: 48px;
+    border-radius: 6px;
+    border: 1px solid rgba(238,232,220,.13);
+    background: var(--art);
+    background-size: cover;
+    background-position: center;
+  }
+  .preview-link {
+    display: inline-flex;
+    color: var(--accent-soft);
+    margin-top: 12px;
+    gap: 8px;
+    border-radius: 5px;
+  }
+  .preview-link:hover { color: var(--text); }
+
+  .result-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 8px 6px 12px;
+  }
+  .result-count {
+    color: var(--text-soft);
+    font-size: 15px;
+  }
+  .result-count .concept {
+    color: var(--accent-soft);
+  }
+  .toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .sort {
+    color: var(--text-muted);
+  }
+  .sort strong {
+    color: var(--text-soft);
+    font-weight: 520;
+  }
+  .view-btn.active {
+    background: rgba(255,255,255,.04);
+    border-color: rgba(199,154,82,.56);
+    box-shadow: inset 0 0 0 1px rgba(199,154,82,.24);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(190px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    border: 1px solid var(--line-strong);
+    background: rgba(18,17,16,.84);
+    border-radius: 9px;
+    overflow: hidden;
+    transition: transform .16s ease, border-color .16s ease, background .16s ease, box-shadow .16s ease;
+    cursor: pointer;
+    color: var(--text);
+  }
+  .card:hover, .card.selected {
+    transform: translateY(-3px);
+    border-color: rgba(238,232,220,.32);
+    background: rgba(25,24,22,.92);
+  }
+  .card.selected {
+    box-shadow: inset 0 0 0 1px rgba(199,154,82,.34);
+    border-color: rgba(199,154,82,.46);
+  }
+  .thumb {
+    height: 190px;
+    background: var(--art);
+    background-size: cover;
+    background-position: center;
+    border-bottom: 1px solid var(--line);
+    filter: saturate(.86) contrast(1.03);
+    position: relative;
+    overflow: hidden;
+  }
+  .thumb::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 56%, rgba(0,0,0,.22));
+  }
+  .card-body {
+    padding: 10px 11px 11px;
+  }
+  .card-title {
+    font-family: var(--serif);
+    font-size: 16px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+  }
+  .card-meta {
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.35;
+    min-height: 32px;
+  }
+  .card-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid rgba(238,232,220,.07);
+    padding-top: 9px;
+    margin-top: 9px;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+  .status-tagged { color: var(--positive); }
+  .status-review { color: var(--review); }
+  .status-empty { color: var(--text-muted); }
+  .tag-count { color: var(--text-muted); }
+  .card-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 9px;
+  }
+  .card-chip {
+    border: 1px solid rgba(238,232,220,.10);
+    border-radius: 6px;
+    padding: 3px 6px;
+    font-size: 11px;
+    background: rgba(255,255,255,.022);
+    color: var(--text-soft);
+  }
+  .card-chip.visual { color: var(--visual); }
+  .card-chip.artist { color: var(--artist); }
+  .card-chip.classifier { color: var(--classifier); font-family: var(--mono); }
+  .card-chip.review { color: var(--review); }
+  .card-chip.theme { color: var(--theme); }
+  .card-chip.source { color: var(--source); }
+  .tag-icon {
+    width: 17px;
+    height: 17px;
+    opacity: .9;
+  }
+
+  .filter-pop {
+    position: fixed;
+    top: 74px;
+    right: 80px;
+    width: 280px;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: rgba(18,17,16,.98);
+    box-shadow: 0 18px 70px rgba(0,0,0,.48);
+    padding: 12px;
+    z-index: 20;
+    display: none;
+  }
+  .filter-pop.show { display: block; animation: reveal .16s ease both; }
+  .filter-pop h3 {
+    margin: 0 0 10px;
+    color: var(--heading-muted);
+    font-size: 11px;
+    letter-spacing: .10em;
+    text-transform: uppercase;
+  }
+  .filter-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 32px;
+    color: var(--text-soft);
+    border-top: 1px solid rgba(238,232,220,.07);
+  }
+  .filter-row:first-of-type { border-top: 0; }
+  .filter-row span:last-child { color: var(--text-muted); }
+
+  .toast {
+    position: fixed;
+    right: 22px;
+    bottom: 22px;
+    background: rgba(19,18,17,.97);
+    border: 1px solid var(--line-strong);
+    color: var(--text-soft);
+    padding: 10px 12px;
+    border-radius: 9px;
+    box-shadow: 0 18px 60px rgba(0,0,0,.45);
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+    transition: opacity .18s ease, transform .18s ease;
+    z-index: 30;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+
+  /* Refinement: selected states use a quiet, thin all-around accent rather than heavy underline/outline */
+  .state-btn.active {
+    color: var(--text);
+    background: rgba(255,255,255,.035);
+    border-color: rgba(199,154,82,.68);
+    box-shadow: inset 0 0 0 1px rgba(199,154,82,.30);
+  }
+  .view-btn.active {
+    background: rgba(255,255,255,.04);
+    border-color: rgba(199,154,82,.56);
+    box-shadow: inset 0 0 0 1px rgba(199,154,82,.24);
+  }
+  .card.selected {
+    box-shadow: inset 0 0 0 1px rgba(199,154,82,.34);
+    border-color: rgba(199,154,82,.46);
+  }
+
+  @media (max-width: 1280px) {
+    .grid { grid-template-columns: repeat(4, minmax(180px, 1fr)); }
+    .preview-body { grid-template-columns: 1fr 1fr; }
+    .preview-block:nth-child(2) { border-right: 0; }
+  }
+  @media (max-width: 980px) {
+    body { overflow: auto; }
+    .app { height: auto; min-height: 100vh; grid-template-columns: 60px 1fr; }
+    .search-shell { height: auto; }
+    .content { grid-template-columns: 1fr; }
+    .facet-panel { border-right: 0; border-bottom: 1px solid var(--line); max-height: 42vh; }
+    .main-scroll { overflow: visible; }
+    .grid { grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+    .command-row { grid-template-columns: 1fr auto; }
+    .state-switch { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      transition-duration: .001ms !important;
+      animation-duration: .001ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="rail" aria-label="Global navigation">
+    <a href="#" aria-label="Home">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M3 11.5 12 4l9 7.5v8a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-8Z" stroke="currentColor" stroke-width="1.7"/></svg>
+    </a>
+    <a href="#" aria-label="Library">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3V4Z" stroke="currentColor" stroke-width="1.7"/><path d="M8 4v16" stroke="currentColor" stroke-width="1.7"/></svg>
+    </a>
+    <a class="active" href="#" aria-label="Atlas Search">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.7"/><path d="m15 9-2 5-5 2 2-5 5-2Z" fill="currentColor"/></svg>
+    </a>
+    <a href="#" aria-label="Annotations">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M6 17c3-8 6 0 9-8 2-5 4-2 3 2-1 5-8 6-10 9" stroke="currentColor" stroke-width="1.7"/></svg>
+    </a>
+    <a href="#" aria-label="Studio">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 4a8 8 0 1 0 0 16h1.2a1.5 1.5 0 0 0 .7-2.8l-.6-.3a1.3 1.3 0 0 1 .6-2.4H16a4 4 0 0 0 4-4c0-3.6-3.6-6.5-8-6.5Z" stroke="currentColor" stroke-width="1.7"/><circle cx="8" cy="10" r="1" fill="currentColor"/><circle cx="11" cy="8" r="1" fill="currentColor"/><circle cx="14" cy="9" r="1" fill="currentColor"/></svg>
+    </a>
+    <div class="rail-spacer"></div>
+    <a href="#" aria-label="Settings">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="1.7"/><path d="M19 13.5v-3l-2-.5a6 6 0 0 0-.7-1.6l1-1.8-2.1-2.1-1.8 1a6 6 0 0 0-1.6-.7L11.5 2h-3L8 4a6 6 0 0 0-1.6.7l-1.8-1L2.5 5.8l1 1.8A6 6 0 0 0 2.8 9l-2 .5v3l2 .5a6 6 0 0 0 .7 1.6l-1 1.8 2.1 2.1 1.8-1a6 6 0 0 0 1.6.7l.5 2h3l.5-2a6 6 0 0 0 1.6-.7l1.8 1 2.1-2.1-1-1.8a6 6 0 0 0 .7-1.6l2-.5Z" stroke="currentColor" stroke-width="1.3"/></svg>
+    </a>
+  </nav>
+
+  <section class="search-shell">
+    <header class="top">
+      <div class="command-row">
+        <div class="search-box">
+          <span class="search-icon">⌕</span>
+          <input id="searchInput" type="search" aria-label="Atlas search" value="Picasso">
+          <button id="clearSearch" class="clear-search" aria-label="Clear search" type="button">×</button>
+        </div>
+        <button id="filterBtn" type="button">▽ Filter</button>
+        <button id="addBtn" type="button" aria-label="Add or import">＋</button>
+        <div class="state-switch" aria-label="Mockup state switcher">
+          <button id="picassoBtn" class="state-btn active" type="button">Artist: Picasso</button>
+          <button id="horseBtn" class="state-btn" type="button">Subject: horse</button>
+        </div>
+      </div>
+      <nav class="local-modes" aria-label="Atlas local modes">
+        <a class="local-mode active" href="#">Search</a>
+        <a class="local-mode" href="#">Wiki</a>
+      </nav>
+    </header>
+
+    <div class="content">
+      <aside class="facet-panel" aria-label="Search facets">
+        <div id="facetScroll" class="facet-scroll"></div>
+      </aside>
+
+      <main class="main-scroll" aria-label="Search results">
+        <details id="wikiPreview" class="wiki-preview" open>
+          <summary>
+            <div class="preview-summary">
+              <span class="label">Wiki preview</span>
+              <span class="hint"><span id="previewHint">Artist/entity context</span> <span class="chev">⌄</span></span>
+            </div>
+          </summary>
+          <div id="previewBody" class="preview-body"></div>
+        </details>
+
+        <div class="result-toolbar">
+          <div id="resultCount" class="result-count"></div>
+          <div class="toolbar-actions">
+            <span class="sort">Sort: <strong>Relevance</strong>⌄</span>
+            <button class="view-btn active" type="button" aria-label="Grid view">▦</button>
+            <button class="view-btn" type="button" aria-label="Display settings">☷</button>
+            <button class="view-btn" type="button">Overlay: None⌄</button>
+          </div>
+        </div>
+
+        <section id="grid" class="grid" aria-label="Search result cards"></section>
+      </main>
+    </div>
+  </section>
+</div>
+
+<div id="filterPop" class="filter-pop" role="dialog" aria-label="Filter options">
+  <h3>Filter mockup</h3>
+  <div class="filter-row"><span>Only tagged assets</span><span>On</span></div>
+  <div class="filter-row"><span>Needs review</span><span>Any</span></div>
+  <div class="filter-row"><span>Has source record</span><span>Any</span></div>
+  <div class="filter-row"><span>Rights</span><span>Any</span></div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite">Selected card</div>
+
+<script>
+(() => {
+  const art = {
+    guernica: 'linear-gradient(135deg,#1a1a1a 0 12%,#e5e0d4 12% 18%,#363636 18% 28%,#c9c3b8 28% 33%,#151515 33% 48%,#b7b1a7 48% 57%,#2a2a2a 57% 75%,#d5d0c4 75% 82%,#101010 82%)',
+    demo: 'radial-gradient(circle at 28% 35%,#d49377 0 13%,transparent 14%),radial-gradient(circle at 52% 28%,#e1b195 0 12%,transparent 13%),radial-gradient(circle at 72% 39%,#b8c0c7 0 12%,transparent 13%),linear-gradient(135deg,#8e4d3e,#d6a087 45%,#2e6f8a 46%,#be7f63)',
+    weep: 'radial-gradient(circle at 50% 38%,#ece0c4 0 9%,#1a232c 10% 13%,transparent 14%),linear-gradient(50deg,#d4ae2e 0 25%,#783b61 25% 40%,#2b5f8b 40% 55%,#d9c877 55% 70%,#111 70%)',
+    guitarist: 'radial-gradient(circle at 28% 28%,#839db4 0 12%,transparent 13%),linear-gradient(120deg,#152033,#2c5470 48%,#4b5d6b 49%,#111722)',
+    musicians: 'linear-gradient(90deg,#5b3828 0 20%,#d9c894 20% 34%,#213a57 34% 48%,#b68c4a 48% 62%,#262019 62%),linear-gradient(180deg,transparent 0 52%,rgba(0,0,0,.35) 52%)',
+    mandolin: 'radial-gradient(circle at 38% 25%,#c0b0a4 0 10%,transparent 11%),linear-gradient(120deg,#6f5a42,#1f3c5b 35%,#9c7653 36%,#2d2925)',
+    still: 'radial-gradient(circle at 42% 54%,#dbc68d 0 17%,transparent 18%),linear-gradient(115deg,#7f663b,#d0b37a 45%,#2d3b42 46%,#bfa779)',
+    bull: 'radial-gradient(circle at 50% 32%,#d8d4c8 0 22%,transparent 23%),linear-gradient(135deg,#101010,#444 52%,#cfc9bd 53%,#181818)',
+    dream: 'radial-gradient(circle at 24% 30%,#bca9a7 0 10%,transparent 11%),radial-gradient(circle at 54% 48%,#d0c3a7 0 17%,transparent 18%),linear-gradient(135deg,#7d6b8b,#c99888 52%,#667b6a)',
+
+    horse1: 'radial-gradient(circle at 32% 38%,#a96e38 0 18%,transparent 19%),linear-gradient(115deg,#a87542,#3d4e33 50%,#a5a56d)',
+    horse2: 'radial-gradient(circle at 44% 43%,#efe7d4 0 22%,transparent 23%),linear-gradient(135deg,#9eb2b8,#d7cab6 50%,#6e7770)',
+    horse3: 'radial-gradient(circle at 42% 42%,#3b2618 0 19%,transparent 20%),linear-gradient(120deg,#926b3c,#c3aa73 46%,#45596a)',
+    horse4: 'radial-gradient(circle at 45% 48%,#dfd0a9 0 24%,transparent 25%),linear-gradient(135deg,#4b3d2e,#947f58 50%,#1d1a16)',
+    horse5: 'radial-gradient(circle at 38% 44%,#2c2119 0 17%,transparent 18%),linear-gradient(100deg,#5b4b32,#8c8d60 52%,#b0a171)',
+    horse6: 'radial-gradient(circle at 52% 40%,#111 0 20%,transparent 21%),linear-gradient(160deg,#201b18,#665448 60%,#1a1512)',
+    horse7: 'radial-gradient(circle at 45% 44%,#dfd4be 0 22%,transparent 23%),linear-gradient(120deg,#b7a486,#2a3c28 48%,#85784a)',
+    horse8: 'radial-gradient(circle at 48% 38%,#cbb075 0 18%,transparent 19%),linear-gradient(100deg,#2b341d,#685329 50%,#a47f42)',
+    horse9: 'radial-gradient(circle at 45% 45%,#d8c4a0 0 24%,transparent 25%),linear-gradient(135deg,#714d2c,#c39b5a 55%,#191716)',
+    horse10: 'radial-gradient(circle at 48% 42%,#d0c1a6 0 19%,transparent 20%),linear-gradient(135deg,#4d3625,#80683f 45%,#303a24)',
+    horse11: 'radial-gradient(circle at 50% 45%,#d4c7b7 0 26%,transparent 27%),linear-gradient(135deg,#ddd3c4,#746a5b 60%,#201f1e)',
+    horse12: 'radial-gradient(circle at 44% 38%,#f0dfbf 0 23%,transparent 24%),linear-gradient(135deg,#c17134,#2b2634 50%,#bd6f3f)'
+  };
+
+  const states = {
+    picasso: {
+      query: 'Picasso',
+      hint: 'Artist/entity context',
+      count: 'Showing 28 artworks',
+      conceptLabel: 'Picasso',
+      preview: `
+        <div class="preview-block">
+          <div class="concept-title"><h1>Picasso</h1></div>
+          <div class="concept-type"><span class="tag-ref artist">Pablo Ruiz y Picasso</span> · Artist Entity · <span class="reviewed">Reviewed</span></div>
+          <div class="preview-copy">1881–1973, Spanish painter, sculptor, printmaker, ceramicist, and stage designer. Co-founder of Cubism and a central figure in modern art. Use this entity for works created by or widely attributed to Pablo Picasso.</div>
+          <a class="preview-link" href="#">Open full wiki →</a>
+        </div>
+        <div class="preview-block">
+          <div class="preview-heading">Popular works in your library</div>
+          <div class="mini-artworks">
+            <div class="mini-thumb" style="--art:${art.guernica}"></div>
+            <div class="mini-thumb" style="--art:${art.demo}"></div>
+            <div class="mini-thumb" style="--art:${art.weep}"></div>
+            <div class="mini-thumb" style="--art:${art.guitarist}"></div>
+          </div>
+          <div class="preview-copy">Guernica, Les Demoiselles d’Avignon, The Weeping Woman, and The Old Guitarist are indexed as high-confidence works in this library.</div>
+          <a class="preview-link" href="#">View all 28 artworks →</a>
+        </div>
+        <div class="preview-block">
+          <div class="preview-heading">Movements and themes</div>
+          <div class="mini-list">
+            <span class="mini-chip visual">Cubism</span><span class="mini-chip visual">Modernism</span><span class="mini-chip visual">Avant-Garde</span>
+            <span class="mini-chip theme">Portrait</span><span class="mini-chip theme">Human Figure</span><span class="mini-chip theme">Suffering</span><span class="mini-chip theme">War</span>
+          </div>
+        </div>
+        <div class="preview-block">
+          <div class="preview-heading">Attribution guidance</div>
+          <div class="preview-copy">Use Picasso for artworks created by or widely attributed to Pablo Picasso. Include period/style tags only if clearly represented. Use source claims when attribution is uncertain.</div>
+          <div class="preview-heading" style="margin-top:13px;">Related artists</div>
+          <div class="mini-list"><span class="mini-chip artist">Georges Braque</span><span class="mini-chip artist">Juan Gris</span><span class="mini-chip artist">Henri Matisse</span></div>
+        </div>
+      `,
+      facets: [
+        ['Style & Movement', [['Cubism','2.3k','visual'], ['Modernism','3.1k','visual'], ['Analytic Cubism','612','visual'], ['Synthetic Cubism','482','visual'], ['Avant-Garde','1.0k','visual'], ['Expressionism','892','visual']]],
+        ['Themes', [['Portrait','4.7k','theme'], ['Human Figure','6.1k','theme'], ['Women','3.2k','theme'], ['Still Life','2.6k','theme'], ['War','1.1k','theme'], ['Suffering','842','theme'], ['Identity','723','theme']]],
+        ['Time Period', [['1900s','4.8k',''], ['1910s','3.6k',''], ['1920s','4.2k',''], ['1930s','3.9k',''], ['1940s','3.0k',''], ['1950s','2.6k','']]],
+        ['Technique & Medium', [['Oil Painting','5.8k',''], ['Painting','12.3k',''], ['Drawing','7.6k',''], ['Gouache','1.1k',''], ['Collage','1.4k',''], ['Print','2.7k','']]],
+        ['Composition & Form', [['Fragmented Forms','1.3k','visual'], ['Geometric Forms','1.2k','visual'], ['Multiple Views','1.1k','visual'], ['Distorted Anatomy','1.6k','visual'], ['Asymmetrical','2.0k','visual']]],
+        ['Similar Tags', [['cubism','high overlap','visual'], ['modernism','high overlap','visual'], ['portrait','common overlap','theme'], ['still life','common overlap','theme'], ['fragmented forms','common overlap','visual'], ['blue period','common overlap','visual']]],
+        ['Artists Related to Picasso', [['Georges Braque','78%','artist'], ['Henri Matisse','63%','artist'], ['Juan Gris','57%','artist'], ['Paul Cézanne','56%','artist'], ['Fernand Léger','52%','artist']]],
+        ['See Also', [['Spanish Civil War','','theme'], ['Guernica','','work'], ['Dora Maar','','artist'], ['Museo Reina Sofía','','source'], ['Paris avant-garde','','theme']]]
+      ],
+      cards: [
+        ['Guernica','1937','Tagged','42 tags',['cubism','anti_war','monochrome'],['visual','theme','visual'],art.guernica],
+        ['Les Demoiselles d’Avignon','1907','Tagged','36 tags',['cubism','fragmented_forms'],['visual','visual'],art.demo],
+        ['The Weeping Woman','1937','Tagged','28 tags',['grief','portrait'],['theme','visual'],art.weep],
+        ['The Old Guitarist','1903–1904','Tagged','31 tags',['blue_period','melancholy'],['visual','theme'],art.guitarist],
+        ['Three Musicians','1921','Tagged','24 tags',['cubism','figures'],['visual','visual'],art.musicians],
+        ['Woman with a Mandolin','1910','Tagged','22 tags',['analytic_cubism'],['visual'],art.mandolin],
+        ['Still Life with Chair Caning','1912','Tagged','19 tags',['collage','still_life'],['visual','theme'],art.still],
+        ['Girl Before a Mirror','1932','Tagged','26 tags',['portrait','identity'],['visual','theme'],art.weep],
+        ['Head of a Bull','1942','Untagged','—',['bull','monochrome'],['visual','visual'],art.bull],
+        ['The Dream','1932','Tagged','23 tags',['portrait','surreal'],['visual','visual'],art.dream]
+      ]
+    },
+    horse: {
+      query: 'horse',
+      hint: 'Visual tag wiki preview',
+      count: 'Showing 184 results for',
+      conceptLabel: 'horse',
+      preview: `
+        <div class="preview-block">
+          <div class="concept-title"><h1>horse</h1><span class="star">☆</span></div>
+          <div class="concept-type">Visual Tag · Subject / Animal · <span class="reviewed">Reviewed</span></div>
+          <div class="preview-copy">Use when a horse is visibly depicted in the image, including paintings, drawings, sculptures, photos, and stylized but recognizable horses. Do not use for donkeys, mules, zebras, or vague horse-like creatures unless the horse itself is visible.</div>
+          <a class="preview-link" href="#">Open full wiki →</a>
+        </div>
+        <div class="preview-block">
+          <div class="preview-heading">Implications</div>
+          <div class="mini-list"><span class="mini-chip visual">animal</span><span class="mini-chip visual">mammal</span><span class="mini-chip visual">equine</span><span class="mini-chip visual">domesticated_animal</span></div>
+          <div class="preview-heading" style="margin-top:13px;">Allowed classifiers</div>
+          <div class="mini-list"><span class="mini-chip classifier">coat_color</span><span class="mini-chip classifier">markings</span><span class="mini-chip classifier">pose</span><span class="mini-chip classifier">view</span><span class="mini-chip classifier">tack</span><span class="mini-chip classifier">position</span><span class="mini-chip classifier">quantity</span></div>
+        </div>
+        <div class="preview-block">
+          <div class="preview-heading">Related tags</div>
+          <div class="mini-list"><span class="mini-chip visual">saddle</span><span class="mini-chip visual">bridle</span><span class="mini-chip visual">rider</span><span class="mini-chip visual">carriage</span><span class="mini-chip visual">stable</span></div>
+          <div class="preview-heading" style="margin-top:13px;">Confusable with</div>
+          <div class="mini-list"><span class="mini-chip visual">pony</span><span class="mini-chip visual">donkey</span><span class="mini-chip visual">mule</span><span class="mini-chip visual">zebra</span></div>
+        </div>
+        <div class="preview-block">
+          <div class="preview-heading">AI tagging guidance</div>
+          <div class="preview-copy">Auto-apply horse only when clearly visible. Do not infer breed, sex, exact age, or health condition unless source-confirmed or specialist-reviewed. Use classifiers instead of compound tags like white_horse or blue_horse.</div>
+          <a class="preview-link" href="#">Full guidance →</a>
+        </div>
+      `,
+      facets: [
+        ['Broader Tags', [['animal','4.8k','visual'], ['mammal','3.9k','visual'], ['equine','1.2k','visual'], ['domesticated animal','940','visual']]],
+        ['Child / Specialist Tags', [['pony','312','visual'], ['foal','204','visual'], ['draft horse','88','visual'], ['warhorse','72','visual'], ['carousel horse','31','visual'], ['arabian horse','18','review'], ['thoroughbred','16','review']]],
+        ['Related Objects', [['saddle','681','visual'], ['bridle','544','visual'], ['reins','311','visual'], ['stirrup','206','visual'], ['horseshoe','147','visual'], ['carriage','226','visual']]],
+        ['Actions / Poses', [['galloping','402','visual'], ['standing','351','visual'], ['rearing','224','visual'], ['jumping','119','visual'], ['pulling cart','74','visual']]],
+        ['Similar Tags', [['rider','high overlap','visual'], ['saddle','high overlap','visual'], ['bridle','common overlap','visual'], ['carriage','common overlap','visual'], ['stable','common overlap','visual'], ['pastoral scene','common overlap','theme']]],
+        ['Classifiers', 'classifiers'],
+        ['See Also', [['Horseracing','','theme'], ['Cavalry','','theme'], ['Equestrian portrait','','visual'], ['Animal studies','','theme'], ['Farm labor','','theme']]]
+      ],
+      classifiers: [
+        ['coat color', [['brown','642'], ['bay','314'], ['white','219'], ['black','186'], ['gray','164']]],
+        ['markings', [['blaze','87'], ['spotting','73'], ['white socks','61'], ['mane color','58']]],
+        ['gait', [['standing','351'], ['galloping','402'], ['trotting','144'], ['walking','112'], ['rearing','224']]],
+        ['pose', [['side view','284'], ['three-quarter','126'], ['head lowered','88'], ['rearing','224']]],
+        ['view', [['side','318'], ['front','77'], ['three-quarter','141'], ['back','23']]],
+        ['tack', [['bridle','544'], ['saddle','681'], ['halter','96'], ['harness','117']]],
+        ['position', [['center','263'], ['left','121'], ['right','114'], ['background','77']]],
+        ['quantity', [['single','721'], ['pair','92'], ['multiple','211'], ['herd','48']]]
+      ],
+      cards: [
+        ['Equestrian Portrait of Charles I','Anthony van Dyck · 1637','Tagged','42 tags',['horse','approved','coat: bay','tack: bridle'],['visual','positive','classifier','classifier'],art.horse1],
+        ['Study of a Galloping Horse','Eugène Delacroix · 1820','Tagged','37 tags',['horse','approved','gait: galloping','view: side'],['visual','positive','classifier','classifier'],art.horse2],
+        ['Horse and Rider','Théodore Géricault · 1812','Needs review','23 tags',['horse','rider suggested','tack: saddle'],['visual','review','classifier'],art.horse3],
+        ['A Grey Horse in a Stable','John Frederick Herring Sr. · 1835','Tagged','29 tags',['horse','approved','coat: gray','tack: halter'],['visual','positive','classifier','classifier'],art.horse4],
+        ['Horse and Cart','Camille Pissarro · 1878','Tagged','31 tags',['horse','approved','tack: harness','gait: walking'],['visual','positive','classifier','classifier'],art.horse5],
+        ['Rearing Horse','Unknown sculpture · c. 1900','Tagged','18 tags',['horse','approved','pose: rearing','view: side'],['visual','positive','classifier','classifier'],art.horse6],
+        ['Head Study of a Horse','Leonardo da Vinci · c. 1505','Needs review','8 tags',['horse','approved','view: head','medium: drawing'],['visual','positive','classifier','classifier'],art.horse7],
+        ['Landscape with Horses','Constant Troyon · 1850','Tagged','27 tags',['horse','approved','gait: standing','background: trees'],['visual','positive','classifier','classifier'],art.horse8],
+        ['Carousel Horse','Unknown · c. 1900','Tagged','14 tags',['horse','approved','type: carousel','tack: saddle'],['visual','positive','classifier','classifier'],art.horse9],
+        ['Herd of Horses','Rosa Bonheur · 1855','Tagged','33 tags',['horse','approved','quantity: multiple','gait: trotting'],['visual','positive','classifier','classifier'],art.horse10],
+        ['Horse Study','Théodore Géricault · c. 1810','Needs review','11 tags',['horse','suggested','medium: drawing','view: side'],['visual','review','classifier','classifier'],art.horse11],
+        ['White Horse','Wassily Kandinsky · 1911','Tagged','19 tags',['horse','approved','coat: white','style: expressionist'],['visual','positive','classifier','visual'],art.horse12]
+      ]
+    }
+  };
+
+  let stateName = 'picasso';
+  const searchInput = document.getElementById('searchInput');
+  const previewBody = document.getElementById('previewBody');
+  const previewHint = document.getElementById('previewHint');
+  const facetScroll = document.getElementById('facetScroll');
+  const grid = document.getElementById('grid');
+  const resultCount = document.getElementById('resultCount');
+  const picassoBtn = document.getElementById('picassoBtn');
+  const horseBtn = document.getElementById('horseBtn');
+  const filterBtn = document.getElementById('filterBtn');
+  const filterPop = document.getElementById('filterPop');
+  const toast = document.getElementById('toast');
+
+  function showToast(message) {
+    toast.textContent = message;
+    toast.classList.add('show');
+    clearTimeout(showToast.timer);
+    showToast.timer = setTimeout(() => toast.classList.remove('show'), 1200);
+  }
+
+  function classFor(type) {
+    if (!type) return '';
+    if (type === 'review') return 'review';
+    if (type === 'positive') return 'positive';
+    return type;
+  }
+
+  function renderFacets(state) {
+    facetScroll.innerHTML = state.facets.map((section, index) => {
+      const [title, items] = section;
+      if (items === 'classifiers') {
+        return `<details class="facet-section" open>
+          <summary>${title} <span class="chev">⌄</span></summary>
+          <div class="classifier-list">
+            ${state.classifiers.map(([name, values], i) => `
+              <details ${i < 2 ? 'open' : ''}>
+                <summary>${name} <span class="chev">⌄</span></summary>
+                <div class="classifier-values">
+                  ${values.map(([value, count]) => `<a class="classifier-value" href="#"><strong>${value}</strong><span>${count}</span></a>`).join('')}
+                </div>
+              </details>
+            `).join('')}
+          </div>
+        </details>`;
+      }
+      return `<details class="facet-section" open>
+        <summary>${title} <span class="chev">⌄</span></summary>
+        <div class="facet-tokens">
+          ${items.map(([label, count, type]) => `<a class="facet-token ${classFor(type)}" tabindex="0" href="#">${label}${count ? `<span class="count">${count}</span>` : ''}</a>`).join('')}
+        </div>
+      </details>`;
+    }).join('');
+  }
+
+  function renderCards(state) {
+    grid.innerHTML = state.cards.map((card, i) => {
+      const [title, meta, status, count, chips, chipTypes, bg] = card;
+      const statusClass = status === 'Needs review' ? 'status-review' : status === 'Untagged' ? 'status-empty' : 'status-tagged';
+      return `<article class="card" tabindex="0" data-title="${title}">
+        <div class="thumb" style="--art:${bg}"></div>
+        <div class="card-body">
+          <div class="card-title">${title}</div>
+          <div class="card-meta">${meta}</div>
+          <div class="card-status">
+            <span class="${statusClass}">${status === 'Tagged' ? '✓ Tagged' : status === 'Needs review' ? '⌁ Needs review' : 'Untagged'}</span>
+            <span class="tag-count">${count}</span>
+          </div>
+          <div class="card-chips">
+            ${chips.map((chip, idx) => `<span class="card-chip ${classFor(chipTypes[idx])}">${chip}</span>`).join('')}
+          </div>
+        </div>
+      </article>`;
+    }).join('');
+    grid.querySelectorAll('.card').forEach(card => {
+      card.addEventListener('click', () => {
+        grid.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        showToast(`Selected ${card.dataset.title}`);
+      });
+      card.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          card.click();
+        }
+      });
+    });
+  }
+
+  function renderState(next) {
+    stateName = next;
+    const state = states[next];
+    searchInput.value = state.query;
+    previewHint.textContent = state.hint;
+    previewBody.innerHTML = state.preview;
+    if (state.count.includes('for')) {
+      resultCount.innerHTML = `${state.count} <span class="concept">${state.conceptLabel}</span>`;
+    } else {
+      resultCount.textContent = state.count;
+    }
+    renderFacets(state);
+    renderCards(state);
+    picassoBtn.classList.toggle('active', next === 'picasso');
+    horseBtn.classList.toggle('active', next === 'horse');
+  }
+
+  picassoBtn.addEventListener('click', () => renderState('picasso'));
+  horseBtn.addEventListener('click', () => renderState('horse'));
+
+  document.getElementById('clearSearch').addEventListener('click', () => {
+    searchInput.value = '';
+    searchInput.focus();
+  });
+
+  filterBtn.addEventListener('click', () => {
+    filterPop.classList.toggle('show');
+  });
+  document.addEventListener('click', e => {
+    if (!filterPop.contains(e.target) && e.target !== filterBtn) filterPop.classList.remove('show');
+  });
+
+  document.addEventListener('click', e => {
+    const classifier = e.target.closest('.classifier-value');
+    if (classifier) {
+      e.preventDefault();
+      showToast(`Applied classifier filter: ${classifier.textContent.trim().replace(/\s+/g, ' ')}`);
+    }
+    const facet = e.target.closest('.facet-token');
+    if (facet) {
+      e.preventDefault();
+      showToast(`Applied facet: ${facet.textContent.trim()}`);
+    }
+    const link = e.target.closest('.preview-link');
+    if (link) {
+      e.preventDefault();
+      showToast('Would open full wiki entry');
+    }
+  });
+
+  renderState('picasso');
+})();
+</script>
+</body>
+</html>

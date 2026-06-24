@@ -1,0 +1,38 @@
+{
+	"manifest_version": 3,
+	"name": "Pastiche Capture",
+	"description": "Capture references into the local Pastiche library.",
+	"version": "0.1.0",
+	"permissions": ["activeTab", "contextMenus", "scripting", "storage", "tabs"],
+	"host_permissions": ["http://localhost:*/*", "http://127.0.0.1:*/*", "<all_urls>"],
+	"background": {
+		"scripts": ["background/service-worker.js"],
+		"type": "module"
+	},
+	"content_scripts": [
+		{
+			"matches": ["<all_urls>"],
+			"js": ["content/index.js"],
+			"run_at": "document_idle"
+		}
+	],
+	"sidebar_action": {
+		"default_panel": "sidebar/index.html",
+		"default_title": "Pastiche Capture"
+	},
+	"options_page": "settings/index.html",
+	"action": {
+		"default_title": "Capture with Pastiche"
+	},
+	"commands": {
+		"activate-capture": {
+			"description": "Activate Pastiche capture mode"
+		}
+	},
+	"browser_specific_settings": {
+		"gecko": {
+			"id": "pastiche-capture@pastiche",
+			"strict_min_version": "128.0"
+		}
+	}
+}

@@ -1,6 +1,14 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
+import {
+	applyAtlasIngestionProposal,
+	createAtlasIngestionProposal
+} from '$lib/server/atlas/ingest';
+import {
+	applyApolloPythonSeedForAsset,
+	shouldApplyApolloPythonSeed
+} from '$lib/server/atlas/apolloSeed';
 import { ensureLibraryArchive, resolveLibraryPaths } from './paths';
 import { resolveDestinationFolder } from './folders';
 import { openLibraryDatabase } from './schema';
@@ -40,8 +48,8 @@ export async function importLibraryItems(request: ImportRequest): Promise<Import
 				`insert into assets (
 					id, filename, title, storage_mode, mime_type, width, height, original_path,
 					thumbnail_path, source_image_url, source_url, page_title, alt_text, source_domain,
-					source_hash, folder_id, imported_at, captured_at, modified_at
-				) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+					source_hash, folder_id, imported_at, captured_at, modified_at, metadata_json
+				) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 			).run(
 				assetId,
 				item.filename.trim(),
@@ -61,7 +69,8 @@ export async function importLibraryItems(request: ImportRequest): Promise<Import
 				destinationFolder?.id ?? null,
 				now,
 				item.captured_at,
-				now
+				now,
+				serializeMetadata(item.metadata)
 			);
 
 			if (item.storage_mode === 'lazy_download' && item.source_image_url) {
@@ -70,6 +79,32 @@ export async function importLibraryItems(request: ImportRequest): Promise<Import
 						id, asset_id, source_image_url, status, created_at, updated_at, last_error
 					) values (?, ?, ?, 'queued', ?, ?, null)`
 				).run(`lazy-${crypto.randomUUID()}`, assetId, item.source_image_url, now, now);
+			}
+
+			if (item.metadata) {
+				const proposal = createAtlasIngestionProposal({
+					assetId,
+					source: atlasSourceForImport(item.metadata),
+					sourceId: item.metadata.sourceId ?? null,
+					sourceName: item.metadata.sourceName ?? null,
+					detailUrl: item.metadata.detailUrl ?? null,
+					creator: item.metadata.creator ?? null,
+					dateDisplay: item.metadata.dateDisplay ?? null,
+					medium: item.metadata.medium ?? null,
+					objectName: item.metadata.objectName ?? null,
+					department: item.metadata.department ?? null,
+					culture: item.metadata.culture ?? null,
+					period: item.metadata.period ?? null,
+					rights: item.metadata.rights ?? null,
+					tags: item.metadata.tags ?? [],
+					rawMetadata: item.metadata.rawMetadata ?? {},
+					now
+				});
+				applyAtlasIngestionProposal(db, proposal);
+			}
+
+			if (shouldApplyApolloPythonSeed({ title: item.filename, sourceUrl: item.source_url })) {
+				applyApolloPythonSeedForAsset(db, assetId, now);
 			}
 
 			imported.push({ index, asset_id: assetId, source_hash: hash, duplicate });
@@ -158,6 +193,20 @@ function extensionForMimeType(mimeType: string | null) {
 		default:
 			return 'jpg';
 	}
+}
+
+function serializeMetadata(metadata: ImportItem['metadata']) {
+	if (!metadata) return null;
+	return JSON.stringify(metadata);
+}
+
+function atlasSourceForImport(
+	metadata: NonNullable<ImportItem['metadata']>
+): 'explore' | 'extension' | 'manual' | 'import' {
+	if (metadata.sourceType === 'museum' || metadata.sourceType === 'collection') return 'explore';
+	if (metadata.sourceType === 'local') return 'manual';
+	if (metadata.sourceType === 'web') return 'extension';
+	return metadata.sourceId ? 'explore' : 'import';
 }
 
 class ImportItemError extends Error {

@@ -3,6 +3,7 @@
 	import ClockIcon from 'phosphor-svelte/lib/ClockIcon';
 	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
 	import LinkIcon from 'phosphor-svelte/lib/LinkIcon';
+	import StackIcon from 'phosphor-svelte/lib/StackIcon';
 	import StarIcon from 'phosphor-svelte/lib/StarIcon';
 	import TagIcon from 'phosphor-svelte/lib/TagIcon';
 
@@ -10,7 +11,7 @@
 		id: string;
 		label: string;
 		count: number;
-		icon?: 'folder' | 'star' | 'clock' | 'tag' | 'link';
+		icon?: 'folder' | 'project' | 'star' | 'clock' | 'tag' | 'link';
 	};
 
 	type Props = {
@@ -23,6 +24,7 @@
 
 	const icons = {
 		folder: FolderIcon,
+		project: StackIcon,
 		star: StarIcon,
 		clock: ClockIcon,
 		tag: TagIcon,

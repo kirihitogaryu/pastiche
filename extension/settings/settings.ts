@@ -1,3 +1,4 @@
 import Settings from './Settings.svelte';
+import { mount } from 'svelte';
 
-new Settings({ target: document.getElementById('app') as HTMLElement });
+mount(Settings, { target: document.getElementById('app') as HTMLElement });

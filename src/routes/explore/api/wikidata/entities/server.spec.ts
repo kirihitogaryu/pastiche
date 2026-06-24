@@ -46,6 +46,52 @@ describe('GET /explore/api/wikidata/entities', () => {
 		expect(searchEntities).toHaveBeenCalledWith('leonardo', { limit: 8, mode: 'artist' });
 	});
 
+	it('passes reference context to suggestion lookup', async () => {
+		searchEntities.mockResolvedValue([
+			{ id: 'Q184018', label: 'pythons', description: 'family of snakes' }
+		]);
+		const { GET } = await import('./+server');
+
+		const response = await GET({
+			url: new URL('http://localhost/explore/api/wikidata/entities?search=pythonidae&mode=depicts&context=reference')
+		});
+
+		expect(response.status).toBe(200);
+		expect(searchEntities).toHaveBeenCalledWith('pythonidae', {
+			limit: 8,
+			mode: 'depicts',
+			context: 'reference'
+		});
+	});
+
+	it('rejects unsupported entity search contexts', async () => {
+		const { GET } = await import('./+server');
+
+		const response = await GET({
+			url: new URL('http://localhost/explore/api/wikidata/entities?search=python&context=library')
+		});
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({
+			error: 'Invalid Wikidata entity search context'
+		});
+		expect(searchEntities).not.toHaveBeenCalled();
+	});
+
+	it('omits entity search context by default', async () => {
+		searchEntities.mockResolvedValue([
+			{ id: 'Q33767', label: 'hand', description: 'part of the forearm distal to the wrist' }
+		]);
+		const { GET } = await import('./+server');
+
+		const response = await GET({
+			url: new URL('http://localhost/explore/api/wikidata/entities?search=hand')
+		});
+
+		expect(response.status).toBe(200);
+		expect(searchEntities).toHaveBeenCalledWith('hand', { limit: 8, mode: 'depicts' });
+	});
+
 	it('rejects unsupported entity search modes', async () => {
 		const { GET } = await import('./+server');
 

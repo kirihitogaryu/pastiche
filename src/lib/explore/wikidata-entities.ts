@@ -3,6 +3,7 @@ import { ServerCache } from './server-cache';
 import {
 	WikimediaCircuitBreaker,
 	WikimediaRequestQueue,
+	isWikimediaTemporaryError,
 	requestWikimediaJson,
 	wikimediaHeaders
 } from './wikimedia-request';
@@ -10,6 +11,7 @@ import {
 type SearchOptions = {
 	limit?: number;
 	mode?: WikidataEntitySearchMode;
+	context?: WikidataEntitySearchContext;
 	fetch?: typeof fetch;
 	timeoutMs?: number;
 	cache?: ServerCache;
@@ -36,6 +38,7 @@ const WIKIDATA_SPARQL_URL = 'https://query.wikidata.org/sparql';
 const ENTITY_SEARCH_TTL_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_ENTITY_TIMEOUT_MS = 6_000;
 export type WikidataEntitySearchMode = Exclude<WikidataSearchMode, 'title'>;
+export type WikidataEntitySearchContext = 'art' | 'reference';
 
 export const wikidataEntityServerCache = new ServerCache(1000);
 const entityQueue = new WikimediaRequestQueue({ concurrency: 1, requestsPerSecond: 2 });
@@ -78,23 +81,55 @@ export async function searchWikidataEntities(
 		const candidates = results
 			.map((item) => normalizeEntityResult(item as WikidataEntityResult))
 			.filter((item): item is ExploreSubject => item !== null);
-		const relevantCandidates = filterLexicallyRelevantCandidates(candidates, trimmed);
-		const usageById = await fetchEntityArtworkUsage(relevantCandidates, mode, {
-			fetcher,
-			timeoutMs: options.timeoutMs ?? DEFAULT_ENTITY_TIMEOUT_MS
-		});
+		const context = options.context ?? 'art';
+		const relevantCandidates =
+			context === 'reference' ? candidates : filterLexicallyRelevantCandidates(candidates, trimmed);
+		if (context === 'reference') {
+			return rankEntityCandidates(relevantCandidates, trimmed, mode, undefined, context)
+				.slice(0, limit)
+				.map(({ entity }) => entity);
+		}
+		let usageById: Map<string, number>;
+		try {
+			usageById = await fetchEntityArtworkUsage(relevantCandidates, mode, {
+				fetcher,
+				timeoutMs: options.timeoutMs ?? DEFAULT_ENTITY_TIMEOUT_MS
+			});
+		} catch (error) {
+			if (isWikimediaTemporaryError(error)) {
+				return rankEntityCandidates(relevantCandidates, trimmed, mode)
+					.slice(0, limit)
+					.map(({ entity }) => entity);
+			}
+			throw error;
+		}
 
-		return relevantCandidates
-			.filter((entity) => usageById.has(entity.id))
-			.map((entity, index) => ({
-				entity,
-				index,
-				score: entitySearchScore(entity, trimmed, mode) + Math.min(24, usageById.get(entity.id) ?? 0)
-			}))
-			.sort((left, right) => right.score - left.score || left.index - right.index)
+		return rankEntityCandidates(
+			relevantCandidates.filter((entity) => usageById.has(entity.id)),
+			trimmed,
+			mode,
+			usageById,
+			context
+		)
 			.slice(0, limit)
 			.map(({ entity }) => entity);
 	});
+}
+
+function rankEntityCandidates(
+	entities: ExploreSubject[],
+	search: string,
+	mode: WikidataEntitySearchMode,
+	usageById = new Map<string, number>(),
+	context: WikidataEntitySearchContext = 'art'
+) {
+	return entities
+		.map((entity, index) => ({
+			entity,
+			index,
+			score: entitySearchScore(entity, search, mode, context) + Math.min(24, usageById.get(entity.id) ?? 0)
+		}))
+		.sort((left, right) => right.score - left.score || left.index - right.index);
 }
 
 export function buildWikidataEntitySearchUrl(search: string, limit: number): URL {
@@ -117,12 +152,13 @@ export function buildWikidataEntityUsageQuery(
 	const property = wikidataModeProperty(mode);
 	const qids = entities.map((entity) => entity.id).filter(isQid);
 	return `
-SELECT DISTINCT ?entity
+SELECT ?entity (COUNT(DISTINCT ?item) AS ?usage)
 WHERE {
   VALUES ?entity { ${qids.map((qid) => `wd:${qid}`).join(' ')} }
   ?item ${property} ?entity.
   ?item wdt:P18 ?image.
 }
+GROUP BY ?entity
 `.trim();
 }
 
@@ -193,7 +229,8 @@ function filterLexicallyRelevantCandidates(
 function entitySearchScore(
 	entity: ExploreSubject,
 	search: string,
-	mode: WikidataEntitySearchMode
+	mode: WikidataEntitySearchMode,
+	context: WikidataEntitySearchContext = 'art'
 ): number {
 	const label = entity.label.toLowerCase();
 	const description = (entity.description ?? '').toLowerCase();
@@ -223,11 +260,19 @@ function entitySearchScore(
 		if (/(person|human|film|album|song|company|organization|sport)/i.test(description)) score -= 22;
 	} else {
 		if (
-			/(extremity|body|forelimb|arm|leg|head|face|animal|plant|object|building|place|landform|myth|legendary|creature|reptile|bird|mammal|person|human|concept|emotion)/i.test(
+			/(extremity|body|forelimb|arm|leg|head|face|animal|plant|object|building|place|landform|myth|legendary|creature|reptile|bird|mammal|person|human|concept|emotion|taxon|species|subspecies|genus|family|snake)/i.test(
 				description
 			)
 		) {
 			score += 14;
+		}
+		if (context === 'reference') {
+			if (/(taxon|species|subspecies|genus|family|reptile|snake|animal|mammal|bird|plant)/i.test(description)) {
+				score += 28;
+			}
+			if (/(programming language|software|software library|computer|ship|missile|family name|given name)/i.test(description)) {
+				score -= 34;
+			}
 		}
 	}
 	if (

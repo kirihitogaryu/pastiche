@@ -13,10 +13,24 @@ export function mockLibrarySnapshot(): LibraryResponse {
 			capturedAt: '2026-05-27T12:00:00.000Z'
 		})),
 		folders: libraryFolders,
+		projects: libraryPinnedProjects.map((project) => ({
+			id: project.id,
+			name: project.name,
+			description: project.description,
+			pinned: project.pinned,
+			coverAssetId: project.coverAssetIds[0] ?? null,
+			coverPreviewUrl: savedAssets.find((asset) => asset.id === project.coverAssetIds[0])?.imageUrl ?? null,
+			assetCount: project.assetIds.length,
+			folderCount: 0,
+			createdAt: '2026-05-27T12:00:00.000Z',
+			updatedAt: '2026-05-27T12:00:00.000Z'
+		})),
+		tagFacets: [],
 		stats: {
 			assets: savedAssets.length,
 			projects: libraryPinnedProjects.length,
-			folders: libraryFolders.length
+			folders: libraryFolders.length,
+			tags: 0
 		}
 	};
 }

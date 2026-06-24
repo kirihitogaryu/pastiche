@@ -13,6 +13,11 @@ import {
 	normalizeWikidataBinding,
 	parseWikidataNativeId
 } from './wikidata';
+import { ServerCache } from '../server-cache';
+
+function testConnectorCache() {
+	return new ServerCache(50);
+}
 
 const monaLisaBinding = {
 	item: { value: 'http://www.wikidata.org/entity/Q12418' },
@@ -93,13 +98,49 @@ describe('Wikidata connector helpers', () => {
 		);
 
 		expect(searchUrl.hostname).toBe('www.wikidata.org');
-		expect(searchUrl.searchParams.get('action')).toBe('wbsearchentities');
-		expect(searchUrl.searchParams.get('search')).toBe('Mona Lisa');
+		expect(searchUrl.searchParams.get('action')).toBe('query');
+		expect(searchUrl.searchParams.get('list')).toBe('search');
+		expect(searchUrl.searchParams.get('srsearch')).toContain('Mona Lisa');
+		expect(searchUrl.searchParams.get('srsearch')).toContain('haswbstatement:P31=Q3305213');
+		expect(searchUrl.searchParams.get('srsearch')).toContain('haswbstatement:P18');
 		expect(query).toContain('VALUES ?item { wd:Q12418 wd:Q999 }');
 		expect(query).toContain('?item wdt:P31 ?visualArtworkType.');
 		expect(query).toContain('VALUES ?visualArtworkType');
 		expect(query).toContain('?item wdt:P18 ?image.');
 		expect(query).toContain('LIMIT 20');
+	});
+
+	it('uses constrained full-text candidates for single-word title searches', async () => {
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			const url = new URL(input.toString());
+			if (url.hostname === 'www.wikidata.org') {
+				expect(url.searchParams.get('srsearch')).toContain('girl');
+				expect(url.searchParams.get('srsearch')).toContain('haswbstatement:P31=Q3305213');
+				return Response.json({ query: { search: [{ title: 'Q100' }, { title: 'Q101' }] } });
+			}
+			expect(url.hostname).toBe('query.wikidata.org');
+			expect(url.searchParams.get('query')).toContain('VALUES ?item { wd:Q100 wd:Q101 }');
+			return Response.json({
+				results: {
+					bindings: [
+						{
+							item: { value: 'http://www.wikidata.org/entity/Q100' },
+							itemLabel: { value: 'Girl Reading' }
+						}
+					]
+				}
+			});
+		});
+		const connector = createWikidataConnector({ fetch: fetchMock, cache: testConnectorCache() });
+
+		const page = await connector.search({
+			wikidataMode: 'title',
+			keyword: 'girl',
+			limit: 20
+		});
+
+		expect(page.items).toEqual([expect.objectContaining({ id: 'wikidata-Q100' })]);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
 
 	it('keeps a fallback title SPARQL builder for direct helper use', () => {
@@ -138,6 +179,44 @@ describe('Wikidata connector helpers', () => {
 		const noImage = normalizeWikidataBinding({ ...monaLisaBinding, image: undefined });
 		expect(noImage?.imageUrl).toBeNull();
 		expect(noImage?.thumbUrl).toBeNull();
+	});
+
+	it('enriches Wikidata item lookups with Commons dimensions for saving', async () => {
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			const url = new URL(input.toString());
+			if (url.hostname === 'query.wikidata.org') {
+				return Response.json({ results: { bindings: [monaLisaBinding] } });
+			}
+			expect(url.hostname).toBe('commons.wikimedia.org');
+			return Response.json({
+				query: {
+					pages: {
+						'1': {
+							title: 'File:Mona_Lisa.jpg',
+							imageinfo: [
+								{
+									url: 'https://upload.wikimedia.org/wikipedia/commons/mona.jpg',
+									thumburl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/mona.jpg',
+									width: 1200,
+									height: 1800,
+									mime: 'image/jpeg',
+									extmetadata: {
+										LicenseShortName: { value: 'Public domain' }
+									}
+								}
+							]
+						}
+					}
+				}
+			});
+		});
+		const connector = createWikidataConnector({ fetch: fetchMock, cache: testConnectorCache() });
+
+		const item = await connector.getById('wikidata-Q12418');
+
+		expect(item.rawMetadata.commons).toMatchObject({ width: 1200, height: 1800 });
+		expect(item.imageUrl).toBe('https://upload.wikimedia.org/wikipedia/commons/mona.jpg');
+		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
 
 	it('extracts Commons filenames from Special:FilePath URLs', () => {
@@ -181,7 +260,9 @@ describe('Wikidata connector helpers', () => {
 		expect(request.init.headers).toMatchObject({
 			'content-type': 'application/x-www-form-urlencoded'
 		});
-		expect(new URLSearchParams(request.init.body?.toString()).get('query')).toContain('?item ?p ?o');
+		expect(new URLSearchParams(request.init.body?.toString()).get('query')).toContain(
+			'?item ?p ?o'
+		);
 	});
 
 	it('parses namespaced Wikidata ids', () => {
@@ -330,14 +411,45 @@ describe('Wikidata connector', () => {
 		expect(page.items[0]?.tags).toEqual(['hand']);
 	});
 
+	it('keeps Wikidata search results when optional Commons enrichment is temporarily unavailable', async () => {
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			const url = new URL(input.toString());
+			if (url.hostname === 'query.wikidata.org') {
+				return Response.json({
+					results: {
+						bindings: [monaLisaBinding]
+					}
+				});
+			}
+			if (url.hostname === 'commons.wikimedia.org') {
+				return Response.json({ error: { code: 'maxlag', lag: 6 } });
+			}
+			throw new Error(`Unexpected fetch: ${url}`);
+		});
+
+		const connector = createWikidataConnector({ fetch: fetchMock, requestsPerSecond: 1000 });
+		const page = await connector.search({
+			depicts: [{ id: 'Q33767', label: 'hand', description: null }],
+			limit: 20
+		});
+
+		expect(page.items).toHaveLength(1);
+		expect(page.items[0]).toMatchObject({
+			id: 'wikidata-Q12418',
+			imageUrl: 'http://commons.wikimedia.org/wiki/Special:FilePath/Mona_Lisa.jpg'
+		});
+	});
+
 	it('searches title mode through Action API candidates before SPARQL details', async () => {
 		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
 			const url = new URL(input.toString());
 			if (url.hostname === 'www.wikidata.org') {
-				expect(url.searchParams.get('action')).toBe('wbsearchentities');
-				expect(url.searchParams.get('search')).toBe('Mona Lisa');
+				expect(url.searchParams.get('action')).toBe('query');
+				expect(url.searchParams.get('list')).toBe('search');
+				expect(url.searchParams.get('srsearch')).toContain('Mona Lisa');
+				expect(url.searchParams.get('srsearch')).toContain('haswbstatement:P31=Q3305213');
 				return Response.json({
-					search: [{ id: 'Q12418', label: 'Mona Lisa', description: 'painting by Leonardo da Vinci' }]
+					query: { search: [{ title: 'Q12418', snippet: 'painting by Leonardo da Vinci' }] }
 				});
 			}
 			if (url.hostname === 'query.wikidata.org') {
@@ -361,6 +473,63 @@ describe('Wikidata connector', () => {
 		expect(page.items[0]).toMatchObject({
 			id: 'wikidata-Q12418',
 			title: 'Mona Lisa'
+		});
+	});
+
+	it('routes Wikimedia reference mode through Commons reference search', async () => {
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			const url = new URL(input.toString());
+			if (url.hostname === 'query.wikidata.org') {
+				throw new Error('Reference mode should not use artwork SPARQL for Commons-only results.');
+			}
+			if (url.searchParams.get('list') === 'search' && url.searchParams.get('srnamespace') === '14') {
+				return Response.json({ query: { search: [] } });
+			}
+			if (url.searchParams.get('list') === 'search' && url.searchParams.get('srnamespace') === '6') {
+				return Response.json({ query: { search: [{ title: 'File:Female lion.jpg' }] } });
+			}
+			if (url.searchParams.get('prop') === 'imageinfo') {
+				return Response.json({
+					query: {
+						pages: {
+							'1': {
+								title: 'File:Female lion.jpg',
+								imageinfo: [
+									{
+										url: 'https://upload.wikimedia.org/female-lion.jpg',
+										thumburl: 'https://upload.wikimedia.org/thumb/female-lion.jpg',
+										width: 1200,
+										height: 900,
+										mime: 'image/jpeg',
+										extmetadata: { LicenseShortName: { value: 'CC0' } }
+									}
+								]
+							}
+						}
+					}
+				});
+			}
+			throw new Error(`Unexpected fetch: ${url}`);
+		});
+		const connector = createWikidataConnector({
+			fetch: fetchMock,
+			actionRequestsPerSecond: 1000,
+			cache: testConnectorCache()
+		});
+
+		const page = await connector.search({
+			wikimediaMode: 'reference',
+			wikimediaReferenceTokens: [
+				{ kind: 'entity', id: 'Q140', label: 'lion', description: null, role: 'subject' },
+				{ kind: 'text', value: 'female', match: 'boost' }
+			],
+			limit: 20
+		});
+
+		expect(page.items[0]).toMatchObject({
+			id: expect.stringMatching(/^wikidata-commons-/),
+			title: 'Female lion.jpg',
+			imageUrl: 'https://upload.wikimedia.org/female-lion.jpg'
 		});
 	});
 
@@ -452,7 +621,10 @@ describe('Wikidata connector', () => {
 										url: 'https://upload.wikimedia.org/gallery.jpg',
 										extmetadata: {
 											ImageDescription: { value: 'Visitors looking at paintings in a gallery' },
-											Categories: { value: 'Museum interiors|Art exhibitions|Flickr images reviewed by FlickreviewR' },
+											Categories: {
+												value:
+													'Museum interiors|Art exhibitions|Flickr images reviewed by FlickreviewR'
+											},
 											Artist: { value: 'A museum visitor' },
 											LicenseShortName: { value: 'CC BY-SA 4.0' }
 										}
@@ -482,7 +654,9 @@ describe('Wikidata connector', () => {
 										url: 'https://upload.wikimedia.org/mountains.jpg',
 										extmetadata: {
 											ImageDescription: { value: 'Monte San Antón, Montes de Málaga, Spain' },
-											Categories: { value: 'Mountains in Andalusia|Flickr images reviewed by FlickreviewR' },
+											Categories: {
+												value: 'Mountains in Andalusia|Flickr images reviewed by FlickreviewR'
+											},
 											LicenseShortName: { value: 'CC BY 2.0' }
 										}
 									}
@@ -554,14 +728,19 @@ describe('Wikidata connector', () => {
 	it('loads a single Wikidata item by namespaced id', async () => {
 		const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
 			const url = new URL(input.toString());
-			if (url.hostname !== 'query.wikidata.org') throw new Error(`Unexpected fetch: ${url}`);
-			expect(init?.method).toBe('GET');
-			expect(url.searchParams.get('query')).toContain('wd:Q12418');
-			return Response.json({
-				results: {
-					bindings: [monaLisaBinding]
-				}
-			});
+			if (url.hostname === 'query.wikidata.org') {
+				expect(init?.method).toBe('GET');
+				expect(url.searchParams.get('query')).toContain('wd:Q12418');
+				return Response.json({
+					results: {
+						bindings: [monaLisaBinding]
+					}
+				});
+			}
+			if (url.hostname === 'commons.wikimedia.org') {
+				return Response.json({ error: { code: 'maxlag', lag: 8 } }, { status: 503 });
+			}
+			throw new Error(`Unexpected fetch: ${url}`);
 		});
 
 		const connector = createWikidataConnector({ fetch: fetchMock, requestsPerSecond: 1000 });

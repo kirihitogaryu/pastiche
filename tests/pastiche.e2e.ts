@@ -225,6 +225,33 @@ test('desktop library and explore surfaces are navigable', async ({ page }) => {
 	await page.goto('/');
 
 	const primary = page.getByRole('navigation', { name: 'Primary' });
+	await primary.getByRole('button', { name: 'Atlas' }).click();
+	await expect(page.getByRole('region', { name: 'Atlas home' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Atlas' })).toBeVisible();
+	await expect(
+		page.getByRole('button', { name: 'Open Atlas inspect for Crimson Horizon' })
+	).toBeVisible();
+	await expect(page.getByRole('region', { name: /Atlas inspect Crimson Horizon/ })).toHaveCount(0);
+	await expect(page.getByText('No library assets are available yet.')).toHaveCount(0);
+	await page.getByRole('button', { name: 'Open Atlas inspect for Crimson Horizon' }).click();
+	await expect(page.getByRole('region', { name: /Atlas inspect Crimson Horizon/ })).toBeVisible();
+	await expect(page.getByPlaceholder('Search artwork, artists, or collections...')).toHaveCount(0);
+	const atlasViewer = page.getByRole('img', { name: /Interactive preview of Crimson Horizon/ });
+	await expect(atlasViewer).toBeVisible();
+	await atlasViewer.hover();
+	await page.mouse.wheel(0, -400);
+	await expect(page.getByText('112%')).toBeVisible();
+	await page.getByRole('button', { name: 'Back to Atlas' }).click();
+	await expect(page.getByRole('region', { name: 'Atlas home' })).toBeVisible();
+	await page.getByRole('button', { name: 'Open Atlas wiki' }).click();
+	await expect(page.getByRole('region', { name: 'Atlas wiki' })).toBeVisible();
+	await page.getByLabel('Search wiki').fill('serpent');
+	await page.getByRole('button', { name: 'Open wiki entry serpent' }).click();
+	await expect(page.getByRole('heading', { name: 'Serpent' })).toBeVisible();
+	await expect(page.getByText('Allowed Classifiers')).toBeVisible();
+	await page.getByRole('button', { name: 'Back to Atlas home' }).click();
+	await expect(page.getByRole('region', { name: 'Atlas home' })).toBeVisible();
+
 	await primary.getByRole('button', { name: 'Library' }).click();
 	await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
 	await expect(page.getByRole('button', { name: /View Full Library/ })).toBeVisible();
@@ -241,6 +268,23 @@ test('desktop library and explore surfaces are navigable', async ({ page }) => {
 	await page.getByRole('button', { name: 'Inspect Crimson Horizon' }).click();
 	await expect(page.getByRole('heading', { name: 'Crimson Horizon' })).toBeVisible();
 	await expect(page.getByRole('complementary', { name: 'Image inspector' })).toBeVisible();
+	await page.getByRole('button', { name: 'Open in Atlas' }).click();
+	await expect(primary.getByRole('button', { name: 'Atlas' })).toHaveClass(/active/);
+	await expect(page.getByRole('region', { name: /Atlas inspect Crimson Horizon/ })).toBeVisible();
+	await expect(page.getByPlaceholder('Search artwork, artists, or collections...')).toHaveCount(0);
+	await expect(page.getByRole('complementary', { name: 'Atlas asset metadata' })).toBeVisible();
+	await expect(page.getByLabel('Filter metadata')).toBeVisible();
+	await expect(page.getByText('Canonical Visual Tags')).toBeVisible();
+	await expect(page.getByText('Annotations / Regions')).toBeVisible();
+	await expect(page.getByText('landscape')).toBeVisible();
+	await expect(page.getByText('position: center')).toBeVisible();
+	await page.getByLabel('Filter metadata').fill('source');
+	await expect(page.getByText('Source Claims')).toBeVisible();
+	await expect(page.getByText('AI Generation Metadata')).toBeVisible();
+	await primary.getByRole('button', { name: 'Library' }).click();
+	await expect(page.getByRole('heading', { name: 'All Library' })).toBeVisible();
+	await page.getByRole('button', { name: 'Inspect Crimson Horizon' }).click();
+	await expect(page.getByRole('heading', { name: 'Crimson Horizon' })).toBeVisible();
 	await page.getByRole('button', { name: 'Crimson Horizon actions' }).click();
 	await expect(page.getByRole('menu', { name: 'Crimson Horizon actions' })).toBeVisible();
 

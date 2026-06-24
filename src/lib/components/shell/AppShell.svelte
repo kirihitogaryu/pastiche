@@ -8,10 +8,11 @@
 		setShellScrolled,
 		setMode
 	} from '$lib/state/app-state.svelte';
+	import AtlasWorkspace from '$lib/components/atlas/AtlasWorkspace.svelte';
 	import ExploreWorkspace from '$lib/components/explore/ExploreWorkspace.svelte';
-	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
 	import FilterPanel from '$lib/components/filters/FilterPanel.svelte';
 	import HomeHub from '$lib/components/home/HomeHub.svelte';
+	import FocusedAssetPreview from '$lib/components/inspector/FocusedAssetPreview.svelte';
 	import MobileInspect from '$lib/components/inspector/MobileInspect.svelte';
 	import LibraryWorkspace from '$lib/components/library/LibraryWorkspace.svelte';
 	import ModeRail from '$lib/components/shell/ModeRail.svelte';
@@ -21,17 +22,22 @@
 	import BottomNav from '$lib/components/ui/BottomNav.svelte';
 	import SelectionBar from '$lib/components/ui/SelectionBar.svelte';
 	import { libraryState } from '$lib/state/library-state.svelte';
+	import type { Asset } from '$lib/types';
 
 	let selectedAsset = $derived(
 		libraryState.snapshot.assets.find((asset) => asset.id === appState.selectedAssetId) ?? null
 	);
+	let mobilePreviewAsset = $state<Asset | null>(null);
+	let atlasInspectActive = $derived(appState.mode === 'atlas' && appState.atlasView === 'asset');
 </script>
 
 <div class="app-shell">
 	<ModeRail mode={appState.mode} onSelect={setMode} />
 	<div class="app-main">
-		<TopBar mode={appState.mode} />
-		<MobileHeader mode={appState.mode} compact={appState.shellScrolled} />
+		{#if !atlasInspectActive}
+			<TopBar mode={appState.mode} />
+			<MobileHeader mode={appState.mode} compact={appState.shellScrolled} />
+		{/if}
 		<main
 			id="main-content"
 			class="workspace"
@@ -43,6 +49,8 @@
 				<LibraryWorkspace />
 			{:else if appState.mode === 'explore'}
 				<ExploreWorkspace />
+			{:else if appState.mode === 'atlas'}
+				<AtlasWorkspace />
 			{:else}
 				<section class="placeholder" aria-label={`${appState.mode} workspace placeholder`}>
 					<p>{appState.mode}</p>
@@ -64,11 +72,18 @@
 {/if}
 
 {#if appState.mobileState === 'inspecting' && selectedAsset}
-	<MobileInspect asset={selectedAsset} onClose={closeMobileInspect} />
+	<MobileInspect
+		asset={selectedAsset}
+		onClose={closeMobileInspect}
+		onPreview={(asset) => (mobilePreviewAsset = asset)}
+	/>
+{/if}
+
+{#if mobilePreviewAsset}
+	<FocusedAssetPreview asset={mobilePreviewAsset} onClose={() => (mobilePreviewAsset = null)} />
 {/if}
 
 {#if appState.filterOpen}
-	<FilterDrawer />
 	<FilterPanel />
 {/if}
 

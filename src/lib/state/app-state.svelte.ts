@@ -4,12 +4,165 @@ import type {
 	ExploreSubject,
 	ExploreSuggestion,
 	SourceId,
+	WikimediaMode,
+	WikimediaReferenceFilters,
+	WikimediaReferenceToken,
 	WikidataSearchMode
 } from '$lib/explore/types';
+
+export type LibraryFilterState = {
+	favoritesOnly: boolean;
+	untaggedOnly: boolean;
+	missingSourceOnly: boolean;
+	folderId: string | null;
+	projectId: string | null;
+	tagIds: string[];
+	sourceTypes: string[];
+	importers: string[];
+	metadata: {
+		medium: string | null;
+		type: string | null;
+		department: string | null;
+		culture: string | null;
+		period: string | null;
+		rights: string | null;
+	};
+	orientation: 'portrait' | 'landscape' | 'square' | null;
+};
+
+export type ExploreSourceFilterState = {
+	met: {
+		publicDomainOnly: boolean;
+		isHighlightOnly: boolean;
+		yearFrom: number | null;
+		yearTo: number | null;
+		medium: string | null;
+		department: string | null;
+	};
+	artic: {
+		publicDomainOnly: boolean;
+		mediumCategory: string | null;
+		objectName: string | null;
+		department: string | null;
+		cultureLocation: string | null;
+		movementEra: string | null;
+	};
+	wikidata: {
+		yearFrom: number | null;
+		yearTo: number | null;
+		hasImageOnly: boolean;
+		reference: WikimediaReferenceFilters;
+	};
+};
+
+export type ExploreFacetOption = {
+	value: string;
+	label: string;
+	count: number;
+};
+
+export type ExploreFilterOptionsState = {
+	artic: {
+		mediumCategories: ExploreFacetOption[];
+		objectNames: ExploreFacetOption[];
+		departments: ExploreFacetOption[];
+		cultureLocations: ExploreFacetOption[];
+		movementEras: ExploreFacetOption[];
+	};
+};
+
+export type AtlasView = 'home' | 'asset' | 'wiki' | 'review';
+
+export function defaultLibraryFilters(): LibraryFilterState {
+	return {
+		favoritesOnly: false,
+		untaggedOnly: false,
+		missingSourceOnly: false,
+		folderId: null,
+		projectId: null,
+		tagIds: [],
+		sourceTypes: [],
+		importers: [],
+		metadata: {
+			medium: null,
+			type: null,
+			department: null,
+			culture: null,
+			period: null,
+			rights: null
+		},
+		orientation: null
+	};
+}
+
+export function defaultExploreFilters(): ExploreSourceFilterState {
+	return {
+		met: {
+			publicDomainOnly: false,
+			isHighlightOnly: false,
+			yearFrom: null,
+			yearTo: null,
+			medium: null,
+			department: null
+		},
+		artic: {
+			publicDomainOnly: false,
+			mediumCategory: null,
+			objectName: null,
+			department: null,
+			cultureLocation: null,
+			movementEra: null
+		},
+		wikidata: {
+			yearFrom: null,
+			yearTo: null,
+			hasImageOnly: true,
+			reference: defaultWikimediaReferenceFilters()
+		}
+	};
+}
+
+export function defaultWikimediaReferenceFilters(): WikimediaReferenceFilters {
+	return {
+		subjects: [],
+		qualifiers: [],
+		formats: [
+			'photograph',
+			'artwork',
+			'illustration',
+			'printmaking',
+			'poster',
+			'sculpture_object',
+			'texture'
+		],
+		quality: 'valued',
+		includeWikidataArt: true,
+		includeCommonsStructured: true,
+		includeCommonsCategories: true,
+		includeCommonsText: true,
+		excludeSvg: true,
+		minResolution: 'standard'
+	};
+}
+
+export function defaultExploreFilterOptions(): ExploreFilterOptionsState {
+	return {
+		artic: {
+			mediumCategories: [],
+			objectNames: [],
+			departments: [],
+			cultureLocations: [],
+			movementEras: []
+		}
+	};
+}
 
 export const appState = $state({
 	mode: 'home' as AppMode,
 	selectedAssetId: null as string | null,
+	atlasView: 'home' as AtlasView,
+	activeAtlasAssetId: null as string | null,
+	activeAtlasWikiSlug: null as string | null,
 	selectedAssetIds: [] as string[],
 	mobileState: 'browse' as MobileState,
 	addOpen: false,
@@ -29,10 +182,15 @@ export const appState = $state({
 	exploreCommittedQuery: '',
 	exploreSuggestions: [] as ExploreSuggestion[],
 	exploreQueryPatch: null as Partial<ExploreQuery> | null,
+	libraryFilters: defaultLibraryFilters(),
+	exploreFilters: defaultExploreFilters(),
+	exploreFilterOptions: defaultExploreFilterOptions(),
 	exploreSourceId: 'met' as SourceId,
 	exploreSourceLabel: 'The Met',
+	wikimediaMode: 'art' as WikimediaMode,
 	wikidataMode: 'depicts' as WikidataSearchMode,
 	wikidataSubjects: [] as ExploreSubject[],
+	wikimediaReferenceTokens: [] as WikimediaReferenceToken[],
 	wikidataEntitySuggestions: [] as ExploreSubject[],
 	wikidataEntityLoading: false,
 	wikidataEntityError: null as string | null,
@@ -48,6 +206,10 @@ export function setMode(mode: AppMode) {
 	}
 
 	appState.mode = mode;
+	if (mode === 'atlas') {
+		appState.atlasView = 'home';
+		appState.activeAtlasAssetId = null;
+	}
 	appState.mobileState = 'browse';
 	appState.addOpen = false;
 	appState.inspectorOpen = mode === 'explore';
@@ -102,12 +264,83 @@ export function addWikidataSubject(subject: ExploreSubject) {
 	appState.wikidataEntityError = null;
 }
 
+export function addWikimediaReferenceEntity(subject: ExploreSubject) {
+	if (
+		appState.wikimediaReferenceTokens.some(
+			(token) => token.kind === 'entity' && token.id === subject.id
+		)
+	) {
+		return;
+	}
+	const hasSubject = appState.wikimediaReferenceTokens.some(
+		(token) => token.kind === 'entity' && token.role === 'subject'
+	);
+	appState.wikimediaReferenceTokens = [
+		...appState.wikimediaReferenceTokens,
+		{
+			kind: 'entity',
+			id: subject.id,
+			label: subject.label,
+			description: subject.description,
+			role: hasSubject ? 'qualifier' : 'subject'
+		}
+	];
+	appState.query = '';
+	appState.exploreCommittedQuery = '';
+	appState.wikidataEntitySuggestions = [];
+	appState.wikidataEntityError = null;
+}
+
+export function addWikimediaReferenceText(value: string) {
+	const trimmed = value.trim();
+	if (!trimmed) return;
+	if (
+		appState.wikimediaReferenceTokens.some(
+			(token) => token.kind === 'text' && token.value.toLowerCase() === trimmed.toLowerCase()
+		)
+	) {
+		appState.query = '';
+		return;
+	}
+	appState.wikimediaReferenceTokens = [
+		...appState.wikimediaReferenceTokens,
+		{ kind: 'text', value: trimmed, match: 'boost' }
+	];
+	appState.query = '';
+	appState.exploreCommittedQuery = '';
+	appState.wikidataEntitySuggestions = [];
+	appState.wikidataEntityError = null;
+}
+
+export function removeWikimediaReferenceToken(index: number) {
+	appState.wikimediaReferenceTokens = appState.wikimediaReferenceTokens.filter(
+		(_, itemIndex) => itemIndex !== index
+	);
+}
+
+export function clearWikimediaReferenceTokens() {
+	appState.wikimediaReferenceTokens = [];
+	appState.wikidataEntitySuggestions = [];
+	appState.wikidataEntityError = null;
+	appState.wikidataEntityLoading = false;
+}
+
 export function removeWikidataSubject(id: string) {
 	appState.wikidataSubjects = appState.wikidataSubjects.filter((subject) => subject.id !== id);
 }
 
 export function clearWikidataSubjects() {
 	appState.wikidataSubjects = [];
+	appState.wikidataEntitySuggestions = [];
+	appState.wikidataEntityError = null;
+	appState.wikidataEntityLoading = false;
+}
+
+export function setWikimediaMode(mode: WikimediaMode) {
+	if (appState.wikimediaMode === mode) return;
+	appState.wikimediaMode = mode;
+	appState.query = '';
+	appState.exploreCommittedQuery = '';
 	appState.wikidataEntitySuggestions = [];
 	appState.wikidataEntityError = null;
 	appState.wikidataEntityLoading = false;
@@ -165,6 +398,14 @@ export function openSmartFolder(id: string) {
 	appState.mobileState = 'browse';
 }
 
+export function openLibraryTag(id: string) {
+	appState.mode = 'library';
+	appState.libraryView = 'tag';
+	appState.lastLibraryView = 'tag';
+	appState.activeTagId = id;
+	appState.mobileState = 'browse';
+}
+
 export function openProjectLibrary(id: string) {
 	appState.mode = 'library';
 	appState.libraryView = 'project';
@@ -173,12 +414,98 @@ export function openProjectLibrary(id: string) {
 	appState.mobileState = 'browse';
 }
 
+export function openAtlasAsset(assetId: string) {
+	appState.activeAtlasAssetId = assetId;
+	appState.activeAtlasWikiSlug = null;
+	appState.selectedAssetId = assetId;
+	appState.atlasView = 'asset';
+	appState.mode = 'atlas';
+	appState.mobileState = 'browse';
+	appState.addOpen = false;
+	appState.filterOpen = false;
+	appState.inspectorOpen = false;
+	appState.shellScrolled = false;
+	appState.focusedPreviewOpen = false;
+}
+
+export function openAtlasHome() {
+	appState.mode = 'atlas';
+	appState.atlasView = 'home';
+	appState.activeAtlasAssetId = null;
+	appState.activeAtlasWikiSlug = null;
+	appState.mobileState = 'browse';
+	appState.addOpen = false;
+	appState.filterOpen = false;
+	appState.inspectorOpen = false;
+	appState.shellScrolled = false;
+	appState.focusedPreviewOpen = false;
+}
+
+export function openAtlasWiki(slug: string | null = null) {
+	appState.mode = 'atlas';
+	appState.atlasView = 'wiki';
+	appState.activeAtlasAssetId = null;
+	appState.activeAtlasWikiSlug = slug;
+	appState.mobileState = 'browse';
+	appState.addOpen = false;
+	appState.filterOpen = false;
+	appState.inspectorOpen = false;
+	appState.shellScrolled = false;
+	appState.focusedPreviewOpen = false;
+}
+
 export function openFilter() {
 	appState.filterOpen = true;
 }
 
 export function closeFilter() {
 	appState.filterOpen = false;
+}
+
+export function updateLibraryFilters(patch: Partial<LibraryFilterState>) {
+	appState.libraryFilters = {
+		...appState.libraryFilters,
+		...patch,
+		metadata: {
+			...appState.libraryFilters.metadata,
+			...(patch.metadata ?? {})
+		}
+	};
+}
+
+export function resetLibraryFilters() {
+	appState.libraryFilters = defaultLibraryFilters();
+}
+
+export function setExploreFilterOptions(options: ExploreFilterOptionsState) {
+	appState.exploreFilterOptions = options;
+}
+
+export function updateExploreFilter<T extends SourceId>(
+	source: T,
+	patch: Partial<ExploreSourceFilterState[T]>
+) {
+	appState.exploreFilters = {
+		...appState.exploreFilters,
+		[source]: {
+			...appState.exploreFilters[source],
+			...patch
+		}
+	};
+	appState.exploreQueryPatch = null;
+}
+
+export function resetExploreFilters(source?: SourceId) {
+	if (!source) {
+		appState.exploreFilters = defaultExploreFilters();
+		appState.exploreQueryPatch = null;
+		return;
+	}
+	appState.exploreFilters = {
+		...appState.exploreFilters,
+		[source]: defaultExploreFilters()[source]
+	};
+	appState.exploreQueryPatch = null;
 }
 
 export function selectAsset(asset: Asset) {

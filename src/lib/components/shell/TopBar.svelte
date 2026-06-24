@@ -1,26 +1,55 @@
 <script lang="ts">
 	import FunnelIcon from 'phosphor-svelte/lib/FunnelIcon';
-	import SquaresFourIcon from 'phosphor-svelte/lib/SquaresFourIcon';
-	import ListBulletsIcon from 'phosphor-svelte/lib/ListBulletsIcon';
+	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
+	import HashIcon from 'phosphor-svelte/lib/HashIcon';
+	import TagChevronIcon from 'phosphor-svelte/lib/TagChevronIcon';
+	import StackIcon from 'phosphor-svelte/lib/StackIcon';
 	import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
+	import CreateOrganizationPopover from '$lib/components/library/CreateOrganizationPopover.svelte';
 	import SearchBox from '$lib/components/shell/SearchBox.svelte';
 	import type { AppMode } from '$lib/types';
 	import { openAdd, openFilter, setMode } from '$lib/state/app-state.svelte';
+	import { libraryState, setLibrarySnapshot } from '$lib/state/library-state.svelte';
 
 	type Props = {
 		mode: AppMode;
 	};
 
 	let { mode }: Props = $props();
+	type CreateKind = 'folder' | 'project' | 'tag' | 'tag-group';
+
+	let createOpen = $state<CreateKind | null>(null);
+	let createAnchor = $state<{ left: number; top: number } | null>(null);
 
 	const labels: Record<AppMode, string> = {
 		home: 'Home',
 		library: 'Library',
 		explore: 'Explore',
+		atlas: 'Atlas',
 		canvas: 'Canvas',
 		colors: 'Colors',
 		resources: 'Resources'
 	};
+
+	function openCreate(kind: CreateKind, event: MouseEvent) {
+		if (createOpen === kind) {
+			createOpen = null;
+			createAnchor = null;
+			return;
+		}
+		createOpen = kind;
+		createAnchor = anchorFrom(event.currentTarget);
+	}
+
+	function anchorFrom(target: EventTarget | null) {
+		if (!(target instanceof HTMLElement)) return null;
+		const rect = target.getBoundingClientRect();
+		const width = 320;
+		return {
+			left: Math.max(12, Math.min(rect.left, window.innerWidth - width - 12)),
+			top: rect.bottom + 8
+		};
+	}
 </script>
 
 <header class="topbar">
@@ -36,18 +65,88 @@
 			showShortcut
 		/>
 	</div>
+	{#if mode === 'library'}
+		<div class="tool-wrap">
+			<button
+				class="icon-tool"
+				type="button"
+				aria-label="New folder"
+				onclick={(event) => openCreate('folder', event)}
+			>
+				<FolderIcon size={20} />
+			</button>
+			{#if createOpen === 'folder'}
+				<CreateOrganizationPopover
+					kind="folder"
+					library={libraryState.snapshot}
+					anchor={createAnchor}
+					onClose={() => (createOpen = null)}
+					onSnapshot={setLibrarySnapshot}
+				/>
+			{/if}
+		</div>
+		<div class="tool-wrap">
+			<button
+				class="icon-tool"
+				type="button"
+				aria-label="New project"
+				onclick={(event) => openCreate('project', event)}
+			>
+				<StackIcon size={20} />
+			</button>
+			{#if createOpen === 'project'}
+				<CreateOrganizationPopover
+					kind="project"
+					library={libraryState.snapshot}
+					anchor={createAnchor}
+					onClose={() => (createOpen = null)}
+					onSnapshot={setLibrarySnapshot}
+				/>
+			{/if}
+		</div>
+		<div class="tool-wrap">
+			<button
+				class="icon-tool"
+				type="button"
+				aria-label="New tag"
+				onclick={(event) => openCreate('tag', event)}
+			>
+				<HashIcon size={20} />
+			</button>
+			{#if createOpen === 'tag'}
+				<CreateOrganizationPopover
+					kind="tag"
+					library={libraryState.snapshot}
+					anchor={createAnchor}
+					onClose={() => (createOpen = null)}
+					onSnapshot={setLibrarySnapshot}
+				/>
+			{/if}
+		</div>
+		<div class="tool-wrap">
+			<button
+				class="icon-tool"
+				type="button"
+				aria-label="New tag group"
+				onclick={(event) => openCreate('tag-group', event)}
+			>
+				<TagChevronIcon size={20} />
+			</button>
+			{#if createOpen === 'tag-group'}
+				<CreateOrganizationPopover
+					kind="tag-group"
+					library={libraryState.snapshot}
+					anchor={createAnchor}
+					onClose={() => (createOpen = null)}
+					onSnapshot={setLibrarySnapshot}
+				/>
+			{/if}
+		</div>
+	{/if}
 	<button class="tool" type="button" onclick={openFilter}>
 		<FunnelIcon size={20} />
 		<span>Filter</span>
 	</button>
-	<button class="tool" type="button">
-		<span>Sort: Newest</span>
-	</button>
-	<div class="view-toggle" aria-label="View options">
-		<button type="button" aria-label="Grid view"><SquaresFourIcon size={20} weight="fill" /></button
-		>
-		<button type="button" aria-label="List view"><ListBulletsIcon size={20} /></button>
-	</div>
 	<button class="add" type="button" aria-label="Add to Library" onclick={openAdd}>
 		<PlusIcon size={24} />
 	</button>
@@ -77,7 +176,7 @@
 
 	.mode-pill,
 	.tool,
-	.view-toggle,
+	.icon-tool,
 	.add {
 		border: 1px solid var(--color-border);
 		background: var(--color-surface);
@@ -102,6 +201,8 @@
 
 	.tool:hover,
 	.tool:focus-visible,
+	.icon-tool:hover,
+	.icon-tool:focus-visible,
 	.add:hover,
 	.add:focus-visible {
 		border-color: var(--color-border-strong);
@@ -109,8 +210,8 @@
 	}
 
 	.tool,
-	.add,
-	.view-toggle button {
+	.icon-tool,
+	.add {
 		height: 2.55rem;
 		border: 0;
 		color: var(--color-text);
@@ -124,12 +225,17 @@
 		padding: 0 var(--space-4);
 	}
 
-	.view-toggle {
-		display: inline-flex;
-		padding: var(--space-1);
+	.tool-wrap {
+		position: relative;
 	}
 
-	.view-toggle button,
+	.icon-tool {
+		width: 2.55rem;
+		display: grid;
+		place-items: center;
+		padding: 0;
+	}
+
 	.add {
 		width: 2.55rem;
 		display: grid;
@@ -139,11 +245,6 @@
 		transition:
 			background var(--duration-fast) var(--ease-out),
 			color var(--duration-fast) var(--ease-out);
-	}
-
-	.view-toggle button:hover,
-	.view-toggle button:focus-visible {
-		background: var(--color-hover);
 	}
 
 	.add {

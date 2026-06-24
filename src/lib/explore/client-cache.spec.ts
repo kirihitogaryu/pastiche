@@ -52,7 +52,19 @@ describe('Explore client cache keys', () => {
 		});
 
 		expect(first).toBe(second);
-		expect(first.startsWith('explore:search:met:')).toBe(true);
+		expect(first.startsWith('explore:search:v2:met:')).toBe(true);
+	});
+
+	it('uses a versioned search namespace so stale result pages can be invalidated', () => {
+		const key = exploreSearchKey('wikidata', {
+			wikimediaMode: 'reference',
+			wikimediaReferenceTokens: [
+				{ kind: 'entity', id: 'Q271218', label: 'Python', description: null, role: 'subject' }
+			],
+			limit: 40
+		});
+
+		expect(key).toMatch(/^explore:search:v2:wikidata:/);
 	});
 
 	it('keeps Wikimedia artwork search modes in separate search keys', () => {

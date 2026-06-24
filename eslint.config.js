@@ -29,7 +29,12 @@ export default defineConfig(
 		files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
 		languageOptions: {
 			parserOptions: {
-				projectService: true,
+				projectService: {
+					allowDefaultProject: [
+						'extension/sidebar/*.svelte',
+						'extension/sidebar/components/*.svelte'
+					]
+				},
 				extraFileExtensions: ['.svelte'],
 				parser: ts.parser,
 				svelteConfig

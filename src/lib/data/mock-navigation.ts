@@ -4,6 +4,7 @@ export const appModes: Array<{ id: AppMode; label: string }> = [
 	{ id: 'home', label: 'Home' },
 	{ id: 'library', label: 'Library' },
 	{ id: 'explore', label: 'Explore' },
+	{ id: 'atlas', label: 'Atlas' },
 	{ id: 'canvas', label: 'Canvas' },
 	{ id: 'colors', label: 'Colors' },
 	{ id: 'resources', label: 'Resources' }
