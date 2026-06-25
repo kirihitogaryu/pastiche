@@ -1,7 +1,14 @@
 <script lang="ts">
+	import AtlasWikiReferenceEditor from './AtlasWikiReferenceEditor.svelte';
 	import ArrowLeftIcon from 'phosphor-svelte/lib/ArrowLeftIcon';
 	import CaretDownIcon from 'phosphor-svelte/lib/CaretDownIcon';
+	import CheckIcon from 'phosphor-svelte/lib/CheckIcon';
+	import CopySimpleIcon from 'phosphor-svelte/lib/CopySimpleIcon';
 	import MagnifyingGlassIcon from 'phosphor-svelte/lib/MagnifyingGlassIcon';
+	import PencilSimpleIcon from 'phosphor-svelte/lib/PencilSimpleIcon';
+	import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
+	import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
+	import XIcon from 'phosphor-svelte/lib/XIcon';
 	import type { AtlasWikiEntrySummary } from '$lib/atlas/types';
 	import { rankAtlasWikiEntries } from '$lib/atlas/wikiSearch';
 	import { appState, openAtlasAsset, openAtlasHome } from '$lib/state/app-state.svelte';
@@ -49,6 +56,87 @@
 		doc: WikiDoc;
 	};
 
+	type WikiPatchResponse = {
+		entry: AtlasWikiEntry;
+	};
+
+	type NewWikiDraft = {
+		slug: string;
+		label: string;
+		kind: string;
+		category: string;
+		displayGroup: string;
+		shortDefinition: string;
+		longDescription: string;
+		useWhen: string;
+		doNotUseWhen: string;
+		aliases: string;
+		broader: string;
+		narrower: string;
+		related: string;
+		confusable: string;
+		automaticImplications: string;
+		suggestedImplications: string;
+		allowedClassifiers: string;
+		aiGuidance: string;
+		citations: string;
+	};
+
+	type ExampleCandidate = {
+		id: string;
+		title: string;
+		thumbnailUrl: string | null;
+		width: number;
+		height: number;
+		sourceUrl: string | null;
+		visualRole: string | null;
+		role: string | null;
+		subtitle: string;
+	};
+
+	type ExampleCandidatesResponse = {
+		candidates: ExampleCandidate[];
+	};
+
+	type ReviewItem = {
+		slug: string;
+		label: string;
+		kind: string;
+		category: string;
+		displayGroup: string;
+		status: string;
+		maturity: string;
+		shortDefinition: string;
+		usageCount: number;
+		reason: 'missing_wiki' | 'needs_review';
+	};
+
+	type ReviewResponse = {
+		items: ReviewItem[];
+	};
+
+	type WikiDraft = {
+		label: string;
+		shortDefinition: string;
+		longDescription: string;
+		aliases: string;
+		useWhen: string;
+		doNotUseWhen: string;
+		automaticImplications: string;
+		suggestedImplications: string;
+		broader: string;
+		narrower: string;
+		related: string;
+		confusable: string;
+		allowedClassifiers: string;
+		exampleAssetIds: string[];
+		counterexampleAssetIds: string[];
+		aiGuidance: string;
+		citations: string;
+		status: AtlasWikiEntry['status'];
+		maturity: AtlasWikiEntry['maturity'];
+	};
+
 	type BrowseBranch = {
 		name: string;
 		entries: AtlasWikiEntry[];
@@ -71,7 +159,52 @@
 		{ slug: 'style-guide', label: 'Wiki Style Guide' },
 		{ slug: 'artist-entity-style-guide', label: 'Artist Entity Style Guide' },
 		{ slug: 'implication-rules', label: 'Implication Rules' },
-		{ slug: 'ai-agent-tagging-rules', label: 'AI Agent Tagging Rules' }
+		{ slug: 'ai-agent-tagging-rules', label: 'AI Agent Tagging Rules' },
+		{ slug: 'batch-editor-guide', label: 'Batch Editor Guide' }
+	];
+
+	const CATEGORY_OPTIONS = [
+		'object',
+		'subject',
+		'animal',
+		'plant',
+		'architecture',
+		'action',
+		'pose',
+		'composition',
+		'color_light_value',
+		'medium_technique',
+		'style_movement',
+		'theme',
+		'mood',
+		'artist',
+		'work',
+		'character',
+		'ip',
+		'institution',
+		'source',
+		'rights',
+		'classifier',
+		'system'
+	];
+
+	const DISPLAY_GROUP_OPTIONS = [
+		'Objects',
+		'Subjects',
+		'Animals',
+		'Actions and Poses',
+		'Composition',
+		'Color, Light, and Value',
+		'Medium and Technique',
+		'Style and Movement',
+		'Theme and Mood',
+		'Artists and Makers',
+		'Characters',
+		'Mythology and Iconography',
+		'Identity and Source',
+		'Setting and Architecture',
+		'Text and Inscriptions',
+		'Classifiers'
 	];
 
 	let entries = $state<AtlasWikiEntry[]>([]);
@@ -83,6 +216,23 @@
 	let error = $state<string | null>(null);
 	let docError = $state<string | null>(null);
 	let query = $state('');
+	let wikiEditMode = $state(false);
+	let wikiSaving = $state(false);
+	let wikiError = $state<string | null>(null);
+	let wikiDraft = $state<WikiDraft | null>(null);
+	let examplePickerOpen = $state(false);
+	let exampleQuery = $state('');
+	let exampleCandidates = $state<ExampleCandidate[]>([]);
+	let exampleCandidatesLoading = $state(false);
+	let creatingNewTag = $state(false);
+	let newTagDraft = $state<NewWikiDraft>(emptyNewTagDraft());
+	let newTagSaving = $state(false);
+	let newTagError = $state<string | null>(null);
+	let reviewMode = $state(false);
+	let reviewItems = $state<ReviewItem[]>([]);
+	let reviewLoading = $state(false);
+	let reviewError = $state<string | null>(null);
+	let vocabularyExportStatus = $state<string | null>(null);
 
 	let entryBySlug = $derived(new Map(entries.map((entry) => [entry.slug, entry])));
 	let filteredEntries = $derived(
@@ -94,7 +244,7 @@
 			: buildBrowseGroups(filteredEntries)
 	);
 	let activeEntry = $derived(
-		activeDocSlug
+		activeDocSlug || creatingNewTag || reviewMode
 			? null
 			: (entries.find((entry) => entry.slug === activeSlug) ?? filteredEntries[0] ?? null)
 	);
@@ -130,6 +280,9 @@
 	}
 
 	async function loadDoc(slug: string) {
+		creatingNewTag = false;
+		reviewMode = false;
+		closeWikiEditor();
 		activeDocSlug = slug;
 		activeSlug = null;
 		activeDoc = null;
@@ -150,10 +303,316 @@
 	}
 
 	function selectEntry(slug: string) {
+		creatingNewTag = false;
+		reviewMode = false;
 		activeSlug = slug;
 		activeDocSlug = null;
 		activeDoc = null;
+		closeWikiEditor();
 		appState.activeAtlasWikiSlug = slug;
+	}
+
+	function closeWikiEditor() {
+		wikiEditMode = false;
+		wikiSaving = false;
+		wikiError = null;
+		wikiDraft = null;
+		examplePickerOpen = false;
+		exampleQuery = '';
+		exampleCandidates = [];
+	}
+
+	function emptyNewTagDraft(): NewWikiDraft {
+		return {
+			slug: '',
+			label: '',
+			kind: 'visual_tag',
+			category: 'object',
+			displayGroup: 'Objects',
+			shortDefinition: '',
+			longDescription: '',
+			useWhen: '',
+			doNotUseWhen: '',
+			aliases: '',
+			broader: '',
+			narrower: '',
+			related: '',
+			confusable: '',
+			automaticImplications: '',
+			suggestedImplications: '',
+			allowedClassifiers: '',
+			aiGuidance: '',
+			citations: ''
+		};
+	}
+
+	function startNewTagDraft(item?: ReviewItem) {
+		closeWikiEditor();
+		activeSlug = null;
+		activeDocSlug = null;
+		activeDoc = null;
+		reviewMode = false;
+		creatingNewTag = true;
+		newTagDraft = item
+			? {
+					...emptyNewTagDraft(),
+					slug: item.slug,
+					label: item.label,
+					kind: item.kind,
+					category: item.category,
+					displayGroup: item.displayGroup,
+					shortDefinition:
+						item.shortDefinition.startsWith('Needs wiki entry.') ? '' : item.shortDefinition
+				}
+			: emptyNewTagDraft();
+		newTagError = null;
+	}
+
+	function cancelNewTagDraft() {
+		creatingNewTag = false;
+		newTagDraft = emptyNewTagDraft();
+		newTagError = null;
+		activeSlug = entries[0]?.slug ?? null;
+	}
+
+	async function openReviewQueue() {
+		closeWikiEditor();
+		creatingNewTag = false;
+		activeDocSlug = null;
+		activeDoc = null;
+		activeSlug = null;
+		reviewMode = true;
+		reviewLoading = true;
+		reviewError = null;
+		try {
+			const response = await fetch('/api/atlas/wiki/review');
+			const body = (await response.json()) as ReviewResponse | { error?: string };
+			if (!response.ok || !('items' in body)) {
+				throw new Error('error' in body && body.error ? body.error : 'Review queue could not be loaded.');
+			}
+			reviewItems = body.items;
+		} catch (loadError) {
+			reviewError = loadError instanceof Error ? loadError.message : 'Review queue could not be loaded.';
+		} finally {
+			reviewLoading = false;
+		}
+	}
+
+	async function deleteReviewItem(item: ReviewItem) {
+		if (!confirm(`Delete review tag "${item.slug}"? This removes its Atlas assignments too.`)) return;
+		reviewError = null;
+		try {
+			const response = await fetch(`/api/atlas/wiki/review?slug=${encodeURIComponent(item.slug)}`, {
+				method: 'DELETE'
+			});
+			const body = (await response.json()) as { deleted?: boolean; error?: string };
+			if (!response.ok || !body.deleted) {
+				throw new Error(body.error ?? 'Review tag could not be deleted.');
+			}
+			reviewItems = reviewItems.filter((entry) => entry.slug !== item.slug);
+			entries = entries.filter((entry) => entry.slug !== item.slug);
+		} catch (deleteError) {
+			reviewError =
+				deleteError instanceof Error ? deleteError.message : 'Review tag could not be deleted.';
+		}
+	}
+
+	async function copyVocabularyExport(format: 'markdown' | 'json') {
+		vocabularyExportStatus = null;
+		try {
+			const response = await fetch(`/api/atlas/export/vocabulary?format=${format}`);
+			if (!response.ok) throw new Error('Vocabulary export could not be loaded.');
+			const text =
+				format === 'json' ? JSON.stringify(await response.json(), null, 2) : await response.text();
+			await navigator.clipboard.writeText(text);
+			vocabularyExportStatus = format === 'json' ? 'Copied JSON vocabulary.' : 'Copied AI vocabulary.';
+		} catch (exportError) {
+			vocabularyExportStatus =
+				exportError instanceof Error ? exportError.message : 'Vocabulary export could not be copied.';
+		}
+	}
+
+	async function createNewTag() {
+		newTagSaving = true;
+		newTagError = null;
+		try {
+			const payload = {
+				slug: newTagDraft.slug,
+				label: newTagDraft.label,
+				kind: newTagDraft.kind,
+				category: newTagDraft.category,
+				displayGroup: newTagDraft.displayGroup,
+				shortDefinition: newTagDraft.shortDefinition,
+				longDescription: newTagDraft.longDescription,
+				useWhen: splitDraftList(newTagDraft.useWhen),
+				doNotUseWhen: splitDraftList(newTagDraft.doNotUseWhen),
+				aliases: splitDraftList(newTagDraft.aliases),
+				broader: splitDraftList(newTagDraft.broader),
+				narrower: splitDraftList(newTagDraft.narrower),
+				related: splitDraftList(newTagDraft.related),
+				confusable: splitDraftList(newTagDraft.confusable),
+				automaticImplications: splitDraftList(newTagDraft.automaticImplications),
+				suggestedImplications: splitDraftList(newTagDraft.suggestedImplications),
+				allowedClassifiers: splitDraftList(newTagDraft.allowedClassifiers),
+				aiGuidance: newTagDraft.aiGuidance,
+				citations: splitDraftList(newTagDraft.citations),
+				status: 'needs_review',
+				maturity: 'draft'
+			};
+			const response = await fetch('/api/atlas/wiki', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+			const body = (await response.json()) as WikiPatchResponse | { error?: string };
+			if (!response.ok || !('entry' in body)) {
+				throw new Error('error' in body && body.error ? body.error : 'Wiki tag could not be created.');
+			}
+			entries = [...entries, body.entry].sort((left, right) => left.label.localeCompare(right.label));
+			creatingNewTag = false;
+			newTagDraft = emptyNewTagDraft();
+			selectEntry(body.entry.slug);
+		} catch (createError) {
+			newTagError = createError instanceof Error ? createError.message : 'Wiki tag could not be created.';
+		} finally {
+			newTagSaving = false;
+		}
+	}
+
+	function startWikiEditor(entry: AtlasWikiEntry) {
+		wikiEditMode = true;
+		wikiError = null;
+		wikiDraft = draftFromEntry(entry);
+	}
+
+	function draftFromEntry(entry: AtlasWikiEntry): WikiDraft {
+		return {
+			label: entry.label,
+			shortDefinition: entry.shortDefinition,
+			longDescription: entry.longDescription ?? '',
+			aliases: entry.aliases.join('\n'),
+			useWhen: entry.useWhen.join('\n'),
+			doNotUseWhen: entry.doNotUseWhen.join('\n'),
+			automaticImplications: entry.automaticImplications.join('\n'),
+			suggestedImplications: entry.suggestedImplications.join('\n'),
+			broader: entry.broader.join('\n'),
+			narrower: entry.narrower.join('\n'),
+			related: entry.related.join('\n'),
+			confusable: entry.confusable.join('\n'),
+			allowedClassifiers: entry.allowedClassifiers.join('\n'),
+			exampleAssetIds: entry.exampleAssets.map((asset) => asset.id),
+			counterexampleAssetIds: entry.counterexampleAssets.map((asset) => asset.id),
+			aiGuidance: entry.aiGuidance,
+			citations: entry.citations.join('\n'),
+			status: entry.status,
+			maturity: entry.maturity
+		};
+	}
+
+	function splitDraftList(value: string) {
+		return value
+			.split(/[\n,]/)
+			.map((item) => item.trim())
+			.filter(Boolean);
+	}
+
+	function setDraftList(key: keyof WikiDraft, values: string[]) {
+		if (!wikiDraft) return;
+		wikiDraft = { ...wikiDraft, [key]: values.join('\n') };
+	}
+
+	async function saveWikiEntry(entry: AtlasWikiEntry) {
+		if (!wikiDraft) return;
+		wikiSaving = true;
+		wikiError = null;
+		try {
+			const payload = {
+				label: wikiDraft.label.trim(),
+				shortDefinition: wikiDraft.shortDefinition.trim(),
+				longDescription: wikiDraft.longDescription.trim(),
+				aliases: splitDraftList(wikiDraft.aliases),
+				useWhen: splitDraftList(wikiDraft.useWhen),
+				doNotUseWhen: splitDraftList(wikiDraft.doNotUseWhen),
+				automaticImplications: splitDraftList(wikiDraft.automaticImplications),
+				suggestedImplications: splitDraftList(wikiDraft.suggestedImplications),
+				broader: splitDraftList(wikiDraft.broader),
+				narrower: splitDraftList(wikiDraft.narrower),
+				related: splitDraftList(wikiDraft.related),
+				confusable: splitDraftList(wikiDraft.confusable),
+				allowedClassifiers: splitDraftList(wikiDraft.allowedClassifiers),
+				exampleAssetIds: wikiDraft.exampleAssetIds,
+				counterexampleAssetIds: wikiDraft.counterexampleAssetIds,
+				aiGuidance: wikiDraft.aiGuidance.trim(),
+				citations: splitDraftList(wikiDraft.citations),
+				status: wikiDraft.status,
+				maturity: wikiDraft.maturity
+			};
+			const response = await fetch(`/api/atlas/wiki/${entry.slug}`, {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+			const body = (await response.json()) as WikiPatchResponse | { error?: string };
+			if (!response.ok || !('entry' in body)) {
+				throw new Error('error' in body && body.error ? body.error : 'Wiki entry could not be saved.');
+			}
+			entries = entries.map((item) => (item.slug === body.entry.slug ? body.entry : item));
+			activeSlug = body.entry.slug;
+			closeWikiEditor();
+		} catch (saveError) {
+			wikiError = saveError instanceof Error ? saveError.message : 'Wiki entry could not be saved.';
+		} finally {
+			wikiSaving = false;
+		}
+	}
+
+	async function loadExampleCandidates(entry: AtlasWikiEntry) {
+		exampleCandidatesLoading = true;
+		try {
+			const response = await fetch(
+				`/api/atlas/wiki/${entry.slug}/example-candidates?q=${encodeURIComponent(exampleQuery)}&limit=24`
+			);
+			const body = (await response.json()) as ExampleCandidatesResponse | { error?: string };
+			exampleCandidates = response.ok && 'candidates' in body ? body.candidates : [];
+		} finally {
+			exampleCandidatesLoading = false;
+		}
+	}
+
+	function toggleExamplePicker(entry: AtlasWikiEntry) {
+		examplePickerOpen = !examplePickerOpen;
+		if (examplePickerOpen) void loadExampleCandidates(entry);
+	}
+
+	function addExampleAsset(candidate: ExampleCandidate, kind: 'example' | 'counterexample') {
+		if (!wikiDraft) return;
+		if (kind === 'example') {
+			wikiDraft.exampleAssetIds = [...new Set([...wikiDraft.exampleAssetIds, candidate.id])];
+		} else {
+			wikiDraft.counterexampleAssetIds = [
+				...new Set([...wikiDraft.counterexampleAssetIds, candidate.id])
+			];
+		}
+	}
+
+	function removeExampleAsset(id: string, kind: 'example' | 'counterexample') {
+		if (!wikiDraft) return;
+		if (kind === 'example') {
+			wikiDraft.exampleAssetIds = wikiDraft.exampleAssetIds.filter((assetId) => assetId !== id);
+		} else {
+			wikiDraft.counterexampleAssetIds = wikiDraft.counterexampleAssetIds.filter(
+				(assetId) => assetId !== id
+			);
+		}
+	}
+
+	function exampleAssetForId(entry: AtlasWikiEntry, id: string) {
+		return (
+			entry.exampleAssets.find((asset) => asset.id === id) ??
+			entry.counterexampleAssets.find((asset) => asset.id === id) ??
+			exampleCandidates.find((asset) => asset.id === id) ??
+			null
+		);
 	}
 
 	function buildBrowseGroups(items: AtlasWikiEntry[]): BrowseGroup[] {
@@ -362,6 +821,23 @@
 					{/each}
 				</nav>
 			</details>
+			<div class="nav-actions">
+				<button type="button" class="new-tag-button" onclick={() => startNewTagDraft()}>
+					<PlusIcon size={15} /> New tag
+				</button>
+				<button type="button" class="new-tag-button" onclick={openReviewQueue}>
+					Review tags
+				</button>
+				<button type="button" class="new-tag-button" onclick={() => copyVocabularyExport('markdown')}>
+					<CopySimpleIcon size={15} /> Copy AI vocab
+				</button>
+				<button type="button" class="new-tag-button" onclick={() => copyVocabularyExport('json')}>
+					Copy JSON
+				</button>
+			</div>
+			{#if vocabularyExportStatus}
+				<p class="nav-status">{vocabularyExportStatus}</p>
+			{/if}
 		</div>
 
 		<div class="search-wrap">
@@ -413,7 +889,156 @@
 	</aside>
 
 	<main class="entry-scroll" aria-label="Atlas wiki article">
-		{#if activeEntry}
+		{#if reviewMode}
+			<article class="entry doc-entry entry-animate" aria-label="Atlas wiki review queue">
+				<nav class="breadcrumbs" aria-label="Wiki breadcrumbs">
+					<span>Atlas Wiki</span><span class="crumb-sep">›</span><span class="current">Review tags</span>
+				</nav>
+				<header class="entry-header">
+					<div class="entry-title-row">
+						<div>
+							<h2>Review tags</h2>
+							<p class="definition">
+								Tags without wiki entries and wiki pages that still need approval.
+							</p>
+						</div>
+						<button type="button" class="wiki-action" onclick={openReviewQueue}>Refresh</button>
+					</div>
+				</header>
+				{#if reviewLoading}
+					<div class="state">Loading review queue...</div>
+				{:else if reviewError}
+					<div class="state error">{reviewError}</div>
+				{:else}
+					<div class="review-list">
+						{#each reviewItems as item}
+							<section class="review-row" class:missing={item.reason === 'missing_wiki'}>
+								<div>
+									<p class="review-title">{displayLabel(item.slug)}</p>
+									<p class="review-definition">{item.shortDefinition}</p>
+									<p class="review-meta">
+										{displayLabel(item.kind)} · {displayLabel(item.category)} · {item.displayGroup} ·
+										{item.usageCount} use{item.usageCount === 1 ? '' : 's'}
+									</p>
+								</div>
+								<div class="review-status">
+									<span>{item.reason === 'missing_wiki' ? 'Missing wiki' : 'Needs review'}</span>
+									<span>{displayLabel(item.status)} / {displayLabel(item.maturity)}</span>
+									<button
+										type="button"
+										class="wiki-action"
+										onclick={() =>
+											item.reason === 'missing_wiki'
+												? startNewTagDraft(item)
+												: selectEntry(item.slug)}
+									>
+										{item.reason === 'missing_wiki' ? 'Draft entry' : 'Open'}
+									</button>
+									<button
+										type="button"
+										class="wiki-action danger"
+										aria-label={`Delete ${item.slug}`}
+										onclick={() => deleteReviewItem(item)}
+									>
+										<TrashIcon size={14} /> Delete
+									</button>
+								</div>
+							</section>
+						{/each}
+					</div>
+				{/if}
+			</article>
+		{:else if creatingNewTag}
+			<article class="entry doc-entry entry-animate" aria-label="New Atlas wiki tag">
+				<nav class="breadcrumbs" aria-label="Wiki breadcrumbs">
+					<span>Atlas Wiki</span><span class="crumb-sep">›</span><span class="current">New tag</span>
+				</nav>
+				<header class="entry-header">
+					<div class="entry-title-row">
+						<h2>New tag</h2>
+						<div class="wiki-edit-actions">
+							<button type="button" class="wiki-action primary" disabled={newTagSaving} onclick={createNewTag}>
+								<CheckIcon size={15} /> Create
+							</button>
+							<button type="button" class="wiki-action" disabled={newTagSaving} onclick={cancelNewTagDraft}>
+								<XIcon size={15} /> Cancel
+							</button>
+						</div>
+					</div>
+					{#if newTagError}
+						<p class="wiki-error">{newTagError}</p>
+					{/if}
+					<div class="new-tag-grid">
+						<label class="wiki-field">
+							<span>Slug</span>
+							<input bind:value={newTagDraft.slug} placeholder="python_(mythology)" />
+						</label>
+						<label class="wiki-field">
+							<span>Label</span>
+							<input bind:value={newTagDraft.label} placeholder="Python (mythology)" />
+						</label>
+						<label class="wiki-field">
+							<span>Kind</span>
+							<select bind:value={newTagDraft.kind}>
+								<option value="visual_tag">visual_tag</option>
+								<option value="entity">entity</option>
+								<option value="claim">claim</option>
+								<option value="classifier">classifier</option>
+								<option value="system">system</option>
+							</select>
+						</label>
+						<label class="wiki-field">
+							<span>Category</span>
+							<input
+								bind:value={newTagDraft.category}
+								list="atlas-category-options"
+								placeholder="object, animal, artist..."
+							/>
+							<small>Ontology bucket. Use this for governance and search behavior.</small>
+						</label>
+						<label class="wiki-field">
+							<span>Display group</span>
+							<select bind:value={newTagDraft.displayGroup}>
+								{#each DISPLAY_GROUP_OPTIONS as group}
+									<option value={group}>{group}</option>
+								{/each}
+							</select>
+							<small>Where this appears in the Inspector and Wiki browse index.</small>
+						</label>
+						<label class="wiki-field wide">
+							<span>Short definition</span>
+							<textarea bind:value={newTagDraft.shortDefinition} rows="2"></textarea>
+						</label>
+						<label class="wiki-field wide">
+							<span>Use when</span>
+							<textarea bind:value={newTagDraft.useWhen} rows="4"></textarea>
+						</label>
+						<label class="wiki-field wide">
+							<span>Do not use when</span>
+							<textarea bind:value={newTagDraft.doNotUseWhen} rows="4"></textarea>
+						</label>
+						<div class="wide">
+							<AtlasWikiReferenceEditor
+								label="Related tags"
+								values={splitDraftList(newTagDraft.related)}
+								onChange={(values) => (newTagDraft = { ...newTagDraft, related: values.join('\n') })}
+								placeholder="Search related tags..."
+								emptyText="At least one relationship is required unless this is a simple visible object."
+							/>
+						</div>
+						<label class="wiki-field wide">
+							<span>AI guidance</span>
+							<textarea bind:value={newTagDraft.aiGuidance} rows="4"></textarea>
+						</label>
+					</div>
+					<datalist id="atlas-category-options">
+						{#each CATEGORY_OPTIONS as category}
+							<option value={category}>{displayLabel(category)}</option>
+						{/each}
+					</datalist>
+				</header>
+			</article>
+		{:else if activeEntry}
 			<article class="entry entry-animate" aria-label={`${activeEntry.label} wiki entry`}>
 				<nav class="breadcrumbs" aria-label="Wiki breadcrumbs">
 					{#each articlePath(activeEntry) as item, index}
@@ -423,13 +1048,59 @@
 				</nav>
 
 				<header class="entry-header">
-					<h2>{activeEntry.label}</h2>
-					{#if activeEntry.aliases.length}
-						<p class="aliases">Aliases: {activeEntry.aliases.join(', ')}</p>
+					<div class="entry-title-row">
+						{#if wikiEditMode && wikiDraft}
+							<label class="entry-title-edit">
+								<span>Label</span>
+								<input bind:value={wikiDraft.label} />
+							</label>
+						{:else}
+							<h2>{activeEntry.label}</h2>
+						{/if}
+						<div class="wiki-edit-actions">
+							{#if wikiEditMode && wikiDraft}
+								<button
+									type="button"
+									class="wiki-action primary"
+									disabled={wikiSaving}
+									onclick={() => saveWikiEntry(activeEntry)}
+								>
+									<CheckIcon size={15} /> Save
+								</button>
+								<button type="button" class="wiki-action" disabled={wikiSaving} onclick={closeWikiEditor}>
+									<XIcon size={15} /> Cancel
+								</button>
+							{:else}
+								<button type="button" class="wiki-action primary" onclick={() => startWikiEditor(activeEntry)}>
+									<PencilSimpleIcon size={15} /> Edit wiki
+								</button>
+							{/if}
+						</div>
+					</div>
+					{#if wikiError}
+						<p class="wiki-error">{wikiError}</p>
 					{/if}
-					<p class="definition">{activeEntry.shortDefinition}</p>
-					{#if activeEntry.longDescription}
-						<p class="definition secondary">{activeEntry.longDescription}</p>
+					{#if wikiEditMode && wikiDraft}
+						<label class="wiki-field">
+							<span>Aliases</span>
+							<input bind:value={wikiDraft.aliases} placeholder="One alias per line or comma-separated" />
+						</label>
+						<label class="wiki-field">
+							<span>Short definition</span>
+							<textarea bind:value={wikiDraft.shortDefinition} rows="2"></textarea>
+						</label>
+						<label class="wiki-field">
+							<span>Long description (Markdown)</span>
+							<textarea bind:value={wikiDraft.longDescription} rows="4"></textarea>
+						</label>
+					{:else}
+						{#if activeEntry.aliases.length}
+							<p class="aliases">Aliases: {activeEntry.aliases.join(', ')}</p>
+						{/if}
+						<p class="definition">{activeEntry.shortDefinition}</p>
+						{#if activeEntry.longDescription}
+							<p class="definition secondary">{activeEntry.longDescription}</p>
+						{/if}
 					{/if}
 				</header>
 
@@ -511,25 +1182,184 @@
 					<button type="button" class="entry-link" onclick={() => selectEntry(activeEntry.slug)}>
 						Open tag in Atlas →
 					</button>
+					{#if wikiEditMode && wikiDraft}
+						<div class="example-editor">
+							<div class="example-editor-head">
+								<div>
+									<p class="example-editor-title">Manual examples</p>
+									<p class="example-editor-copy">
+										Auto-derived examples still come from focal or supporting tag usage.
+									</p>
+								</div>
+								<button type="button" class="wiki-action" onclick={() => toggleExamplePicker(activeEntry)}>
+									<PlusIcon size={15} /> {examplePickerOpen ? 'Close picker' : 'Choose assets'}
+								</button>
+							</div>
+							<div class="selected-examples">
+								<section>
+									<p><strong>Examples</strong></p>
+									{#if wikiDraft.exampleAssetIds.length}
+										<div class="selected-example-grid">
+											{#each wikiDraft.exampleAssetIds as id}
+												{@const selected = exampleAssetForId(activeEntry, id)}
+												<div class="selected-example-card">
+													<div class="selected-example-thumb">
+														{#if selected?.thumbnailUrl}
+															<img src={selected.thumbnailUrl} alt="" loading="lazy" />
+														{/if}
+													</div>
+													<div>
+														<p>{selected?.title ?? id}</p>
+														<small>{selected?.visualRole ? displayLabel(selected.visualRole) : 'manual example'}</small>
+													</div>
+													<button type="button" aria-label={`Remove ${id}`} onclick={() => removeExampleAsset(id, 'example')}>
+														<XIcon size={13} />
+													</button>
+												</div>
+											{/each}
+										</div>
+									{:else}
+										<span>none manually pinned</span>
+									{/if}
+								</section>
+								<section>
+									<p><strong>Counterexamples</strong></p>
+									{#if wikiDraft.counterexampleAssetIds.length}
+										<div class="selected-example-grid">
+											{#each wikiDraft.counterexampleAssetIds as id}
+												{@const selected = exampleAssetForId(activeEntry, id)}
+												<div class="selected-example-card">
+													<div class="selected-example-thumb">
+														{#if selected?.thumbnailUrl}
+															<img src={selected.thumbnailUrl} alt="" loading="lazy" />
+														{/if}
+													</div>
+													<div>
+														<p>{selected?.title ?? id}</p>
+														<small>{selected?.visualRole ? displayLabel(selected.visualRole) : 'manual anti-example'}</small>
+													</div>
+													<button
+														type="button"
+														aria-label={`Remove ${id}`}
+														onclick={() => removeExampleAsset(id, 'counterexample')}
+													>
+														<XIcon size={13} />
+													</button>
+												</div>
+											{/each}
+										</div>
+									{:else}
+										<span>none manually pinned</span>
+									{/if}
+								</section>
+							</div>
+							{#if examplePickerOpen}
+								<div class="candidate-picker">
+									<label class="candidate-search">
+										<span>Search tagged assets</span>
+										<input
+											bind:value={exampleQuery}
+											placeholder="Filter by title, source, role..."
+											oninput={() => loadExampleCandidates(activeEntry)}
+										/>
+									</label>
+									{#if exampleCandidatesLoading}
+										<p class="empty-copy">Loading candidates...</p>
+									{:else}
+										<div class="candidate-list">
+											{#each exampleCandidates as candidate}
+												<div class="candidate-row">
+													<div class="candidate-thumb">
+														{#if candidate.thumbnailUrl}
+															<img src={candidate.thumbnailUrl} alt="" loading="lazy" />
+														{/if}
+													</div>
+													<div>
+														<p>{candidate.title}</p>
+														<small>
+															{candidate.subtitle}
+															{#if candidate.role}
+																 · {displayLabel(candidate.role)}
+															{/if}
+														</small>
+													</div>
+													<div class="candidate-actions">
+														<button type="button" onclick={() => addExampleAsset(candidate, 'example')}>
+															Example
+														</button>
+														<button
+															type="button"
+															onclick={() => addExampleAsset(candidate, 'counterexample')}
+														>
+															Anti
+														</button>
+													</div>
+												</div>
+											{/each}
+										</div>
+									{/if}
+								</div>
+							{/if}
+						</div>
+					{/if}
 				</section>
 
 				<section class="info-grid" aria-label="Wiki relationships">
 					<div class="info-block">
 						<h3 class="section-title small">Automatic Implications</h3>
-						{@render ReferenceList(activeEntry.automaticImplications, 'None', 'relation')}
-						{#if activeEntry.suggestedImplications.length}
+						{#if wikiEditMode && wikiDraft}
+							<AtlasWikiReferenceEditor
+								label="Automatic implications"
+								values={splitDraftList(wikiDraft.automaticImplications)}
+								onChange={(values) => setDraftList('automaticImplications', values)}
+								placeholder="Search implication tags..."
+							/>
+							<AtlasWikiReferenceEditor
+								label="Suggested implications"
+								values={splitDraftList(wikiDraft.suggestedImplications)}
+								onChange={(values) => setDraftList('suggestedImplications', values)}
+								placeholder="Search suggested tags..."
+							/>
+						{:else}
+							{@render ReferenceList(activeEntry.automaticImplications, 'None', 'relation')}
+						{/if}
+						{#if !wikiEditMode && activeEntry.suggestedImplications.length}
 							<p class="subhead">Suggested</p>
 							{@render ReferenceList(activeEntry.suggestedImplications, 'None', 'relation')}
 						{/if}
 					</div>
 					<div class="info-block">
 						<h3 class="section-title small">Often Confused With</h3>
-						{@render ReferenceList(activeEntry.confusable, 'None listed', 'relation')}
+						{#if wikiEditMode && wikiDraft}
+							<AtlasWikiReferenceEditor
+								label="Confusable tags"
+								values={splitDraftList(wikiDraft.confusable)}
+								onChange={(values) => setDraftList('confusable', values)}
+								placeholder="Search confusable tags..."
+							/>
+						{:else}
+							{@render ReferenceList(activeEntry.confusable, 'None listed', 'relation')}
+						{/if}
 					</div>
 					<div class="info-block">
 						<h3 class="section-title small">Broader Concepts</h3>
-						{@render ReferenceList(activeEntry.broader, 'None listed', 'relation')}
-						{#if activeEntry.narrower.length}
+						{#if wikiEditMode && wikiDraft}
+							<AtlasWikiReferenceEditor
+								label="Broader concepts"
+								values={splitDraftList(wikiDraft.broader)}
+								onChange={(values) => setDraftList('broader', values)}
+								placeholder="Search broader tags..."
+							/>
+							<AtlasWikiReferenceEditor
+								label="Narrower concepts"
+								values={splitDraftList(wikiDraft.narrower)}
+								onChange={(values) => setDraftList('narrower', values)}
+								placeholder="Search narrower tags..."
+							/>
+						{:else}
+							{@render ReferenceList(activeEntry.broader, 'None listed', 'relation')}
+						{/if}
+						{#if !wikiEditMode && activeEntry.narrower.length}
 							<p class="subhead">Narrower / specific</p>
 							{@render ReferenceList(activeEntry.narrower, 'None', 'relation')}
 						{/if}
@@ -538,28 +1368,54 @@
 						<h3 class="section-title small">
 							{activeEntry.kind === 'classifier' ? 'Allowed Values' : 'Allowed Classifiers'}
 						</h3>
-						{@render ReferenceList(
-							activeEntry.allowedClassifiers,
-							'None listed',
-							activeEntry.kind === 'classifier' ? 'classifier-values' : 'classifier-links'
-						)}
+						{#if wikiEditMode && wikiDraft}
+							<AtlasWikiReferenceEditor
+								label={activeEntry.kind === 'classifier' ? 'Allowed values' : 'Allowed classifiers'}
+								values={splitDraftList(wikiDraft.allowedClassifiers)}
+								onChange={(values) => setDraftList('allowedClassifiers', values)}
+								placeholder="Search classifiers..."
+							/>
+						{:else}
+							{@render ReferenceList(
+								activeEntry.allowedClassifiers,
+								'None listed',
+								activeEntry.kind === 'classifier' ? 'classifier-values' : 'classifier-links'
+							)}
+						{/if}
 					</div>
 				</section>
 
 				<section class="lower-grid">
 					<div class="guidance">
 						<h3 class="section-title">Tagging guidance</h3>
-						{#if activeEntry.useWhen.length}
-							<p><strong>Use when:</strong> {activeEntry.useWhen.join(' ')}</p>
-						{/if}
-						{#if activeEntry.doNotUseWhen.length}
-							<p><strong>Do not use when:</strong> {activeEntry.doNotUseWhen.join(' ')}</p>
-						{/if}
-						{#if activeEntry.related.length}
-							<p>
-								<strong>Related:</strong>
-								{@render InlineReferenceList(activeEntry.related)}
-							</p>
+						{#if wikiEditMode && wikiDraft}
+							<label class="wiki-field">
+								<span>Use when</span>
+								<textarea bind:value={wikiDraft.useWhen} rows="5"></textarea>
+							</label>
+							<label class="wiki-field">
+								<span>Do not use when</span>
+								<textarea bind:value={wikiDraft.doNotUseWhen} rows="5"></textarea>
+							</label>
+							<AtlasWikiReferenceEditor
+								label="Related tags"
+								values={splitDraftList(wikiDraft.related)}
+								onChange={(values) => setDraftList('related', values)}
+								placeholder="Search related tags..."
+							/>
+						{:else}
+							{#if activeEntry.useWhen.length}
+								<p><strong>Use when:</strong> {activeEntry.useWhen.join(' ')}</p>
+							{/if}
+							{#if activeEntry.doNotUseWhen.length}
+								<p><strong>Do not use when:</strong> {activeEntry.doNotUseWhen.join(' ')}</p>
+							{/if}
+							{#if activeEntry.related.length}
+								<p>
+									<strong>Related:</strong>
+									{@render InlineReferenceList(activeEntry.related)}
+								</p>
+							{/if}
 						{/if}
 					</div>
 
@@ -580,11 +1436,37 @@
 							</div>
 							<div>
 								<dt>Status</dt>
-								<dd>{displayLabel(activeEntry.status)}</dd>
+								<dd>
+									{#if wikiEditMode && wikiDraft}
+										<select bind:value={wikiDraft.status} aria-label="Wiki entry status">
+											<option value="active">active</option>
+											<option value="suggested">suggested</option>
+											<option value="needs_review">needs_review</option>
+											<option value="deprecated">deprecated</option>
+											<option value="merged">merged</option>
+											<option value="alias">alias</option>
+											<option value="blocked">blocked</option>
+										</select>
+									{:else}
+										{displayLabel(activeEntry.status)}
+									{/if}
+								</dd>
 							</div>
 							<div>
 								<dt>Wiki maturity</dt>
-								<dd>{displayLabel(activeEntry.maturity)}</dd>
+								<dd>
+									{#if wikiEditMode && wikiDraft}
+										<select bind:value={wikiDraft.maturity} aria-label="Wiki entry maturity">
+											<option value="stub">stub</option>
+											<option value="draft">draft</option>
+											<option value="usable">usable</option>
+											<option value="reviewed">reviewed</option>
+											<option value="locked">locked</option>
+										</select>
+									{:else}
+										{displayLabel(activeEntry.maturity)}
+									{/if}
+								</dd>
 							</div>
 						</dl>
 					</aside>
@@ -592,7 +1474,18 @@
 
 				<section class="ai-guidance">
 					<h3 class="section-title small">AI Tagging Guidance</h3>
-					<p>{activeEntry.aiGuidance}</p>
+					{#if wikiEditMode && wikiDraft}
+						<label class="wiki-field">
+							<span>AI guidance (Markdown)</span>
+							<textarea bind:value={wikiDraft.aiGuidance} rows="4"></textarea>
+						</label>
+						<label class="wiki-field">
+							<span>Citations</span>
+							<textarea bind:value={wikiDraft.citations} rows="3"></textarea>
+						</label>
+					{:else}
+						<p>{activeEntry.aiGuidance}</p>
+					{/if}
 				</section>
 
 				{#if activeEntry.citations.length}
@@ -847,6 +1740,45 @@
 		transform: translateX(0.1rem);
 	}
 
+	.nav-actions {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.45rem;
+		margin-top: 0.65rem;
+	}
+
+	.nav-status {
+		margin: 0.45rem 0 0;
+		color: var(--wiki-muted);
+		font-size: 0.72rem;
+		line-height: 1.35;
+	}
+
+	.new-tag-button {
+		width: 100%;
+		min-height: 2rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.35rem;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-md);
+		background: oklch(100% 0 0 / 0.035);
+		color: var(--wiki-soft);
+		cursor: pointer;
+		transition:
+			border-color var(--duration-fast) var(--ease-out),
+			background var(--duration-fast) var(--ease-out),
+			color var(--duration-fast) var(--ease-out);
+	}
+
+	.new-tag-button:hover,
+	.new-tag-button:focus-visible {
+		border-color: oklch(78% 0.08 78 / 0.45);
+		background: oklch(78% 0.08 78 / 0.08);
+		color: var(--color-text);
+	}
+
 	.search-wrap {
 		position: sticky;
 		top: 0;
@@ -1040,6 +1972,210 @@
 		margin-bottom: 1.65rem;
 	}
 
+	.entry-title-row {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-bottom: 0.8rem;
+	}
+
+	.wiki-edit-actions {
+		display: inline-flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: 0.45rem;
+		padding-top: 0.2rem;
+	}
+
+	.wiki-action {
+		min-height: 2rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.34rem;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-md);
+		background: oklch(100% 0 0 / 0.025);
+		color: var(--wiki-soft);
+		padding: 0 0.72rem;
+		cursor: pointer;
+		transition:
+			border-color var(--duration-fast) var(--ease-out),
+			background var(--duration-fast) var(--ease-out),
+			color var(--duration-fast) var(--ease-out);
+	}
+
+	.wiki-action.primary {
+		border-color: oklch(78% 0.08 78 / 0.38);
+		background: oklch(78% 0.08 78 / 0.075);
+		color: oklch(84% 0.075 78);
+	}
+
+	.wiki-action.danger {
+		border-color: oklch(62% 0.16 28 / 0.28);
+		color: oklch(70% 0.14 28);
+	}
+
+	.wiki-action:hover:not(:disabled),
+	.wiki-action:focus-visible:not(:disabled) {
+		border-color: var(--color-border-strong);
+		background: oklch(100% 0 0 / 0.055);
+		color: var(--color-text);
+	}
+
+	.wiki-action:disabled {
+		cursor: progress;
+		opacity: 0.55;
+	}
+
+	.entry-title-edit {
+		width: min(34rem, 100%);
+		display: grid;
+		gap: 0.3rem;
+		color: var(--wiki-muted);
+		font-size: 0.76rem;
+	}
+
+	.entry-title-edit input {
+		width: 100%;
+		min-height: 2.65rem;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-md);
+		outline: 0;
+		background: oklch(10% 0.007 70 / 0.92);
+		color: var(--color-text);
+		padding: 0.5rem 0.7rem;
+		font-family: var(--font-ui);
+		font-size: 1.25rem;
+		font-weight: 650;
+		transition:
+			border-color var(--duration-fast) var(--ease-out),
+			background var(--duration-fast) var(--ease-out),
+			box-shadow var(--duration-fast) var(--ease-out);
+	}
+
+	.entry-title-edit input:focus {
+		border-color: oklch(78% 0.08 78 / 0.55);
+		background: oklch(12% 0.008 70);
+		box-shadow: 0 0 0 3px oklch(78% 0.08 78 / 0.1);
+	}
+
+	.wiki-field {
+		display: grid;
+		gap: 0.35rem;
+		margin-top: 0.75rem;
+		color: var(--wiki-muted);
+		font-size: 0.76rem;
+	}
+
+	.wiki-field.compact {
+		margin-top: 0.45rem;
+	}
+
+	.wiki-field input,
+	.wiki-field textarea,
+	.wiki-field select,
+	.metadata select,
+	.candidate-search input {
+		width: 100%;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-md);
+		outline: 0;
+		background: oklch(10% 0.007 70 / 0.92);
+		color: var(--color-text);
+		padding: 0.55rem 0.65rem;
+		font: inherit;
+		transition:
+			border-color var(--duration-fast) var(--ease-out),
+			background var(--duration-fast) var(--ease-out),
+			box-shadow var(--duration-fast) var(--ease-out);
+	}
+
+	.wiki-field textarea {
+		resize: vertical;
+		line-height: 1.45;
+	}
+
+	.wiki-field input:focus,
+	.wiki-field textarea:focus,
+	.wiki-field select:focus,
+	.metadata select:focus,
+	.candidate-search input:focus {
+		border-color: oklch(78% 0.08 78 / 0.55);
+		background: oklch(12% 0.008 70);
+		box-shadow: 0 0 0 3px oklch(78% 0.08 78 / 0.1);
+	}
+
+	.wiki-error {
+		margin-bottom: 0.8rem;
+		color: var(--wiki-missing);
+		font-size: 0.86rem;
+	}
+
+	.new-tag-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.75rem 1rem;
+	}
+
+	.new-tag-grid .wide {
+		grid-column: 1 / -1;
+	}
+
+	.wiki-field small {
+		color: var(--wiki-muted);
+		font-size: 0.72rem;
+		line-height: 1.35;
+	}
+
+	.review-list {
+		display: grid;
+		gap: 0.55rem;
+		max-width: 58rem;
+	}
+
+	.review-row {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: 1rem;
+		align-items: start;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-lg);
+		background: oklch(100% 0 0 / 0.018);
+		padding: 0.9rem 1rem;
+	}
+
+	.review-row.missing {
+		border-color: oklch(68% 0.15 28 / 0.32);
+	}
+
+	.review-title {
+		color: var(--color-text);
+		font-size: 1rem;
+		font-weight: 740;
+	}
+
+	.review-definition {
+		margin-top: 0.25rem;
+		color: var(--wiki-soft);
+		font-size: 0.88rem;
+		line-height: 1.45;
+	}
+
+	.review-meta,
+	.review-status span {
+		margin-top: 0.35rem;
+		color: var(--wiki-muted);
+		font-size: 0.78rem;
+	}
+
+	.review-status {
+		display: grid;
+		justify-items: end;
+		gap: 0.35rem;
+	}
+
 	.entry h2 {
 		margin: 0 0 0.8rem;
 		color: var(--color-text);
@@ -1219,6 +2355,174 @@
 		color: var(--wiki-muted);
 		font-size: 0.8rem;
 		line-height: 1.4;
+	}
+
+	.example-editor {
+		margin-top: 1rem;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-lg);
+		background: oklch(100% 0 0 / 0.018);
+		padding: 0.95rem;
+	}
+
+	.example-editor-head {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	.example-editor-title {
+		color: var(--color-text);
+		font-size: 0.86rem;
+		font-weight: 760;
+	}
+
+	.example-editor-copy,
+	.selected-examples,
+	.candidate-row small {
+		color: var(--wiki-muted);
+		font-size: 0.78rem;
+		line-height: 1.4;
+	}
+
+	.selected-examples {
+		display: grid;
+		gap: 0.75rem;
+		margin-top: 0.7rem;
+	}
+
+	.selected-example-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+		gap: 0.45rem;
+		margin-top: 0.35rem;
+	}
+
+	.selected-example-card {
+		display: grid;
+		grid-template-columns: 3rem minmax(0, 1fr) auto;
+		gap: 0.55rem;
+		align-items: center;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-md);
+		background: oklch(100% 0 0 / 0.018);
+		padding: 0.35rem;
+	}
+
+	.selected-example-thumb {
+		width: 3rem;
+		aspect-ratio: 1;
+		overflow: hidden;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-sm);
+		background: oklch(9% 0.007 70);
+	}
+
+	.selected-example-thumb img {
+		width: 100%;
+		height: 100%;
+		display: block;
+		object-fit: cover;
+	}
+
+	.selected-example-card p {
+		color: var(--wiki-soft);
+		font-size: 0.8rem;
+	}
+
+	.selected-example-card button {
+		width: 1.55rem;
+		height: 1.55rem;
+		display: grid;
+		place-items: center;
+		border: 1px solid transparent;
+		border-radius: var(--radius-sm);
+		background: transparent;
+		color: var(--wiki-soft);
+		cursor: pointer;
+	}
+
+	.selected-example-card button:hover,
+	.selected-example-card button:focus-visible {
+		border-color: var(--color-border-soft);
+		color: var(--wiki-missing);
+	}
+
+	.candidate-picker {
+		margin-top: 0.85rem;
+		border-top: 1px solid var(--color-border-soft);
+		padding-top: 0.85rem;
+	}
+
+	.candidate-search {
+		display: grid;
+		gap: 0.3rem;
+		color: var(--wiki-muted);
+		font-size: 0.76rem;
+	}
+
+	.candidate-list {
+		max-height: 18rem;
+		display: grid;
+		gap: 0.35rem;
+		margin-top: 0.7rem;
+		overflow: auto;
+		scrollbar-width: thin;
+		scrollbar-color: oklch(76% 0.012 75 / 0.2) transparent;
+	}
+
+	.candidate-row {
+		display: grid;
+		grid-template-columns: 3.4rem minmax(0, 1fr) auto;
+		gap: 0.65rem;
+		align-items: center;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-md);
+		background: oklch(100% 0 0 / 0.018);
+		padding: 0.4rem;
+	}
+
+	.candidate-thumb {
+		width: 3.4rem;
+		aspect-ratio: 1;
+		overflow: hidden;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-sm);
+		background: oklch(9% 0.007 70);
+	}
+
+	.candidate-thumb img {
+		width: 100%;
+		height: 100%;
+		display: block;
+		object-fit: cover;
+	}
+
+	.candidate-row p {
+		color: var(--wiki-soft);
+		font-size: 0.84rem;
+	}
+
+	.candidate-actions {
+		display: inline-flex;
+		gap: 0.35rem;
+	}
+
+	.candidate-actions button {
+		min-height: 1.75rem;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-sm);
+		background: transparent;
+		color: var(--wiki-soft);
+		padding: 0 0.55rem;
+		cursor: pointer;
+	}
+
+	.candidate-actions button:hover,
+	.candidate-actions button:focus-visible {
+		border-color: var(--color-border-strong);
+		color: var(--color-text);
 	}
 
 	.entry-link {

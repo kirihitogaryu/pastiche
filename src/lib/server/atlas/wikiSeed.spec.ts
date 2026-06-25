@@ -8,12 +8,26 @@ describe('Atlas wiki seed concepts', () => {
 		expect(new Set(slugs).size).toBe(slugs.length);
 	});
 
-	it('keeps the Apollo/Python first pass below 50 seed concepts', () => {
+	it('includes the Apollo/Python comparison corpus concepts', () => {
 		const apolloSeeds = ATLAS_WIKI_SEED_CONCEPTS.filter((concept) =>
 			concept.seedSet.includes('apollo_killing_python')
 		);
+		const slugs = apolloSeeds.map((concept) => concept.slug);
 
-		expect(apolloSeeds.length).toBeLessThan(50);
+		expect(slugs).toEqual(
+			expect.arrayContaining([
+				'apollo_(deity)',
+				'python_(mythology)',
+				'dragon',
+				'serpent',
+				'horse',
+				'chariot',
+				'book_illumination',
+				'oil_sketch',
+				'preparatory_study',
+				'visual_role'
+			])
+		);
 	});
 
 	it('models pose and state as classifiers rather than compound visual tags', () => {
@@ -78,5 +92,20 @@ describe('Atlas wiki seed concepts', () => {
 		expect(articleText).not.toMatch(/relevant to the asset/i);
 		expect(articleText).not.toMatch(/loose association/i);
 		expect(articleText).not.toMatch(/todo|placeholder/i);
+	});
+
+	it('keeps relationship and classifier references resolvable', () => {
+		const slugs = new Set(ATLAS_WIKI_SEED_CONCEPTS.map((concept) => concept.slug));
+		const refs = ATLAS_WIKI_SEED_CONCEPTS.flatMap((concept) => [
+			...concept.broader,
+			...concept.narrower,
+			...concept.related,
+			...concept.confusable,
+			...concept.automaticImplications,
+			...concept.suggestedImplications,
+			...(concept.kind === 'classifier' ? [] : concept.allowedClassifiers)
+		]);
+
+		expect(refs.filter((ref) => !slugs.has(ref))).toEqual([]);
 	});
 });

@@ -40,6 +40,11 @@ const DOCS: Record<string, AtlasWikiDocConfig> = {
 		description: 'Required behavior for agents that suggest or create Atlas metadata.',
 		filename: 'ai-agent-tagging-rules.md'
 	},
+	'batch-editor-guide': {
+		title: 'Batch Editor Guide',
+		description: 'Strict JSON instructions and examples for Atlas batch metadata edits.',
+		filename: 'batch-editor-guide.md'
+	},
 	'wiki-entry-templates': {
 		title: 'Wiki Entry Templates',
 		description: 'Checklists for drafting new Atlas wiki entries.',

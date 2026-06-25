@@ -267,6 +267,66 @@ describe('Atlas wiki helpers', () => {
 			db.close();
 		}
 	});
+
+	it('allows supporting subjects to backfill examples when stronger examples are sparse', () => {
+		const db = openLibraryDatabase();
+		try {
+			applyAtlasWikiSeed(db, '2026-06-05T00:00:00.000Z');
+			insertExampleAsset(db, {
+				id: 'asset-supporting-horse',
+				title: 'Supporting Horse',
+				hash: 'supporting-horse-hash'
+			});
+			const horseId = conceptId(db, 'horse');
+			db.prepare(
+				`insert into atlas_asset_concepts (
+					id, asset_id, concept_id, evidence, provenance, status, note, created_at, updated_at
+				) values (?, ?, ?, 'observed', 'test', 'approved', null, ?, ?)`
+			).run(
+				'asset-concept-supporting-horse',
+				'asset-supporting-horse',
+				horseId,
+				'2026-06-05T00:00:00.000Z',
+				'2026-06-05T00:00:00.000Z'
+			);
+			db.prepare(
+				`insert into atlas_annotations (
+					id, asset_id, label, region_json, source, confidence, status, note, created_at, updated_at
+				) values (?, ?, 'supporting_horse', null, 'test', null, 'approved', null, ?, ?)`
+			).run(
+				'annotation-supporting-horse',
+				'asset-supporting-horse',
+				'2026-06-05T00:00:00.000Z',
+				'2026-06-05T00:00:00.000Z'
+			);
+			db.prepare(
+				`insert into atlas_annotation_concepts (
+					annotation_id, concept_id, evidence, provenance, status, created_at
+				) values (?, ?, 'observed', 'test', 'approved', ?)`
+			).run('annotation-supporting-horse', horseId, '2026-06-05T00:00:00.000Z');
+			db.prepare(
+				`insert into atlas_annotation_classifiers (
+					id, annotation_id, classifier_type, classifier_value, evidence, status, created_at
+				) values (?, ?, 'visual_role', 'supporting_subject', 'observed', 'approved', ?)`
+			).run(
+				'classifier-supporting-horse',
+				'annotation-supporting-horse',
+				'2026-06-05T00:00:00.000Z'
+			);
+
+			const horse = readAtlasWikiEntry(db, 'horse');
+
+			expect(horse?.exampleAssetIds).toContain('asset-supporting-horse');
+			expect(horse?.exampleAssets).toEqual([
+				expect.objectContaining({
+					id: 'asset-supporting-horse',
+					visualRole: 'supporting_subject'
+				})
+			]);
+		} finally {
+			db.close();
+		}
+	});
 });
 
 function insertExampleAsset(

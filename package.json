@@ -12,6 +12,7 @@
 		"build:extension": "vite build --config extension/vite.config.ts",
 		"build:extension:chrome": "vite build --config extension/vite.config.ts",
 		"build:extension:firefox": "BROWSER=firefox vite build --config extension/vite.config.ts",
+		"atlas:agent": "node scripts/atlas-agent.mjs",
 		"install:pastiche": "node scripts/install-pastiche-bin.mjs",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
