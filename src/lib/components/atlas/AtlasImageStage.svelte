@@ -5,10 +5,13 @@
 	import MagnifyingGlassPlusIcon from 'phosphor-svelte/lib/MagnifyingGlassPlusIcon';
 	import TargetIcon from 'phosphor-svelte/lib/TargetIcon';
 	import ArrowsOutSimpleIcon from 'phosphor-svelte/lib/ArrowsOutSimpleIcon';
+	import type { LibraryAssetRecord } from '$lib/library/types';
 	import type { Asset } from '$lib/types';
 
+	type PreviewAsset = Asset & { record?: LibraryAssetRecord };
+
 	type Props = {
-		asset: Asset;
+		asset: PreviewAsset;
 		onPreview?: (asset: Asset) => void;
 	};
 
@@ -21,7 +24,7 @@
 	let annotationsOn = $state(false);
 	let imageFailed = $state(false);
 
-	let imageUrl = $derived(asset.imageUrl);
+	let imageUrl = $derived(asset.record?.image.originalUrl ?? asset.record?.image.previewUrl ?? asset.imageUrl);
 	let title = $derived(asset.title);
 	let scale = $derived(zoom / 100);
 	let transform = $derived(`translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`);

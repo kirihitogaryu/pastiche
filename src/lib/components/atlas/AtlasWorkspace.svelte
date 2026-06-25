@@ -72,6 +72,16 @@
 			loading = false;
 		}
 	}
+
+	function updateLoadedAtlas(updatedAsset: Asset, updatedAtlas: AtlasAssetSummary) {
+		atlas = updatedAtlas;
+		libraryState.snapshot = {
+			...libraryState.snapshot,
+			assets: libraryState.snapshot.assets.map((item) =>
+				item.id === updatedAsset.id ? { ...item, ...updatedAsset } : item
+			)
+		};
+	}
 </script>
 
 {#if appState.atlasView === 'home'}
@@ -86,6 +96,7 @@
 		{error}
 		onBack={openAtlasHome}
 		onPreview={(item) => (previewAsset = item)}
+		onUpdated={updateLoadedAtlas}
 	/>
 {:else if libraryLoading}
 	<section class="empty" aria-label="Atlas loading state">

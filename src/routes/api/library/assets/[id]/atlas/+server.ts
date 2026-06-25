@@ -1,6 +1,7 @@
 import { normalizeAtlasSlug } from '$lib/atlas/normalization';
 import type { AtlasAssetSummary, AtlasConceptAssignment } from '$lib/atlas/types';
 import { mockLibrarySnapshot } from '$lib/library/mock';
+import { patchAtlasAsset } from '$lib/server/atlas/mutate';
 import { getAtlasAssetSummary } from '$lib/server/atlas/read';
 import { getLibrarySnapshot } from '$lib/server/library/read';
 import type { Asset } from '$lib/types';
@@ -24,6 +25,36 @@ export function GET({ params }: { params: { id: string } }) {
 		},
 		{ headers: EXTENSION_CORS_HEADERS }
 	);
+}
+
+export async function PATCH({ params, request }: { params: { id: string }; request: Request }) {
+	let body: unknown;
+	try {
+		body = await request.json();
+	} catch {
+		return Response.json({ error: 'JSON body is required' }, { status: 400 });
+	}
+
+	try {
+		const preview = patchAtlasAsset(params.id, body);
+		const snapshot = getLibrarySnapshot();
+		const asset = snapshot.assets.find((item) => item.id === params.id);
+		if (!asset) {
+			return Response.json(
+				{ error: 'Asset not found' },
+				{ status: 404, headers: EXTENSION_CORS_HEADERS }
+			);
+		}
+		return Response.json(
+			{ asset, atlas: getAtlasAssetSummary(params.id), preview },
+			{ headers: EXTENSION_CORS_HEADERS }
+		);
+	} catch (error) {
+		return Response.json(
+			{ error: error instanceof Error ? error.message : 'Atlas metadata could not be updated.' },
+			{ status: 400, headers: EXTENSION_CORS_HEADERS }
+		);
+	}
 }
 
 function mockAtlasAssetSummary(asset: Asset): AtlasAssetSummary {

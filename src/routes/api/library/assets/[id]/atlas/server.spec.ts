@@ -99,4 +99,273 @@ describe('GET /api/library/assets/[id]/atlas', () => {
 			expect.arrayContaining([expect.objectContaining({ label: 'abstract', status: 'suggested' })])
 		);
 	});
+
+	it('patches Atlas metadata and returns similar assets from shared concepts', async () => {
+		const imported = await importLibraryItems({
+			destination_folder_id: null,
+			items: [
+				{
+					filename: 'Serpent One',
+					storage_mode: 'url_reference',
+					image_data: null,
+					source_image_url: 'https://example.com/serpent-one.jpg',
+					mime_type: 'image/jpeg',
+					natural_width: 1200,
+					natural_height: 800,
+					source_url: 'https://example.com/serpent-one',
+					page_title: 'Serpent One',
+					alt_text: null,
+					captured_at: '2026-05-27T12:00:00.000Z',
+					metadata: { sourceName: 'Manual', tags: [] }
+				},
+				{
+					filename: 'Serpent Two',
+					storage_mode: 'url_reference',
+					image_data: null,
+					source_image_url: 'https://example.com/serpent-two.jpg',
+					mime_type: 'image/jpeg',
+					natural_width: 1000,
+					natural_height: 700,
+					source_url: 'https://example.com/serpent-two',
+					page_title: 'Serpent Two',
+					alt_text: null,
+					captured_at: '2026-05-27T12:00:00.000Z',
+					metadata: { sourceName: 'Manual', tags: [] }
+				}
+			]
+		});
+		const { PATCH } = await import('./+server');
+		for (const item of imported.imported) {
+			const response = await PATCH({
+				params: { id: item.asset_id },
+				request: new Request('http://localhost/api/library/assets/id/atlas', {
+					method: 'PATCH',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						identity: { title: item.asset_id === imported.imported[0].asset_id ? 'Renamed One' : undefined },
+						concepts: [{ slug: 'serpent', evidence: 'observed', status: 'approved' }],
+						annotations: [
+							{
+								label: 'serpent_body',
+								concepts: ['serpent'],
+								classifiers: { visual_role: 'focal_point' }
+							}
+						]
+					})
+				})
+			});
+			expect(response.status).toBe(200);
+		}
+		const { GET } = await import('../../../../atlas/assets/[id]/similar/+server');
+
+		const response = await GET({
+			params: { id: imported.imported[0].asset_id },
+			url: new URL('http://localhost/api/atlas/assets/id/similar?limit=3')
+		});
+		const body = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(body.assets).toEqual(
+			expect.arrayContaining([expect.objectContaining({ title: 'Serpent Two' })])
+		);
+	});
+
+	it('allows user-created concepts without wiki entries as reviewable stubs', async () => {
+		const imported = await importLibraryItems({
+			destination_folder_id: null,
+			items: [
+				{
+					filename: 'Unreviewed Tag Ref',
+					storage_mode: 'url_reference',
+					image_data: null,
+					source_image_url: 'https://example.com/unreviewed.jpg',
+					mime_type: 'image/jpeg',
+					natural_width: 800,
+					natural_height: 600,
+					source_url: 'https://example.com/unreviewed',
+					page_title: 'Unreviewed Tag Ref',
+					alt_text: null,
+					captured_at: '2026-05-27T12:00:00.000Z',
+					metadata: { sourceName: 'Manual', tags: [] }
+				}
+			]
+		});
+		const { PATCH } = await import('./+server');
+
+		const response = await PATCH({
+			params: { id: imported.imported[0].asset_id },
+			request: new Request('http://localhost/api/library/assets/id/atlas', {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					annotations: [
+						{
+							label: 'apollo_archer',
+							concepts: ['apollo_deity'],
+							classifiers: { visual_role: 'setting_context' }
+						}
+					]
+				})
+			})
+		});
+		const body = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(body.atlas.annotations[0].concepts).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					slug: 'apollo_deity',
+					status: 'needs_review',
+					maturity: 'stub'
+				})
+			])
+		);
+		expect(body.atlas.wikiHints.map((entry: { slug: string }) => entry.slug)).not.toContain('apollo_deity');
+	});
+
+	it('resolves aliases and appends concepts when editing an existing annotation', async () => {
+		const imported = await importLibraryItems({
+			destination_folder_id: null,
+			items: [
+				{
+					filename: 'Alias Annotation Ref',
+					storage_mode: 'url_reference',
+					image_data: null,
+					source_image_url: 'https://example.com/alias-annotation.jpg',
+					mime_type: 'image/jpeg',
+					natural_width: 800,
+					natural_height: 600,
+					source_url: 'https://example.com/alias-annotation',
+					page_title: 'Alias Annotation Ref',
+					alt_text: null,
+					captured_at: '2026-05-27T12:00:00.000Z',
+					metadata: { sourceName: 'Manual', tags: [] }
+				}
+			]
+		});
+		const { PATCH } = await import('./+server');
+		const assetId = imported.imported[0].asset_id;
+		await PATCH({
+			params: { id: assetId },
+			request: new Request('http://localhost/api/library/assets/id/atlas', {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					annotations: [
+						{
+							label: 'python_as_dragon',
+							concepts: ['dragon'],
+							classifiers: { visual_role: 'focal_point' }
+						}
+					]
+				})
+			})
+		});
+
+		const response = await PATCH({
+			params: { id: assetId },
+			request: new Request('http://localhost/api/library/assets/id/atlas', {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					annotations: [
+						{
+							label: 'python_as_dragon',
+							concepts: ['wings']
+						}
+					]
+				})
+			})
+		});
+		const body = await response.json();
+		const annotation = body.atlas.annotations.find(
+			(item: { label: string }) => item.label === 'python_as_dragon'
+		);
+
+		expect(response.status).toBe(200);
+		expect(annotation.concepts.map((concept: { slug: string }) => concept.slug)).toEqual(
+			expect.arrayContaining(['dragon', 'wing'])
+		);
+		expect(annotation.concepts.map((concept: { slug: string }) => concept.slug)).not.toContain('wings');
+
+		const removeResponse = await PATCH({
+			params: { id: assetId },
+			request: new Request('http://localhost/api/library/assets/id/atlas', {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					annotations: [
+						{
+							label: 'python_as_dragon',
+							removeConcepts: ['dragon']
+						}
+					]
+				})
+			})
+		});
+		const removeBody = await removeResponse.json();
+		const updatedAnnotation = removeBody.atlas.annotations.find(
+			(item: { label: string }) => item.label === 'python_as_dragon'
+		);
+
+		expect(removeResponse.status).toBe(200);
+		expect(updatedAnnotation.concepts.map((concept: { slug: string }) => concept.slug)).toEqual(['wing']);
+	});
+
+	it('exports a scoped Atlas context packet for outside AI agents', async () => {
+		const imported = await importLibraryItems({
+			destination_folder_id: null,
+			items: [
+				{
+					filename: 'Context Packet Ref',
+					storage_mode: 'url_reference',
+					image_data: null,
+					source_image_url: 'https://example.com/context.jpg',
+					mime_type: 'image/jpeg',
+					natural_width: 900,
+					natural_height: 700,
+					source_url: 'https://example.com/context',
+					page_title: 'Context Packet Ref',
+					alt_text: 'A serpent-like creature in a test image.',
+					captured_at: '2026-05-27T12:00:00.000Z',
+					metadata: { sourceName: 'Manual', tags: [] }
+				}
+			]
+		});
+		const assetId = imported.imported[0].asset_id;
+		const { PATCH } = await import('./+server');
+		await PATCH({
+			params: { id: assetId },
+			request: new Request('http://localhost/api/library/assets/id/atlas', {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					concepts: [{ slug: 'serpent', evidence: 'observed', status: 'approved' }],
+					annotations: [
+						{
+							label: 'serpent_body',
+							concepts: ['serpent'],
+							classifiers: { visual_role: 'focal_point' }
+						}
+					]
+				})
+			})
+		});
+		const { GET } = await import('../../../../atlas/assets/[id]/context-packet/+server');
+
+		const response = await GET({
+			params: { id: assetId },
+			url: new URL('http://localhost/api/atlas/assets/id/context-packet?format=json')
+		});
+		const body = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(body.schema).toBe('pastiche.atlas.asset-context.v1');
+		expect(body.asset.title).toBe('Context Packet Ref');
+		expect(body.relevantVocabulary.serpent).toMatchObject({
+			slug: 'serpent',
+			confusable: expect.arrayContaining(['dragon'])
+		});
+		expect(body.batchJsonContract.visualRoleValues).toContain('focal_point');
+	});
 });

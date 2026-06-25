@@ -29,6 +29,11 @@ const APOLLO_SEED = 'apollo_killing_python';
 const APOLLO_EXAMPLE = 'apollo_killing_the_python';
 const LACMA_SOURCE = 'https://collections.lacma.org/object/64458';
 const GOLTZIUS_SOURCE = 'https://en.wikipedia.org/wiki/Hendrick_Goltzius';
+const MET_TEMPESTA_SOURCE = 'https://www.metmuseum.org/art/collection/search/400882';
+const VAN_GOGH_DELACROIX_SOURCE = 'https://www.vangoghmuseum.nl/en/collection/s0526S2012';
+const COMMONS_BOECKHORST_SOURCE =
+	'https://commons.wikimedia.org/wiki/File:Jan_Boeckhorst_-_Apollo_en_de_Python.JPG';
+const AKG_VERARD_SOURCE = 'https://www.akg-images.fr/search/AAAAAAEAvgsPAAAAAAAAAQ==';
 
 function concept(
 	input: Omit<
@@ -232,10 +237,31 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 		aliases: ['hendrik_goltzius'],
 		displayGroup: 'Artists and Makers',
 		related: ['engraving', 'printmaking', 'old_master_print'],
-		suggestedImplications: ['artist'],
 		citations: [GOLTZIUS_SOURCE],
 		aiGuidance:
 			'AI may apply this artist entity when source metadata names Goltzius. Do not infer by style alone.'
+	}),
+	entity('antonio_tempesta', 'Antonio Tempesta', 'artist', 'Italian artist and printmaker.', {
+		displayGroup: 'Artists and Makers',
+		related: ['etching', 'printmaking', 'old_master_print', 'ovid_metamorphoses'],
+		citations: [MET_TEMPESTA_SOURCE],
+		aiGuidance:
+			'AI may apply this artist entity when source metadata names Antonio Tempesta. Do not infer by style alone.'
+	}),
+	entity('eugene_delacroix', 'Eugene Delacroix', 'artist', 'French Romantic painter.', {
+		aliases: ['eugène_delacroix'],
+		displayGroup: 'Artists and Makers',
+		related: ['oil_sketch', 'preparatory_study', 'painterly_brushwork'],
+		citations: [VAN_GOGH_DELACROIX_SOURCE],
+		aiGuidance:
+			'AI may apply this artist entity when source metadata names Eugene Delacroix. Do not infer by painterly color or Romantic style alone.'
+	}),
+	entity('jan_boeckhorst', 'Jan Boeckhorst', 'artist', 'Flemish-German painter.', {
+		displayGroup: 'Artists and Makers',
+		related: ['painting', 'oil_painting', 'baroque'],
+		citations: [COMMONS_BOECKHORST_SOURCE],
+		aiGuidance:
+			'AI may apply this artist entity when source metadata names Jan Boeckhorst. Do not infer by style alone.'
 	}),
 	entity('apollo_(deity)', 'Apollo', 'mythological_figure', 'Greek and Roman deity.', {
 		displayGroup: 'Characters',
@@ -264,6 +290,16 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 				'AI may apply this named entity only when metadata or iconography identifies the creature as Python.'
 		}
 	),
+	entity('cupid_(deity)', 'Cupid', 'mythological_figure', 'Roman mythological deity of love.', {
+		displayGroup: 'Characters',
+		aliases: ['cupid'],
+		broader: ['classical_mythology'],
+		related: ['wing', 'apollo_(deity)'],
+		allowedClassifiers: ['pose', 'position', 'action_role', 'view', 'visual_role'],
+		citations: [COMMONS_BOECKHORST_SOURCE],
+		aiGuidance:
+			'AI may suggest Cupid when source metadata, title, or clear iconography identifies the winged child figure. Do not apply this entity to every winged child without review.'
+	}),
 	entity(
 		'apollo_killing_the_python',
 		'Apollo Killing the Python',
@@ -274,6 +310,21 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 			broader: ['classical_mythology', 'greek_mythology'],
 			related: ['apollo_(deity)', 'python_(mythology)', 'bow', 'arrow'],
 			citations: [LACMA_SOURCE]
+		}
+	),
+	entity(
+		'ovid_metamorphoses',
+		"Ovid's Metamorphoses",
+		'work',
+		'Classical literary work used as source material for mythological scenes.',
+		{
+			displayGroup: 'Mythology and Iconography',
+			aliases: ['metamorphoses_(ovid)', 'metamorphoses'],
+			broader: ['classical_mythology'],
+			related: ['apollo_killing_the_python', 'apollo_(deity)', 'python_(mythology)'],
+			citations: [MET_TEMPESTA_SOURCE, AKG_VERARD_SOURCE],
+			aiGuidance:
+				'AI may apply this work entity when source metadata identifies Ovid or Metamorphoses as the textual source. Do not apply it from Apollo imagery alone.'
 		}
 	),
 	entity(
@@ -299,6 +350,13 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 			citations: [LACMA_SOURCE]
 		}
 	),
+	entity('mythological_creature', 'mythological creature', 'subject', 'Creature from myth, legend, or folklore.', {
+		displayGroup: 'Mythology and Iconography',
+		related: ['dragon', 'python_(mythology)', 'serpent'],
+		citations: [LACMA_SOURCE, MET_TEMPESTA_SOURCE, AKG_VERARD_SOURCE],
+		aiGuidance:
+			'AI may suggest mythological_creature when source or iconographic context supports a mythic creature. Use a visible form tag such as dragon or serpent as well.'
+	}),
 	entity('lacma', 'LACMA', 'institution', 'Los Angeles County Museum of Art.', {
 		displayGroup: 'Identity and Source',
 		aliases: ['los_angeles_county_museum_of_art'],
@@ -308,8 +366,35 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 		displayGroup: 'Identity and Source'
 	}),
 
+	visual('animal', 'animal', 'Use when an animal is visibly depicted.', {
+		category: 'animal',
+		displayGroup: 'Subjects / Visual Entities',
+		narrower: ['horse', 'serpent', 'dragon', 'lizard'],
+		allowedClassifiers: ['pose', 'state', 'view', 'position', 'scale', 'visual_role', 'quantity'],
+		useWhen: [
+			'Use as a broad visual tag when an animal is clearly present or when a narrower animal tag implies it.'
+		],
+		doNotUseWhen: ['Do not use for purely symbolic animal names when no animal is visible.'],
+		aiGuidance:
+			'AI may suggest animal when a visible animal form is clear. Prefer narrower tags where possible.'
+	}),
 	visual('male_figure', 'male figure', 'Use when a male-presenting human figure is visible.', {
 		allowedClassifiers: ['pose', 'view', 'position', 'action_role']
+	}),
+	visual('child_figure', 'child figure', 'Use when a child or child-like human figure is visible.', {
+		category: 'subject',
+		displayGroup: 'Subjects / Visual Entities',
+		related: ['cupid_(deity)'],
+		allowedClassifiers: ['pose', 'view', 'position', 'action_role', 'visual_role'],
+		useWhen: [
+			'Use for visible child figures, putti, or child-like human figures when the visual age/form matters for retrieval.'
+		],
+		doNotUseWhen: [
+			'Do not use for adult figures with small scale caused only by distance.',
+			'Do not identify a child figure as Cupid without source or iconographic support.'
+		],
+		aiGuidance:
+			'AI may suggest child_figure from visible proportions and context. Exact mythological identity requires separate evidence.'
 	}),
 	visual('serpent', 'serpent', 'Use when a snake-like creature is visibly depicted.', {
 		category: 'animal',
@@ -321,6 +406,41 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 		doNotUseWhen: ['The image only names a mythological serpent but does not depict one.'],
 		aiGuidance:
 			'AI may apply when a snake-like creature is clearly visible. Do not identify it as Python without metadata or iconographic support.'
+	}),
+	visual('dragon', 'dragon', 'Use when a dragon is visibly depicted.', {
+		category: 'animal',
+		displayGroup: 'Subjects / Visual Entities',
+		broader: ['mythological_creature'],
+		related: ['serpent', 'lizard', 'python_(mythology)', 'wing'],
+		confusable: ['serpent', 'lizard'],
+		allowedClassifiers: ['pose', 'state', 'view', 'position', 'scale', 'visual_role'],
+		useWhen: [
+			'Use for visible dragons, including winged or clawed reptilian mythological creatures.',
+			'Use alongside a named mythological entity when the named creature is visually depicted as a dragon.'
+		],
+		doNotUseWhen: [
+			'Do not use for an ordinary snake-like serpent with no dragon features.',
+			'Do not use only because a source calls the creature monstrous; tag the visible form.'
+		],
+		aiGuidance:
+			'AI may suggest dragon when wings, claws, legs, horns, cresting, or other dragon features are visible. If source metadata identifies the creature as Python, apply python_(mythology) separately as an entity.'
+	}),
+	visual('horse', 'horse', 'Use when a horse is visibly depicted.', {
+		category: 'animal',
+		displayGroup: 'Subjects / Visual Entities',
+		broader: ['animal'],
+		related: ['chariot'],
+		allowedClassifiers: ['pose', 'state', 'view', 'position', 'scale', 'visual_role', 'quantity'],
+		useWhen: [
+			'Use for visible horses, including stylized, painted, drawn, or printed horses.',
+			'Use with visual_role:supporting_subject or background_detail when horses support another narrative subject.'
+		],
+		doNotUseWhen: [
+			'Do not use for vaguely horse-like creatures, donkeys, mules, or sculptures that do not depict actual horses.',
+			'Do not infer breed, sex, or exact age without source confirmation.'
+		],
+		aiGuidance:
+			'AI may auto-suggest horse when a horse is clearly visible. Use visual_role to prevent incidental horses from becoming strong examples.'
 	}),
 	visual('castle', 'castle', 'Use when a castle or fortified castle-like structure is visible.', {
 		category: 'architecture',
@@ -338,6 +458,20 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 		],
 		aiGuidance:
 			'AI may suggest castle when fortification is visible. Mark incidental examples with visual_role:background_detail.'
+	}),
+	visual('tower', 'tower', 'Use when a tower is visibly depicted.', {
+		category: 'architecture',
+		displayGroup: 'Setting and Architecture',
+		related: ['castle', 'cityscape'],
+		confusable: ['castle'],
+		allowedClassifiers: ['position', 'visual_role', 'scale'],
+		useWhen: [
+			'Use for visible freestanding towers, castle towers, church towers, or tower-like architectural forms.',
+			'Use with visual_role:background_detail when a distant tower is incidental setting.'
+		],
+		doNotUseWhen: ['Do not use for generic walls, cliffs, or distant architecture with no tower form.'],
+		aiGuidance:
+			'AI may suggest tower when a vertical architectural tower form is visible. Use castle instead when the broader fortified structure is clear.'
 	}),
 	visual('lizard', 'lizard', 'Use when a lizard or visibly lizard-like reptile is depicted.', {
 		category: 'animal',
@@ -368,11 +502,53 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 		related: ['bow', 'shooting_arrow'],
 		allowedClassifiers: ['position', 'quantity', 'state']
 	}),
+	visual('chariot', 'chariot', 'Use when a chariot is visibly depicted.', {
+		category: 'object',
+		displayGroup: 'Objects',
+		related: ['horse'],
+		allowedClassifiers: ['position', 'scale', 'visual_role'],
+		useWhen: [
+			'Use for visible chariots, including mythological or classical chariots.',
+			'Use with visual_role:supporting_subject when the chariot supports a larger narrative scene.'
+		],
+		doNotUseWhen: ['Do not use for ordinary carts, wagons, carriages, or indistinct wheeled forms.'],
+		aiGuidance:
+			'AI may suggest chariot when the vehicle form is clear. Mark distant or secondary chariots with visual_role:supporting_subject or background_detail.'
+	}),
+	visual('wing', 'wing', 'Use when wings are visibly depicted.', {
+		aliases: ['wings'],
+		category: 'object',
+		displayGroup: 'Subjects / Visual Entities',
+		related: ['dragon', 'cupid_(deity)'],
+		allowedClassifiers: ['position', 'scale', 'visual_role'],
+		useWhen: [
+			'Use for visible wings attached to creatures, figures, angels, deities, or symbolic beings.',
+			'Use on the specific winged instance when the wing is useful for visual retrieval.'
+		],
+		doNotUseWhen: [
+			'Do not use for wing-like drapery, clouds, or brush marks unless a wing form is clearly intended.'
+		],
+		aiGuidance:
+			'AI may suggest wing when a wing is visually legible. Attach it to the relevant annotation rather than treating it as a scene-level fact when possible.'
+	}),
 	visual('inscription', 'inscription', 'Use when written inscription text is visible.', {
 		category: 'text',
 		displayGroup: 'Text and Inscriptions',
 		allowedClassifiers: ['language', 'position', 'state'],
 		related: ['ocr_needed']
+	}),
+	visual('manuscript_text', 'manuscript text', 'Use when handwritten or manuscript page text is visible.', {
+		category: 'text',
+		displayGroup: 'Text and Inscriptions',
+		related: ['inscription', 'book_illumination'],
+		allowedClassifiers: ['language', 'position', 'visual_role'],
+		useWhen: [
+			'Use for visible manuscript text, marginal text, or surrounding page text in illuminated books.',
+			'Use with visual_role:setting_context when the text identifies the image as part of a manuscript page.'
+		],
+		doNotUseWhen: ['Do not use for printed captions or isolated signatures; use inscription when broader.'],
+		aiGuidance:
+			'AI may suggest manuscript_text only when handwritten manuscript page text is visible.'
 	}),
 	visual('landscape', 'landscape', 'Use when natural scenery is a significant part of the image.', {
 		category: 'setting',
@@ -404,6 +580,31 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 	visual('rock', 'rock', 'Use when rocks or rocky ground are visible.', {
 		category: 'setting',
 		displayGroup: 'Setting and Architecture'
+	}),
+	visual('smoke', 'smoke', 'Use when smoke or smoky vapor is visible.', {
+		category: 'setting',
+		displayGroup: 'Color, Light, and Value',
+		allowedClassifiers: ['position', 'scale', 'visual_role'],
+		useWhen: [
+			'Use when smoke, vapor, or a smoky plume is a visible part of the image.',
+			'Use for painterly smoke when it materially shapes the scene or mood.'
+		],
+		doNotUseWhen: ['Do not use for ordinary clouds unless they read as smoke or vapor.'],
+		aiGuidance:
+			'AI may suggest smoke when the vapor form is visually legible. Keep uncertain painterly haze as suggested.'
+	}),
+	visual('radiant_light', 'radiant light', 'Use when radiating light is visually prominent.', {
+		category: 'color_light_value',
+		displayGroup: 'Color, Light, and Value',
+		related: ['heroic_mood'],
+		allowedClassifiers: ['position', 'scale', 'visual_role'],
+		useWhen: [
+			'Use when light visibly radiates from or around a figure, object, or area.',
+			'Use when radiance is important to the composition or iconography.'
+		],
+		doNotUseWhen: ['Do not use for ordinary highlights or general brightness.'],
+		aiGuidance:
+			'AI may suggest radiant_light only when rays, halo-like light, or a concentrated radiance is visible.'
 	}),
 	visual('drawing_bow', 'drawing bow', 'Use for the action of pulling a bowstring.', {
 		category: 'action',
@@ -470,6 +671,21 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 		displayGroup: 'Medium and Technique',
 		related: ['hatching', 'cross_hatching']
 	}),
+	visual('painterly_brushwork', 'painterly brushwork', 'Use when visible brushwork is a dominant visual feature.', {
+		category: 'medium_technique',
+		displayGroup: 'Medium and Technique',
+		related: ['painting', 'oil_sketch'],
+		allowedClassifiers: ['technique_visibility'],
+		useWhen: [
+			'Use when brush marks, loose paint handling, or painterly surface are visibly important.',
+			'Use for sketches or paintings where the mark-making itself is useful reference material.'
+		],
+		doNotUseWhen: [
+			'Do not use simply because the source medium is painting if brushwork is not visually prominent.'
+		],
+		aiGuidance:
+			'AI may suggest painterly_brushwork when visible paint handling is clear. Do not infer it from source medium alone.'
+	}),
 	visual('hatching', 'hatching', 'Use when parallel hatch marks are visible.', {
 		category: 'medium_technique',
 		displayGroup: 'Medium and Technique',
@@ -507,10 +723,26 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 		related: ['print', 'old_master_print'],
 		citations: [LACMA_SOURCE]
 	}),
+	visual('etching', 'etching', 'Use for etching as a printmaking technique.', {
+		category: 'medium_technique',
+		displayGroup: 'Medium and Technique',
+		automaticImplications: ['printmaking'],
+		related: ['print', 'old_master_print', 'line_art', 'hatching'],
+		citations: [MET_TEMPESTA_SOURCE],
+		useWhen: [
+			'Use when source metadata identifies the work as an etching.',
+			'Use when etched linework is visually or technically important for retrieval.'
+		],
+		doNotUseWhen: [
+			'Do not use for every line-based print without source or technical evidence; use printmaking or line_art instead.'
+		],
+		aiGuidance:
+			'AI may suggest etching from source metadata. Do not identify etching from linework alone unless operating in specialist review mode.'
+	}),
 	visual('printmaking', 'printmaking', 'Use for printmaking as a broad medium or process.', {
 		category: 'medium_technique',
 		displayGroup: 'Medium and Technique',
-		narrower: ['engraving']
+		narrower: ['engraving', 'etching']
 	}),
 	visual('print', 'print', 'Use for an artwork classified as a print.', {
 		category: 'medium_technique',
@@ -528,6 +760,115 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 			citations: [LACMA_SOURCE]
 		}
 	),
+	concept({
+		slug: 'ocr_needed',
+		label: 'OCR needed',
+		kind: 'system',
+		category: 'system',
+		displayGroup: 'System',
+		status: 'needs_review',
+		maturity: 'draft',
+		shortDefinition: 'Use when visible text should be transcribed or OCR-reviewed.',
+		longDescription:
+			'OCR needed is a workflow tag for assets with visible text that would benefit from transcription, OCR, or translation. It is not a content tag for the subject of the artwork.',
+		useWhen: [
+			'Use when visible text is present but not yet transcribed.',
+			'Use when inscription, manuscript text, captions, or labels are important to understanding or retrieval.'
+		],
+		doNotUseWhen: [
+			'Do not use when text has already been transcribed and verified.',
+			'Do not use for purely decorative marks that are not text.'
+		],
+		related: ['inscription', 'manuscript_text'],
+		aiGuidance:
+			'AI may suggest ocr_needed when visible text is present and no verified transcription is available.'
+	}),
+	visual('painting', 'painting', 'Use when the work is a painting or visibly painted image.', {
+		category: 'medium_technique',
+		displayGroup: 'Medium and Technique',
+		related: ['oil_painting', 'painterly_brushwork'],
+		allowedClassifiers: ['technique_visibility'],
+		useWhen: [
+			'Use when source metadata identifies the work as a painting.',
+			'Use when painted handling is visible and relevant to search.'
+		],
+		doNotUseWhen: ['Do not use for prints, drawings, or photographs merely depicting paintings.'],
+		aiGuidance:
+			'AI may suggest painting from source metadata or clear visual evidence. Prefer source metadata for approval.'
+	}),
+	visual('oil_painting', 'oil painting', 'Use when the work is an oil painting.', {
+		category: 'medium_technique',
+		displayGroup: 'Medium and Technique',
+		automaticImplications: ['painting'],
+		related: ['oil_sketch', 'painterly_brushwork'],
+		citations: [VAN_GOGH_DELACROIX_SOURCE, COMMONS_BOECKHORST_SOURCE],
+		useWhen: [
+			'Use when source metadata identifies oil paint or oil painting.',
+			'Use when the oil medium is important for visual or technical retrieval.'
+		],
+		doNotUseWhen: ['Do not infer oil paint from painterly appearance alone.'],
+		aiGuidance:
+			'AI may suggest oil_painting from source metadata. Visual-only guesses require review.'
+	}),
+	visual('oil_sketch', 'oil sketch', 'Use for an oil study or sketch made in preparation for another work.', {
+		category: 'medium_technique',
+		displayGroup: 'Medium and Technique',
+		automaticImplications: ['oil_painting', 'preparatory_study'],
+		related: ['painterly_brushwork'],
+		citations: [VAN_GOGH_DELACROIX_SOURCE],
+		useWhen: [
+			'Use when source metadata identifies a work as an oil sketch or preparatory oil study.',
+			'Use when the unfinished or sketch-like painted handling is central to the work.'
+		],
+		doNotUseWhen: ['Do not use for finished oil paintings or unrelated painted studies.'],
+		aiGuidance:
+			'AI may suggest oil_sketch from source metadata or strong curatorial wording. Do not infer from looseness alone.'
+	}),
+	visual('preparatory_study', 'preparatory study', 'Use for a study made in preparation for another work.', {
+		category: 'medium_technique',
+		displayGroup: 'Medium and Technique',
+		related: ['oil_sketch'],
+		citations: [VAN_GOGH_DELACROIX_SOURCE],
+		useWhen: [
+			'Use when source metadata or title identifies a work as a study, sketch, modello, or preparation for another work.'
+		],
+		doNotUseWhen: ['Do not use merely because a work looks unfinished without source or context.'],
+		aiGuidance:
+			'AI may suggest preparatory_study from source metadata. Visual-only suggestions should remain needs_review.'
+	}),
+	visual('book_illumination', 'book illumination', 'Use for painted or decorated imagery in a manuscript or early book.', {
+		category: 'medium_technique',
+		displayGroup: 'Medium and Technique',
+		related: ['manuscript_text', 'painting'],
+		citations: [AKG_VERARD_SOURCE],
+		useWhen: [
+			'Use when source metadata identifies an illumination or the image is visibly part of an illuminated manuscript/book page.',
+			'Use for miniature scenes bordered by manuscript text or page decoration.'
+		],
+		doNotUseWhen: ['Do not use for any small painting that is not part of a manuscript or book context.'],
+		aiGuidance:
+			'AI may suggest book_illumination when source metadata says illumination or visible manuscript/book context is clear.'
+	}),
+	visual('late_gothic', 'Late Gothic', 'Use for source-backed Late Gothic style or period context.', {
+		category: 'style_movement',
+		displayGroup: 'Style / Movement',
+		related: ['book_illumination'],
+		citations: [AKG_VERARD_SOURCE],
+		useWhen: ['Use when source metadata identifies Late Gothic style or context.'],
+		doNotUseWhen: ['Do not infer Late Gothic from medieval-looking imagery without source support.'],
+		aiGuidance:
+			'AI may suggest late_gothic from source metadata. Visual-only style identification requires review.'
+	}),
+	visual('baroque', 'Baroque', 'Use for source-backed Baroque style or period context.', {
+		category: 'style_movement',
+		displayGroup: 'Style / Movement',
+		related: ['oil_painting', 'jan_boeckhorst'],
+		citations: [COMMONS_BOECKHORST_SOURCE],
+		useWhen: ['Use when source metadata or strong art-historical context identifies Baroque style.'],
+		doNotUseWhen: ['Do not infer Baroque from dramatic lighting or drapery alone.'],
+		aiGuidance:
+			'AI may suggest baroque from source metadata or reviewed art-historical context; do not auto-approve from style alone.'
+	}),
 
 	classifier('position', 'position', 'Describes where a visible instance sits in the image.', [
 		'left',
@@ -567,6 +908,12 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 		'dominant',
 		'large',
 		'small'
+	]),
+	classifier('quantity', 'quantity', 'Describes the count or plurality of a visible instance.', [
+		'single',
+		'pair',
+		'multiple',
+		'group'
 	]),
 	classifier(
 		'visual_role',

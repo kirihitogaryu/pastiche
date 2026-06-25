@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { openAtlasAsset, openAtlasWiki } from '$lib/state/app-state.svelte';
+	import { openAtlasAsset } from '$lib/state/app-state.svelte';
 	import type { LibraryAsset } from '$lib/library/types';
 
 	type Props = {
@@ -31,7 +31,6 @@
 			<h1>Atlas</h1>
 			<span>All library assets, newest first.</span>
 		</div>
-		<button type="button" class="wiki-link" onclick={() => openAtlasWiki()}>Open Atlas wiki</button>
 	</header>
 
 	{#if loading}
@@ -105,23 +104,6 @@
 	header span,
 	.empty {
 		color: var(--color-muted);
-	}
-
-	.wiki-link {
-		min-height: 2.1rem;
-		padding: 0 var(--space-3);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		background: oklch(14% 0.008 70);
-		color: var(--color-text);
-		font-size: 0.78rem;
-		cursor: pointer;
-	}
-
-	.wiki-link:hover,
-	.wiki-link:focus-visible {
-		border-color: var(--color-border-strong);
-		background: oklch(17% 0.009 70);
 	}
 
 	.asset-grid {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BookOpenTextIcon from 'phosphor-svelte/lib/BookOpenTextIcon';
 	import FunnelIcon from 'phosphor-svelte/lib/FunnelIcon';
 	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
 	import HashIcon from 'phosphor-svelte/lib/HashIcon';
@@ -8,7 +9,7 @@
 	import CreateOrganizationPopover from '$lib/components/library/CreateOrganizationPopover.svelte';
 	import SearchBox from '$lib/components/shell/SearchBox.svelte';
 	import type { AppMode } from '$lib/types';
-	import { openAdd, openFilter, setMode } from '$lib/state/app-state.svelte';
+	import { appState, openAdd, openAtlasWiki, openFilter, setMode } from '$lib/state/app-state.svelte';
 	import { libraryState, setLibrarySnapshot } from '$lib/state/library-state.svelte';
 
 	type Props = {
@@ -150,6 +151,12 @@
 	<button class="add" type="button" aria-label="Add to Library" onclick={openAdd}>
 		<PlusIcon size={24} />
 	</button>
+	{#if mode === 'atlas' && appState.atlasView !== 'wiki'}
+		<button class="wiki-tool" type="button" onclick={() => openAtlasWiki()}>
+			<BookOpenTextIcon size={18} />
+			<span>Atlas Wiki</span>
+		</button>
+	{/if}
 </header>
 
 <style>
@@ -211,7 +218,8 @@
 
 	.tool,
 	.icon-tool,
-	.add {
+	.add,
+	.wiki-tool {
 		height: 2.55rem;
 		border: 0;
 		color: var(--color-text);
@@ -223,6 +231,28 @@
 		align-items: center;
 		gap: var(--space-2);
 		padding: 0 var(--space-4);
+	}
+
+	.wiki-tool {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-2);
+		padding: 0 var(--space-4);
+		border: 1px solid oklch(78% 0.08 78 / 0.45);
+		border-radius: var(--radius-lg);
+		background: oklch(78% 0.08 78 / 0.1);
+		color: oklch(86% 0.075 78);
+		font-size: 0.84rem;
+		font-weight: 650;
+		white-space: nowrap;
+	}
+
+	.wiki-tool:hover,
+	.wiki-tool:focus-visible {
+		border-color: oklch(82% 0.085 78 / 0.72);
+		background: oklch(78% 0.08 78 / 0.16);
+		color: oklch(91% 0.06 78);
 	}
 
 	.tool-wrap {
