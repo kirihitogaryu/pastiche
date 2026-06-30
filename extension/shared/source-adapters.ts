@@ -124,6 +124,14 @@ function artistForHost(document: Document, host: string): string | null {
 }
 
 function tagsForHost(document: Document, host: string): string[] {
+	if (isDanbooruHost(host)) {
+		return unique(
+			[...document.querySelectorAll<HTMLAnchorElement>('#tag-list a.search-tag, a.search-tag')]
+				.map((tag) => tag.textContent?.trim())
+				.filter(Boolean)
+				.map((tag) => tag.replace(/\s+/g, ' '))
+		);
+	}
 	if (host.endsWith('tumblr.com')) {
 		return unique(
 			[...document.querySelectorAll<HTMLMetaElement>('meta[property="article:tag"]')]

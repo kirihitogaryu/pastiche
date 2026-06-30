@@ -22,14 +22,16 @@
 import { getSettings } from '../shared/settings';
 import { getExtensionApi } from '../shared/browser';
 import { computeSourceHash, sourceKeyForUrls } from '../shared/source-hash';
+import {
+	CAPTURE_TRAY_STORAGE_KEY,
+	captureTrayItemsFromStorage,
+	mergeCaptureTrayItem,
+	mergeCaptureTrayItems
+} from '../shared/capture-tray';
 import { normalizeImageQualityUrl, resolveCanonicalImage } from './canonical-image';
 import { enrichCapturedItem, wireImportItemForEnrichedItem } from './enrich-capture';
 import { respondToExtensionMessage } from './message-handler';
 import { capturedPayloadForVisibleScreenshot } from './screenshot-capture';
-import {
-	CONTEXT_IMPORT_NOTIFICATION_KEY,
-	storedImportNotificationFromMessage
-} from '../shared/import-notification';
 import {
 	CONTEXT_MENU_SAVE_IMAGE_ID,
 	imageContextCaptureSource,
@@ -52,8 +54,6 @@ import {
 	MESSAGE_ITEM_READY,
 	MESSAGE_BATCH_READY,
 	MESSAGE_FETCH_COMPLETE,
-	MESSAGE_CONTEXT_IMPORT_STARTED,
-	MESSAGE_CONTEXT_IMPORT_FINISHED,
 	MESSAGE_CAPTURE_FAILED,
 	MESSAGE_QUEUE_UPDATED,
 	MESSAGE_QUEUE_REPLAYED
@@ -104,7 +104,7 @@ async function registerContextMenus(): Promise<void> {
 		await Promise.resolve(
 			api.contextMenus.create({
 				id: CONTEXT_MENU_SAVE_IMAGE_ID,
-				title: 'Save image to Pastiche',
+				title: 'Add image to Pastiche capture tray',
 				contexts: ['image']
 			})
 		);
@@ -120,34 +120,12 @@ async function handleImageContextMenuClick(
 	const source = imageContextCaptureSource(info, tab);
 	if (!source) return;
 
-	await notifyContextImport({
-		type: MESSAGE_CONTEXT_IMPORT_STARTED,
-		sourceImageUrl: source.imageUrl
-	});
-
 	try {
-		const settings = await getSettings();
-		const item = await enrichItem(await capturedPayloadForImageSource(source));
-		const result = await handleDoImport({
-			destinationFolderId: settings.defaultDestinationId,
-			items: [item]
-		});
-		await notifyContextImport({ type: MESSAGE_CONTEXT_IMPORT_FINISHED, result });
+		await stageCapturedItem(await capturedPayloadForImageSource(source));
 	} catch (error) {
-		await notifyContextImport({
-			type: MESSAGE_CONTEXT_IMPORT_FINISHED,
-			result: {
-				ok: false,
-				imported: [],
-				failed: [
-					{
-						index: 0,
-						ok: false,
-						error: error instanceof Error ? error.message : 'Context menu import failed'
-					}
-				],
-				error: error instanceof Error ? error.message : 'Context menu import failed'
-			}
+		broadcastToSidebar({
+			type: MESSAGE_CAPTURE_FAILED,
+			error: error instanceof Error ? error.message : 'Context menu capture failed'
 		});
 	}
 }
@@ -317,18 +295,7 @@ async function smokeImport(): Promise<SmokeImportResponse> {
  * optional immediate fetch) then notify the sidebar.
  */
 async function handleItemCaptured(captured: CapturedItemPayload): Promise<{ ok: boolean }> {
-	const item = await enrichItem(captured);
-
-	// Notify sidebar immediately so it can show the item (possibly with a
-	// loading spinner if the fetch is still in flight).
-	broadcastToSidebar({ type: MESSAGE_ITEM_READY, item });
-
-	// For download-mode items, kick off the fetch now (after notifying the
-	// sidebar so the spinner appears without waiting for the full fetch).
-	if (item.storageMode === 'download' && item.fetchStatus.state === 'fetching') {
-		void fetchImageForItem(item);
-	}
-
+	await stageCapturedItem(captured);
 	return { ok: true };
 }
 
@@ -338,6 +305,7 @@ async function handleItemCaptured(captured: CapturedItemPayload): Promise<{ ok: 
  */
 async function handleBatchCaptured(captured: CapturedItemPayload[]): Promise<{ ok: boolean }> {
 	const items = await Promise.all(captured.map(enrichItem));
+	await addCaptureTrayItems(items);
 
 	broadcastToSidebar({ type: MESSAGE_BATCH_READY, items });
 
@@ -349,6 +317,22 @@ async function handleBatchCaptured(captured: CapturedItemPayload[]): Promise<{ o
 	}
 
 	return { ok: true };
+}
+
+async function stageCapturedItem(captured: CapturedItemPayload): Promise<EnrichedItem> {
+	const item = await enrichItem(captured);
+	await addCaptureTrayItem(item);
+
+	// Notify sidebar immediately so it can show the item (possibly with a
+	// loading spinner if the fetch is still in flight). Storage persistence is
+	// the durable path if this transient broadcast is missed.
+	broadcastToSidebar({ type: MESSAGE_ITEM_READY, item });
+
+	if (item.storageMode === 'download' && item.fetchStatus.state === 'fetching') {
+		void fetchImageForItem(item);
+	}
+
+	return item;
 }
 
 /**
@@ -480,12 +464,22 @@ async function fetchImageForItem(item: EnrichedItem): Promise<void> {
 			base64,
 			mimeType
 		});
+		await updateCaptureTrayFetchStatus(item.url, {
+			state: 'done',
+			base64,
+			mimeType
+		});
 	} catch (err) {
+		const error = err instanceof Error ? err.message : 'Fetch failed';
 		broadcastToSidebar({
 			type: MESSAGE_FETCH_COMPLETE,
 			url: item.url,
 			ok: false,
-			error: err instanceof Error ? err.message : 'Fetch failed'
+			error
+		});
+		await updateCaptureTrayFetchStatus(item.url, {
+			state: 'error',
+			error
 		});
 	}
 }
@@ -512,12 +506,22 @@ async function fetchImageForUrl(url: string): Promise<void> {
 			base64,
 			mimeType
 		});
+		await updateCaptureTrayFetchStatus(url, {
+			state: 'done',
+			base64,
+			mimeType
+		});
 	} catch (err) {
+		const error = err instanceof Error ? err.message : 'Fetch failed';
 		broadcastToSidebar({
 			type: MESSAGE_FETCH_COMPLETE,
 			url,
 			ok: false,
-			error: err instanceof Error ? err.message : 'Fetch failed'
+			error
+		});
+		await updateCaptureTrayFetchStatus(url, {
+			state: 'error',
+			error
 		});
 	}
 }
@@ -711,6 +715,49 @@ async function updateLibraryIndex(urlHashes: string[]): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Capture tray persistence
+// ---------------------------------------------------------------------------
+
+async function getCaptureTrayItems(): Promise<EnrichedItem[]> {
+	const stored = await api.storage.local.get([CAPTURE_TRAY_STORAGE_KEY]);
+	return captureTrayItemsFromStorage(stored[CAPTURE_TRAY_STORAGE_KEY]);
+}
+
+async function addCaptureTrayItem(item: EnrichedItem): Promise<void> {
+	const items = await getCaptureTrayItems();
+	await api.storage.local.set({
+		[CAPTURE_TRAY_STORAGE_KEY]: mergeCaptureTrayItem(items, item)
+	});
+}
+
+async function addCaptureTrayItems(items: EnrichedItem[]): Promise<void> {
+	const existing = await getCaptureTrayItems();
+	await api.storage.local.set({
+		[CAPTURE_TRAY_STORAGE_KEY]: mergeCaptureTrayItems(existing, items)
+	});
+}
+
+async function updateCaptureTrayFetchStatus(
+	url: string,
+	fetchStatus: EnrichedItem['fetchStatus']
+): Promise<void> {
+	const items = await getCaptureTrayItems();
+	const next = items.map((item) => {
+		if (item.url !== url) return item;
+		if (fetchStatus.state === 'error') {
+			return {
+				...item,
+				storageMode: 'url_reference' as const,
+				storageModeReason: 'Download failed',
+				fetchStatus
+			};
+		}
+		return { ...item, fetchStatus };
+	});
+	await api.storage.local.set({ [CAPTURE_TRAY_STORAGE_KEY]: next });
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -723,17 +770,6 @@ function broadcastToSidebar(message: Record<string, unknown>): void {
 	api.runtime.sendMessage(message).catch(() => {
 		// No receiver — sidebar may be closed. That's fine.
 	});
-}
-
-async function notifyContextImport(
-	message:
-		| { type: typeof MESSAGE_CONTEXT_IMPORT_STARTED; sourceImageUrl: string }
-		| { type: typeof MESSAGE_CONTEXT_IMPORT_FINISHED; result: ImportResult }
-): Promise<void> {
-	await api.storage.local.set({
-		[CONTEXT_IMPORT_NOTIFICATION_KEY]: storedImportNotificationFromMessage(message)
-	});
-	broadcastToSidebar(message);
 }
 
 /** Convert a Blob to a base64 string (without the data URL prefix).

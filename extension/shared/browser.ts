@@ -44,6 +44,21 @@ type StorageArea = {
 	set(items: Record<string, unknown>): Promise<void>;
 };
 
+type StorageChange = {
+	oldValue?: unknown;
+	newValue?: unknown;
+};
+
+type StorageApi = {
+	local: StorageArea;
+	onChanged?: {
+		addListener(listener: (changes: Record<string, StorageChange>, areaName: string) => void): void;
+		removeListener(
+			listener: (changes: Record<string, StorageChange>, areaName: string) => void
+		): void;
+	};
+};
+
 /**
  * Typed subset of the tabs API.
  * chrome.tabs.query + tabs.sendMessage cover everything App.svelte needs.
@@ -111,7 +126,7 @@ type ScriptingApi = {
 
 type ExtensionApi = {
 	runtime: RuntimeApi;
-	storage: { local: StorageArea };
+	storage: StorageApi;
 	tabs: TabsApi;
 	commands: CommandsApi;
 	contextMenus?: ContextMenusApi;

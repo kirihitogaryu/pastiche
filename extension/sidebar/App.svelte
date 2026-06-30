@@ -37,6 +37,14 @@
 		recentStoredImportNotification,
 		type ImportNotification
 	} from '../shared/import-notification';
+	import {
+		CAPTURE_TRAY_STORAGE_KEY,
+		captureTrayItemsFromStorage,
+		mergeCaptureTrayItem,
+		mergeCaptureTrayItems,
+		removeCaptureTrayItem,
+		removeCaptureTrayIndexes
+	} from '../shared/capture-tray';
 	import { selectCandidateForItem, updateItemMetadata, updateSelectedItemId } from './item-state';
 	import type { CaptureCommandId } from './capture-commands';
 
@@ -71,8 +79,10 @@
 
 		// Listen for messages pushed from the service worker.
 		api.runtime.onMessage.addListener(handleIncomingMessage);
+		api.storage.onChanged?.addListener(handleStorageChanged);
 		return () => {
 			api.runtime.onMessage.removeListener(handleIncomingMessage);
+			api.storage.onChanged?.removeListener(handleStorageChanged);
 			if (importNotificationTimer) clearTimeout(importNotificationTimer);
 		};
 	});
@@ -86,25 +96,25 @@
 		switch (message.type) {
 			case MESSAGE_ITEM_READY: {
 				const item = message.item as EnrichedItem;
-				// Newest at top; deduplicate by id.
-				items = [item, ...items.filter((i) => i.id !== item.id)];
+				items = mergeCaptureTrayItem(items, item);
 				selectedItemId = item.id;
+				captureError = null;
+				void persistCaptureTray(items);
 				break;
 			}
 
 			case MESSAGE_BATCH_READY: {
 				const incoming = message.items as EnrichedItem[];
-				// Add new items at top; skip any already in the list.
-				const existingIds = new Set(items.map((i) => i.id));
-				const fresh = incoming.filter((i) => !existingIds.has(i.id));
-				items = [...fresh, ...items];
-				if (fresh[0]) selectedItemId = fresh[0].id;
+				items = mergeCaptureTrayItems(items, incoming);
+				if (incoming[0]) selectedItemId = incoming[0].id;
+				captureError = null;
+				void persistCaptureTray(items);
 				break;
 			}
 
 			case MESSAGE_FETCH_COMPLETE: {
 				const { url, ok } = message as { url: string; ok: boolean };
-				items = items.map((item) => {
+				const next = items.map((item) => {
 					if (item.url !== url) return item;
 					if (ok) {
 						return {
@@ -125,6 +135,8 @@
 						};
 					}
 				});
+				items = next;
+				void persistCaptureTray(next);
 				break;
 			}
 
@@ -175,6 +187,16 @@
 		}
 	}
 
+	function handleStorageChanged(
+		changes: Record<string, { oldValue?: unknown; newValue?: unknown }>,
+		areaName: string
+	) {
+		if (areaName !== 'local' || !(CAPTURE_TRAY_STORAGE_KEY in changes)) return;
+		const next = captureTrayItemsFromStorage(changes[CAPTURE_TRAY_STORAGE_KEY].newValue);
+		items = next;
+		selectedItemId = updateSelectedItemId(selectedItemId, next);
+	}
+
 	function showImportNotification(notification: ImportNotification) {
 		if (importNotificationTimer) {
 			clearTimeout(importNotificationTimer);
@@ -213,6 +235,17 @@
 		showImportNotification(notification);
 	}
 
+	async function restoreCaptureTray() {
+		const stored = await api.storage.local.get([CAPTURE_TRAY_STORAGE_KEY]);
+		const next = captureTrayItemsFromStorage(stored[CAPTURE_TRAY_STORAGE_KEY]);
+		items = next;
+		selectedItemId = updateSelectedItemId(selectedItemId, next);
+	}
+
+	async function persistCaptureTray(next: EnrichedItem[]) {
+		await api.storage.local.set({ [CAPTURE_TRAY_STORAGE_KEY]: next });
+	}
+
 	// ---------------------------------------------------------------------------
 	// Connection
 	// ---------------------------------------------------------------------------
@@ -221,6 +254,7 @@
 		loading = true;
 		status = (await api.runtime.sendMessage({ type: MESSAGE_GET_STATUS })) as ConnectionState;
 		loading = false;
+		await restoreCaptureTray();
 		await restoreStoredImportNotification();
 	}
 
@@ -385,8 +419,9 @@
 		const item = items.find((i) => i.id === id);
 		if (!item) return;
 
-		items = items.filter((i) => i.id !== id);
+		items = removeCaptureTrayItem(items, id);
 		selectedItemId = updateSelectedItemId(selectedItemId === id ? null : selectedItemId, items);
+		await persistCaptureTray(items);
 
 		// Tell the content script to remove the badge from the page element.
 		await sendActiveTabMessage({ type: MESSAGE_DESELECT_ITEM, url: item.url });
@@ -395,11 +430,13 @@
 	async function clearAll() {
 		items = [];
 		selectedItemId = null;
+		await persistCaptureTray([]);
 		await sendActiveTabMessage({ type: MESSAGE_CLEAR_SELECTION });
 	}
 
 	function renameItem(id: string, name: string) {
 		items = updateItemMetadata(items, id, { title: name });
+		void persistCaptureTray(items);
 	}
 
 	function selectItem(id: string) {
@@ -408,6 +445,7 @@
 
 	function selectCandidate(itemId: string, candidateId: string) {
 		items = selectCandidateForItem(items, itemId, candidateId);
+		void persistCaptureTray(items);
 		const changed = items.find((item) => item.id === itemId);
 		if (changed?.storageMode === 'download' && changed.fetchStatus.state === 'fetching') {
 			void api.runtime.sendMessage({ type: MESSAGE_FETCH_IMAGE, url: changed.url });
@@ -416,6 +454,7 @@
 
 	function updateMetadata(itemId: string, patch: Partial<CaptureMetadata>) {
 		items = updateItemMetadata(items, itemId, patch);
+		void persistCaptureTray(items);
 	}
 
 	function updateSource(itemId: string, patch: Partial<CaptureSource>) {
@@ -428,6 +467,7 @@
 				sourceUrl: source.canonicalPageUrl ?? source.pageUrl
 			};
 		});
+		void persistCaptureTray(items);
 	}
 
 	function toggleStorageMode(id: string) {
@@ -443,6 +483,7 @@
 					next === 'download' ? { state: 'fetching' as const } : { state: 'idle' as const }
 			};
 		});
+		void persistCaptureTray(items);
 
 		// If we just switched to download, kick off the fetch via SW.
 		const toggled = items.find((i) => i.id === id);
@@ -497,7 +538,9 @@
 		if (result.ok) {
 			// Remove successfully imported items from the list.
 			const successIndexes = new Set(result.imported.map((r) => r.index));
-			items = items.filter((_, i) => !successIndexes.has(i));
+			items = removeCaptureTrayIndexes(items, successIndexes);
+			selectedItemId = updateSelectedItemId(selectedItemId, items);
+			await persistCaptureTray(items);
 
 			// Clear badges for removed items.
 			const [tab] = await api.tabs.query({ active: true, currentWindow: true });

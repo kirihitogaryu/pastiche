@@ -80,6 +80,27 @@ describe('source adapters', () => {
 		});
 	});
 
+	it('extracts Danbooru sidebar tags as suggested import tags', () => {
+		expect.assertions(1);
+		document.body.innerHTML = `
+			<section id="tag-list">
+				<ul class="artist-tag-list"><li><a class="search-tag" href="/posts?tags=cakiada">cakiada</a></li></ul>
+				<ul class="copyright-tag-list"><li><a class="search-tag" href="/posts?tags=neon_genesis_evangelion">neon genesis evangelion</a></li></ul>
+				<ul class="character-tag-list"><li><a class="search-tag" href="/posts?tags=ikari_shinji">ikari shinji</a></li></ul>
+				<ul class="general-tag-list">
+					<li><a class="search-tag" href="/posts?tags=2boys">2boys</a></li>
+					<li><a class="search-tag" href="/posts?tags=flower">flower</a></li>
+				</ul>
+			</section>
+		`;
+
+		expect(
+			sourceMetadataForPage(document, { pageUrl: 'https://danbooru.donmai.us/posts/1' })
+		).toMatchObject({
+			suggestedTags: ['cakiada', 'neon genesis evangelion', 'ikari shinji', '2boys', 'flower']
+		});
+	});
+
 	it('extracts DeviantArt title and artist hints', () => {
 		expect.assertions(1);
 		document.head.innerHTML = `
