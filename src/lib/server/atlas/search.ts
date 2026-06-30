@@ -7,6 +7,7 @@ import type {
 	AtlasParsedSearchQuery,
 	AtlasQueryClause,
 	AtlasSearchResponse,
+	AtlasSearchEntityResult,
 	AtlasSearchResult,
 	AtlasSearchSuggestResponse,
 	AtlasSearchSuggestion,
@@ -77,10 +78,40 @@ type AssetConceptRow = {
 };
 
 type EntityRow = {
+	entity_id: string;
 	asset_id: string;
 	kind: string;
 	slug: string;
 	label: string;
+	aliases: EntityAlias[];
+	links: EntityLink[];
+};
+
+type RawEntityRow = Omit<EntityRow, 'aliases' | 'links'>;
+
+type EntityAlias = {
+	alias: string;
+	normalizedAlias: string;
+};
+
+type EntityLink = {
+	url: string;
+	host: string;
+	username: string | null;
+	normalizedUsername: string | null;
+};
+
+type EntityAliasRow = {
+	entity_id: string;
+	alias: string;
+	normalized_alias: string;
+};
+
+type EntityLinkRow = {
+	entity_id: string;
+	url: string;
+	host: string;
+	username: string | null;
 };
 
 type ClaimRow = {
@@ -171,6 +202,7 @@ export function searchAtlasAssets(
 		context,
 		wikiPreview: wikiPreviewForContext(db, context),
 		sidebar: sidebarForQuery(db, parsed, scored, matchedCandidates, conceptMap),
+		entityResults: entityResultsForQuery(candidates, parsed).slice(0, 6),
 		results: scored.map(({ matched, importedAt, ...result }) => result),
 		page: {
 			limit,
@@ -255,6 +287,7 @@ function scoreCandidate(
 }
 
 function matchClause(candidate: SearchCandidate, clause: AtlasQueryClause, index: SearchIndex): ClauseMatch {
+	if (clause.kind === 'entity') return matchEntityClause(candidate, clause);
 	if (clause.kind === 'concept') return matchConcept(candidate, clause.slug, index);
 	if (clause.kind === 'classifier') return matchClassifier(candidate, clause, index.implicationMap);
 	return { matched: false, score: 0, explanations: [] };
@@ -280,9 +313,7 @@ function matchConcept(
 				matchingClassifierValueSource(annotation, slug, index.implicationMap)
 		}))
 		.filter((match): match is { annotation: SearchAnnotation; source: string } => Boolean(match.source));
-	const entityMatch = candidate.entities.find(
-		(entity) => entity.slug === slug || displaySlug(entity.label) === slug
-	);
+	const entityMatch = findMatchingEntity(candidate.entities, undefined, slug);
 	const claimMatch = candidate.claims.find(
 		(claim) => claim.slug === slug || displaySlug(claim.label) === slug || displaySlug(claim.value) === slug
 	);
@@ -290,7 +321,7 @@ function matchConcept(
 		return {
 			matched: true,
 			score: 28,
-			explanations: [`Matched ${displayLabel(slug)} as ${displayLabel(entityMatch.kind)} entity`]
+			explanations: [`Matched ${displayLabel(slug)} as ${displayLabel(entityMatch.entity.kind)} entity`]
 		};
 	}
 	if (!assetSource && !annotationMatches.length && claimMatch) {
@@ -323,6 +354,45 @@ function matchConcept(
 					}`
 		]
 	};
+}
+
+function matchEntityClause(
+	candidate: SearchCandidate,
+	clause: Extract<AtlasQueryClause, { kind: 'entity' }>
+): ClauseMatch {
+	const entityMatch = findMatchingEntity(candidate.entities, clause.entityKind, clause.slug);
+	if (!entityMatch) return { matched: false, score: 0, explanations: [] };
+	return {
+		matched: true,
+		score: 34,
+		explanations: [
+			`Matched ${displayLabel(clause.slug)} as ${displayLabel(entityMatch.entity.kind)} entity`
+		]
+	};
+}
+
+function findMatchingEntity(
+	entities: EntityRow[],
+	kind: string | undefined,
+	slug: string
+): { entity: EntityRow; matchLabel: string } | null {
+	for (const entity of entities) {
+		if (kind && entity.kind !== kind) continue;
+		const matchLabel = matchingEntityLabel(entity, slug);
+		if (matchLabel) return { entity, matchLabel };
+	}
+	return null;
+}
+
+function matchingEntityLabel(entity: EntityRow, slug: string) {
+	if (entity.slug === slug || displaySlug(entity.label) === slug) return slug;
+	const alias = entity.aliases.find(
+		(item) => item.normalizedAlias === slug || displaySlug(item.alias) === slug
+	);
+	if (alias) return alias.alias;
+	const link = entity.links.find((item) => item.normalizedUsername === slug);
+	if (link?.username) return link.username;
+	return null;
 }
 
 function matchClassifier(
@@ -427,6 +497,98 @@ function resultForCandidate(
 	};
 }
 
+function entityResultsForQuery(
+	candidates: SearchCandidate[],
+	parsed: AtlasParsedSearchQuery
+): AtlasSearchEntityResult[] {
+	const terms = parsed.clauses
+		.flatMap((clause): Array<{ kind: string | undefined; slug: string }> => {
+			if (!hasMode(clause) || clause.mode !== 'include') return [];
+			if (clause.kind === 'concept') return [{ kind: undefined, slug: clause.slug }];
+			if (clause.kind === 'entity') return [{ kind: clause.entityKind, slug: clause.slug }];
+			return [];
+		});
+	if (!terms.length) return [];
+
+	const byEntity = new Map<
+		string,
+		{
+			entity: EntityRow;
+			assets: AssetRow[];
+			matchedLabels: Set<string>;
+			score: number;
+		}
+	>();
+	for (const candidate of candidates) {
+		for (const entity of candidate.entities) {
+			if (entity.kind !== 'artist') continue;
+			const matches = terms
+				.map((term) => {
+					if (term.kind && entity.kind !== term.kind) return null;
+					return matchingEntityLabel(entity, term.slug);
+				})
+				.filter((match): match is string => Boolean(match));
+			if (matches.length !== terms.length) continue;
+			const existing = byEntity.get(entity.entity_id) ?? {
+				entity,
+				assets: [],
+				matchedLabels: new Set<string>(),
+				score: 0
+			};
+			existing.assets.push(candidate.asset);
+			for (const match of matches) existing.matchedLabels.add(match);
+			existing.score += entityResultScore(entity, terms.map((term) => term.slug));
+			byEntity.set(entity.entity_id, existing);
+		}
+	}
+
+	return [...byEntity.values()]
+		.sort(
+			(left, right) =>
+				right.score - left.score ||
+				right.assets.length - left.assets.length ||
+				left.entity.label.localeCompare(right.entity.label)
+		)
+		.map(({ entity, assets, matchedLabels }) => ({
+			kind: entity.kind as AtlasSearchEntityResult['kind'],
+			slug: entity.slug,
+			label: entity.label,
+			matchLabel: [...matchedLabels][0] ?? entity.label,
+			workCount: uniqueStrings(assets.map((asset) => asset.id)).length,
+			thumbnailUrls: uniqueStrings(
+				assets
+					.map((asset) => searchThumbnailUrl(asset))
+					.filter((value): value is string => Boolean(value))
+			).slice(0, 4),
+			links: uniqueEntityLinks(entity.links),
+			query: `artist:(${entity.slug})`
+		}));
+}
+
+function entityResultScore(entity: EntityRow, terms: string[]) {
+	return terms.reduce((score, term) => {
+		if (entity.slug === term || displaySlug(entity.label) === term) return score + 100;
+		if (entity.aliases.some((alias) => alias.normalizedAlias === term || displaySlug(alias.alias) === term)) {
+			return score + 92;
+		}
+		if (entity.links.some((link) => link.normalizedUsername === term)) return score + 86;
+		return score + 1;
+	}, 0);
+}
+
+function uniqueEntityLinks(links: EntityLink[]) {
+	const seen = new Set<string>();
+	return links
+		.filter((link) => {
+			const key = `${link.host}:${link.username ?? ''}:${link.url}`;
+			if (seen.has(key)) return false;
+			seen.add(key);
+			return true;
+		})
+		.map((link) => ({ host: link.host, username: link.username, url: link.url }))
+		.slice(0, 3);
+}
+
 function readSearchCandidates(db: Database.Database): SearchCandidate[] {
 	const assets = db
 		.prepare(
@@ -463,12 +625,39 @@ function readSearchCandidates(db: Database.Database): SearchCandidate[] {
 		.all() as ClassifierRow[];
 	const entityRows = db
 		.prepare(
-			`select atlas_asset_entities.asset_id, atlas_entities.kind, atlas_entities.slug, atlas_entities.label
+			`select atlas_asset_entities.asset_id, atlas_entities.id as entity_id,
+				atlas_entities.kind, atlas_entities.slug, atlas_entities.label
 			 from atlas_asset_entities
 			 join atlas_entities on atlas_entities.id = atlas_asset_entities.entity_id
 			 where atlas_asset_entities.status = 'approved'`
 		)
-		.all() as EntityRow[];
+		.all() as RawEntityRow[];
+	const entityAliases = db
+		.prepare(
+			`select entity_id, alias, normalized_alias
+			 from atlas_entity_aliases`
+		)
+		.all() as EntityAliasRow[];
+	const entityLinks = db
+		.prepare(
+			`select entity_id, url, host, username
+			 from atlas_entity_links`
+		)
+		.all() as EntityLinkRow[];
+	const entities = entityRows.map((row) => ({
+		...row,
+		aliases: entityAliases
+			.filter((alias) => alias.entity_id === row.entity_id)
+			.map((alias) => ({ alias: alias.alias, normalizedAlias: alias.normalized_alias })),
+		links: entityLinks
+			.filter((link) => link.entity_id === row.entity_id)
+			.map((link) => ({
+				url: link.url,
+				host: link.host,
+				username: link.username,
+				normalizedUsername: link.username ? displaySlug(link.username) : null
+			}))
+	}));
 	const claimRows = db
 		.prepare(
 			`select asset_id, kind, slug, label, value
@@ -482,7 +671,7 @@ function readSearchCandidates(db: Database.Database): SearchCandidate[] {
 		assetConcepts: new Set(
 			assetConceptRows.filter((row) => row.asset_id === asset.id).map((row) => row.slug)
 		),
-		entities: entityRows.filter((row) => row.asset_id === asset.id),
+		entities: entities.filter((row) => row.asset_id === asset.id),
 		claims: claimRows.filter((row) => row.asset_id === asset.id),
 		annotations: buildAnnotations(asset.id, annotationConceptRows, classifierRows)
 	}));
@@ -574,7 +763,7 @@ function resolveParsedQuery(parsed: AtlasParsedSearchQuery, conceptRows: Concept
 			};
 		}
 		if (clause.kind === 'entity') {
-			return { ...clause, slug: resolveConceptSlug(clause.slug, conceptRows) };
+			return { ...clause, slug: displaySlug(clause.slug) };
 		}
 		return clause;
 	});
@@ -926,7 +1115,10 @@ function canonicalClause(clause: AtlasQueryClause) {
 		if (clause.include?.length) return `role:${clause.include.join(',')}`;
 		return `exclude_role:${clause.exclude?.join(',') ?? ''}`;
 	}
-	if (clause.kind === 'entity') return clause.mode === 'exclude' ? `exclude:${clause.slug}` : clause.slug;
+	if (clause.kind === 'entity') {
+		const value = clause.entityKind ? `${clause.entityKind}:${clause.slug}` : clause.slug;
+		return clause.mode === 'exclude' ? `exclude:${value}` : value;
+	}
 	if (clause.kind === 'claim') return `${clause.claimKind}:${clause.value}`;
 	if (clause.kind === 'evidence') return `evidence:${clause.include?.join(',') ?? ''}`;
 	return '';

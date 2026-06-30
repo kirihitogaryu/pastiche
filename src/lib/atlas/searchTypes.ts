@@ -1,4 +1,5 @@
 import type { AtlasConceptSummary } from './types';
+import type { AtlasEntityKind } from './types';
 
 export type AtlasQueryClause =
 	| { kind: 'concept'; raw: string; slug: string; mode: 'include' | 'exclude' }
@@ -89,6 +90,21 @@ export type AtlasSearchResult = {
 	explanations: string[];
 };
 
+export type AtlasSearchEntityResult = {
+	kind: AtlasEntityKind;
+	slug: string;
+	label: string;
+	matchLabel: string;
+	workCount: number;
+	thumbnailUrls: string[];
+	links: Array<{
+		host: string;
+		username: string | null;
+		url: string;
+	}>;
+	query: string;
+};
+
 export type AtlasSearchWikiExample = {
 	id: string;
 	title: string;
@@ -111,6 +127,7 @@ export type AtlasSearchResponse = {
 	context: AtlasSearchContext;
 	wikiPreview: AtlasSearchWikiPreview | null;
 	sidebar: AtlasSidebarSection[];
+	entityResults: AtlasSearchEntityResult[];
 	results: AtlasSearchResult[];
 	page: {
 		limit: number;

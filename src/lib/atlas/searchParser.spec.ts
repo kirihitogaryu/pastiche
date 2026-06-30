@@ -105,4 +105,29 @@ describe('parseAtlasSearchQuery', () => {
 			exclude: ['background_detail', 'setting_context']
 		});
 	});
+
+	it('parses artist entity filter clauses before classifier shorthand', () => {
+		const parenthetical = parseAtlasSearchQuery('artist:(Pablo Picasso)');
+		const shorthand = parseAtlasSearchQuery('artist:picasso');
+
+		expect(parenthetical.canonical).toBe('artist:pablo_picasso');
+		expect(parenthetical.clauses).toEqual([
+			{
+				kind: 'entity',
+				raw: 'artist:(Pablo Picasso)',
+				entityKind: 'artist',
+				slug: 'pablo_picasso',
+				mode: 'include'
+			}
+		]);
+		expect(shorthand.clauses).toEqual([
+			{
+				kind: 'entity',
+				raw: 'artist:picasso',
+				entityKind: 'artist',
+				slug: 'picasso',
+				mode: 'include'
+			}
+		]);
+	});
 });

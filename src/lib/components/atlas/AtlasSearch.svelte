@@ -7,6 +7,7 @@
 	import { appState, openAtlasAsset, openAtlasSearch, openAtlasWiki } from '$lib/state/app-state.svelte';
 	import type {
 		AtlasSearchResponse,
+		AtlasSearchEntityResult,
 		AtlasSearchResult,
 		AtlasSearchWikiPreview,
 		AtlasSidebarClassifierGroup,
@@ -41,6 +42,7 @@
 
 	let activeQuery = $derived(appState.atlasSearchQuery.trim());
 	let results = $derived(response?.results ?? []);
+	let entityResults = $derived(response?.entityResults ?? []);
 	let hasQuery = $derived(activeQuery.length > 0);
 	let wikiPreview = $derived(response?.wikiPreview ?? null);
 	let showWikiPreview = $derived(Boolean(wikiPreview));
@@ -112,6 +114,13 @@
 
 	function resultSubtitle(result: AtlasSearchResult) {
 		return result.subtitle || result.sourceUrl;
+	}
+
+	function entitySubtitle(entity: AtlasSearchEntityResult) {
+		const link = entity.links[0];
+		const account = link ? [link.host, link.username ? `@${link.username}` : null].filter(Boolean).join(' ') : '';
+		const count = `${entity.workCount.toLocaleString()} ${entity.workCount === 1 ? 'work' : 'works'}`;
+		return [count, account].filter(Boolean).join(' · ');
 	}
 
 	function displayLabel(value: string) {
@@ -345,6 +354,33 @@
 					<strong>{response.query.clauses.length} clauses combined</strong>
 					<span>Wiki preview is hidden for combined searches.</span>
 				</div>
+			{/if}
+
+			{#if entityResults.length}
+				<section class="entity-results" aria-label="Artist search matches">
+					<div class="entity-results-head">
+						<span>Artists</span>
+						<small>{entityResults.length.toLocaleString()} matched</small>
+					</div>
+					<div class="entity-row">
+						{#each entityResults as entity (`${entity.kind}-${entity.slug}`)}
+							<button type="button" class="entity-card" onclick={() => openAtlasSearch(entity.query)}>
+								<span class="entity-thumbs" aria-hidden="true">
+									{#each entity.thumbnailUrls.slice(0, 3) as thumbnailUrl}
+										<img src={thumbnailUrl} alt="" loading="lazy" />
+									{/each}
+									{#if entity.thumbnailUrls.length === 0}
+										<span>{entity.label}</span>
+									{/if}
+								</span>
+								<span class="entity-copy">
+									<strong>{entity.label}</strong>
+									<small>{entitySubtitle(entity)}</small>
+								</span>
+							</button>
+						{/each}
+					</div>
+				</section>
 			{/if}
 
 			<section class="result-toolbar" aria-label="Atlas result controls">
@@ -728,6 +764,115 @@
 
 	.wiki-preview {
 		margin-bottom: 1rem;
+	}
+
+	.entity-results {
+		display: grid;
+		gap: 0.55rem;
+		margin-bottom: 1rem;
+	}
+
+	.entity-results-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		color: var(--color-muted);
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+	}
+
+	.entity-results-head small {
+		color: var(--color-dim);
+		font-size: 0.72rem;
+		font-weight: 700;
+		letter-spacing: 0;
+		text-transform: none;
+	}
+
+	.entity-row {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+		gap: 0.55rem;
+	}
+
+	.entity-card {
+		min-width: 0;
+		display: grid;
+		grid-template-columns: 4.2rem minmax(0, 1fr);
+		align-items: center;
+		gap: 0.75rem;
+		border: 1px solid var(--color-border);
+		border-radius: 9px;
+		background: oklch(13.2% 0.007 70 / 0.86);
+		color: var(--color-text);
+		padding: 0.55rem;
+		text-align: left;
+		cursor: pointer;
+	}
+
+	.entity-card:hover,
+	.entity-card:focus-visible {
+		border-color: var(--color-border-strong);
+		background: var(--color-surface-soft);
+	}
+
+	.entity-thumbs {
+		overflow: hidden;
+		width: 4.2rem;
+		aspect-ratio: 1;
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		border: 1px solid var(--color-border-soft);
+		border-radius: 8px;
+		background: oklch(8.8% 0.006 70);
+	}
+
+	.entity-thumbs img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.entity-thumbs img:first-child:nth-last-child(1),
+	.entity-thumbs span {
+		grid-column: 1 / -1;
+		grid-row: 1 / -1;
+	}
+
+	.entity-thumbs span {
+		display: grid;
+		place-items: center;
+		color: var(--color-dim);
+		font-size: 0.68rem;
+		font-weight: 800;
+		padding: 0.35rem;
+		text-align: center;
+	}
+
+	.entity-copy {
+		min-width: 0;
+		display: grid;
+		gap: 0.2rem;
+	}
+
+	.entity-copy strong,
+	.entity-copy small {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.entity-copy strong {
+		color: var(--color-text);
+		font-size: 0.96rem;
+	}
+
+	.entity-copy small {
+		color: var(--color-muted);
+		font-size: 0.78rem;
 	}
 
 	.wiki-preview > summary {

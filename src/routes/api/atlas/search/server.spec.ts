@@ -45,6 +45,7 @@ describe('GET /api/atlas/search', () => {
 		});
 		expect(Array.isArray(body.results)).toBe(true);
 		expect(Array.isArray(body.sidebar)).toBe(true);
+		expect(Array.isArray(body.entityResults)).toBe(true);
 	});
 
 	it('returns Atlas search suggestions', async () => {

@@ -451,6 +451,78 @@ describe('searchAtlasAssets', () => {
 		}
 	});
 
+	it('filters works by artist entity aliases and profile usernames', () => {
+		const db = openLibraryDatabase();
+		try {
+			seedSearchConcepts(db, []);
+			insertAsset(db, 'picasso-oil', 'Picasso Oil');
+			insertAsset(db, 'other-oil', 'Other Oil');
+			insertEntity(db, 'picasso-oil', 'artist', 'pablo_picasso', 'Pablo Picasso');
+			insertEntityAlias(db, 'artist', 'pablo_picasso', 'picasso');
+			insertEntityLink(
+				db,
+				'artist',
+				'pablo_picasso',
+				'https://www.instagram.com/pablopicasso',
+				'instagram.com',
+				'pablopicasso'
+			);
+
+			const alias = searchAtlasAssets(db, 'artist:(picasso)');
+			const username = searchAtlasAssets(db, 'artist:pablopicasso');
+
+			expect(alias.query.canonical).toBe('artist:picasso');
+			expect(alias.results.map((result) => result.id)).toEqual(['picasso-oil']);
+			expect(alias.results[0]?.primaryExplanation).toBe('Matched picasso as artist entity');
+			expect(username.results.map((result) => result.id)).toEqual(['picasso-oil']);
+		} finally {
+			db.close();
+		}
+	});
+
+	it('returns artist entity result cards for plain searches', () => {
+		const db = openLibraryDatabase();
+		try {
+			seedSearchConcepts(db, []);
+			insertAsset(db, 'picasso-oil', 'Picasso Oil');
+			insertAsset(db, 'picasso-sketch', 'Picasso Sketch');
+			insertEntity(db, 'picasso-oil', 'artist', 'pablo_picasso', 'Pablo Picasso');
+			insertEntity(db, 'picasso-sketch', 'artist', 'pablo_picasso', 'Pablo Picasso');
+			insertEntityAlias(db, 'artist', 'pablo_picasso', 'picasso');
+			insertEntityLink(
+				db,
+				'artist',
+				'pablo_picasso',
+				'https://www.instagram.com/pablopicasso',
+				'instagram.com',
+				'pablopicasso'
+			);
+
+			const results = searchAtlasAssets(db, 'picasso');
+
+			expect(results.entityResults).toEqual([
+				expect.objectContaining({
+					kind: 'artist',
+					slug: 'pablo_picasso',
+					label: 'Pablo Picasso',
+					matchLabel: 'picasso',
+					workCount: 2,
+					query: 'artist:(pablo_picasso)',
+					links: [
+						{
+							host: 'instagram.com',
+							username: 'pablopicasso',
+							url: 'https://www.instagram.com/pablopicasso'
+						}
+					]
+				})
+			]);
+			expect(results.entityResults[0]?.thumbnailUrls.length).toBeGreaterThan(0);
+		} finally {
+			db.close();
+		}
+	});
+
 	it('suggests concepts for exclude mode', () => {
 		const db = openLibraryDatabase();
 		try {
@@ -733,6 +805,40 @@ function insertEntity(
 	).run(assetId, kind, slug, NOW);
 }
 
+function insertEntityAlias(
+	db: TestDb,
+	kind: string,
+	slug: string,
+	alias: string
+) {
+	db.prepare(
+		`insert into atlas_entity_aliases (
+			id, entity_id, alias, normalized_alias, source, confidence, created_at
+		) values (
+			?, (select id from atlas_entities where kind = ? and slug = ?), ?, ?, 'test', 'high', ?
+		)`
+	).run(`entity-alias-${kind}-${slug}-${alias}`, kind, slug, alias, displaySlug(alias), NOW);
+}
+
+function insertEntityLink(
+	db: TestDb,
+	kind: string,
+	slug: string,
+	url: string,
+	host: string,
+	username: string
+) {
+	db.prepare(
+		`insert into atlas_entity_links (
+			id, entity_id, url, normalized_url, host, username, source_label, confidence,
+			first_seen_asset_id, last_seen_at, created_at
+		) values (
+			?, (select id from atlas_entities where kind = ? and slug = ?), ?, ?, ?, ?, 'test',
+			'high', null, ?, ?
+		)`
+	).run(`entity-link-${kind}-${slug}-${username}`, kind, slug, url, url, host, username, NOW, NOW);
+}
+
 function insertClaim(db: TestDb, assetId: string, kind: string, slug: string, label: string) {
 	db.prepare(
 		`insert into atlas_claims (
@@ -767,4 +873,8 @@ function updateWikiLists(
 
 function labelFor(slug: string) {
 	return slug.replace(/_/g, ' ');
+}
+
+function displaySlug(value: string) {
+	return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 }

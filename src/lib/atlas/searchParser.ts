@@ -33,7 +33,7 @@ export function parseAtlasSearchQuery(input: string): AtlasParsedSearchQuery {
 }
 
 function tokenize(input: string) {
-	return input.match(/"[^"]+"|\S+/g)?.map((token) => token.replace(/^"|"$/g, '')) ?? [];
+	return input.match(/"[^"]+"|[^\s:]+:\([^)]*\)|\S+/g)?.map((token) => token.replace(/^"|"$/g, '')) ?? [];
 }
 
 function parseToken(token: string): AtlasQueryClause | null {
@@ -62,6 +62,17 @@ function parseToken(token: string): AtlasQueryClause | null {
 
 	if (token.startsWith('-') && token.length > 1) {
 		return conceptClause(token, token.slice(1), 'exclude');
+	}
+
+	const entityFilter = token.match(/^(artist):(?:\((.*)\)|(.*))$/);
+	if (entityFilter) {
+		return {
+			kind: 'entity',
+			raw: token,
+			entityKind: entityFilter[1],
+			slug: normalizeAtlasSlug(entityFilter[2] || entityFilter[3] || ''),
+			mode: 'include'
+		};
 	}
 
 	const classifier = token.match(/^([^:\s.]+)\.([^:\s]+):(.*)$/);
@@ -136,7 +147,10 @@ function canonicalClause(clause: AtlasQueryClause) {
 		if (clause.include?.length) return `role:${clause.include.join(',')}`;
 		return `exclude_role:${clause.exclude?.join(',') ?? ''}`;
 	}
-	if (clause.kind === 'entity') return clause.mode === 'exclude' ? `exclude:${clause.slug}` : clause.slug;
+	if (clause.kind === 'entity') {
+		const value = clause.entityKind ? `${clause.entityKind}:${clause.slug}` : clause.slug;
+		return clause.mode === 'exclude' ? `exclude:${value}` : value;
+	}
 	if (clause.kind === 'claim') return `${clause.claimKind}:${clause.value}`;
 	if (clause.kind === 'evidence') return `evidence:${clause.include?.join(',') ?? ''}`;
 	return '';
