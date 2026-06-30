@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
 	buildDevCommands,
 	childEnvForCurrentNode,
@@ -86,5 +88,15 @@ describe('pastiche dev command', () => {
 		expect(childEnvForCurrentNode('/usr/bin/node', { PATH: '/opt/codex/bin:/usr/bin' }).PATH).toBe(
 			'/usr/bin:/opt/codex/bin:/usr/bin'
 		);
+	});
+
+	it('runs the native dependency guard before direct dev and unit test commands', () => {
+		expect.assertions(2);
+		const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
+			scripts: Record<string, string>;
+		};
+
+		expect(packageJson.scripts.dev).toMatch(/^node scripts\/ensure-native-deps\.mjs && /);
+		expect(packageJson.scripts['test:unit']).toMatch(/^node scripts\/ensure-native-deps\.mjs && /);
 	});
 });
