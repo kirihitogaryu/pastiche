@@ -94,6 +94,9 @@ export const MESSAGE_CONTEXT_IMPORT_STARTED = 'PASTICHE_CONTEXT_IMPORT_STARTED';
 /** SW → sidebar: context-menu import finished, queued, or failed. Payload: ImportResult */
 export const MESSAGE_CONTEXT_IMPORT_FINISHED = 'PASTICHE_CONTEXT_IMPORT_FINISHED';
 
+/** SW → sidebar: capture selection failed before an item could be added to the tray. */
+export const MESSAGE_CAPTURE_FAILED = 'PASTICHE_CAPTURE_FAILED';
+
 // ---------------------------------------------------------------------------
 // Import (sidebar → SW)
 // ---------------------------------------------------------------------------

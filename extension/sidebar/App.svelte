@@ -9,6 +9,7 @@
 		MESSAGE_FETCH_COMPLETE,
 		MESSAGE_CONTEXT_IMPORT_STARTED,
 		MESSAGE_CONTEXT_IMPORT_FINISHED,
+		MESSAGE_CAPTURE_FAILED,
 		MESSAGE_QUEUE_UPDATED,
 		MESSAGE_QUEUE_REPLAYED,
 		MESSAGE_CAPTURE_TAB_IMAGE,
@@ -160,6 +161,14 @@
 					})
 				);
 				void reconnect();
+				break;
+			}
+
+			case MESSAGE_CAPTURE_FAILED: {
+				captureError =
+					typeof message.error === 'string'
+						? message.error
+						: 'Could not add that image to the capture tray.';
 				break;
 			}
 		}

@@ -143,6 +143,8 @@ export function hideRing(): void {
 // Selected badges
 // ---------------------------------------------------------------------------
 
+export type BadgeState = 'pending' | 'confirmed' | 'error';
+
 // Maps a DOM element to its badge div so we can remove it precisely.
 const badges = new WeakMap<Element, HTMLDivElement>();
 
@@ -150,14 +152,18 @@ const badges = new WeakMap<Element, HTMLDivElement>();
  * Place a ✓ badge on the element's top-right corner.
  * Idempotent — calling twice on the same element is a no-op.
  */
-export function addBadge(el: Element): void {
-	if (badges.has(el)) return;
+export function addBadge(el: Element, state: BadgeState = 'confirmed'): void {
+	if (badges.has(el)) {
+		updateBadge(el, state);
+		return;
+	}
 
 	const rect = el.getBoundingClientRect();
 	const c = getContainer();
 
 	const badge = document.createElement('div');
 	badge.setAttribute('aria-hidden', 'true');
+	badge.dataset.pasticheBadge = 'true';
 
 	Object.assign(badge.style, {
 		display: 'flex',
@@ -170,7 +176,6 @@ export function addBadge(el: Element): void {
 		width: '20px',
 		height: '20px',
 		borderRadius: '50%',
-		background: ACCENT,
 		pointerEvents: 'none',
 		boxSizing: 'border-box'
 	});
@@ -184,6 +189,27 @@ export function addBadge(el: Element): void {
 
 	c.appendChild(badge);
 	badges.set(el, badge);
+	updateBadge(el, state);
+}
+
+export function updateBadge(el: Element, state: BadgeState): void {
+	const badge = badges.get(el);
+	if (!badge) return;
+	badge.dataset.pasticheState = state;
+	badge.title =
+		state === 'pending'
+			? 'Sending to Pastiche'
+			: state === 'error'
+				? 'Capture failed'
+				: 'Selected for Pastiche';
+	badge.style.background = state === 'pending' ? '#d0a85c' : state === 'error' ? '#e06c75' : ACCENT;
+	badge.style.opacity = state === 'pending' ? '0.82' : '1';
+	badge.innerHTML =
+		state === 'pending'
+			? `<span style="width:8px;height:8px;border-radius:999px;background:#fff;opacity:.95"></span>`
+			: state === 'error'
+				? `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M3 3l6 6M9 3L3 9" stroke="#fff" stroke-width="1.75" stroke-linecap="round"/></svg>`
+				: `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><polyline points="2,6 5,9 10,3" stroke="#fff" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
 
 /**

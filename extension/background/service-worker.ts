@@ -24,6 +24,7 @@ import { getExtensionApi } from '../shared/browser';
 import { computeSourceHash, sourceKeyForUrls } from '../shared/source-hash';
 import { normalizeImageQualityUrl, resolveCanonicalImage } from './canonical-image';
 import { enrichCapturedItem, wireImportItemForEnrichedItem } from './enrich-capture';
+import { respondToExtensionMessage } from './message-handler';
 import {
 	CONTEXT_IMPORT_NOTIFICATION_KEY,
 	storedImportNotificationFromMessage
@@ -51,6 +52,7 @@ import {
 	MESSAGE_FETCH_COMPLETE,
 	MESSAGE_CONTEXT_IMPORT_STARTED,
 	MESSAGE_CONTEXT_IMPORT_FINISHED,
+	MESSAGE_CAPTURE_FAILED,
 	MESSAGE_QUEUE_UPDATED,
 	MESSAGE_QUEUE_REPLAYED
 } from '../shared/messages';
@@ -170,7 +172,10 @@ api.commands.onCommand.addListener((command) => {
 // ---------------------------------------------------------------------------
 
 api.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
-	void handleMessage(message as ExtensionMessage).then(sendResponse);
+	const extensionMessage = message as ExtensionMessage;
+	void respondToExtensionMessage(extensionMessage, () => handleMessage(extensionMessage), {
+		onCaptureError: (error) => broadcastToSidebar({ type: MESSAGE_CAPTURE_FAILED, error })
+	}).then(sendResponse);
 	return true; // Keep channel open for async response.
 });
 

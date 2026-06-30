@@ -32,6 +32,7 @@ import {
 	showRing,
 	hideRing,
 	addBadge,
+	updateBadge,
 	removeBadge,
 	repositionBadge,
 	showLasso,
@@ -45,7 +46,9 @@ import {
 	type ResolvedImage,
 	type SweepCandidate
 } from './resolver';
+import { deliverCapturedItem, deliverCapturedItems } from './capture-delivery';
 import type { CaptureMetadata, CaptureSource, ImageCandidate } from '../shared/candidates';
+import type { CapturedItemPayload } from '../shared/types';
 
 // ---------------------------------------------------------------------------
 // Browser compatibility shim
@@ -236,15 +239,18 @@ function onLassoPointerUp(event: PointerEvent): void {
 	const candidates = collectInRegion(selectionRect, DEFAULT_MIN_DIMENSION);
 	const newCandidates = candidates.filter((c) => !selectedByUrl.has(c.url));
 
-	for (const candidate of newCandidates) {
-		selectedByUrl.set(candidate.url, candidate.element);
-		addBadge(candidate.element);
-	}
-
 	if (newCandidates.length > 0) {
-		ext.runtime.sendMessage({
+		void deliverCapturedItems({
 			type: MSG_LASSO_RESULTS,
-			items: newCandidates.map(candidateToPayload)
+			items: newCandidates.map((candidate) => ({
+				element: candidate.element,
+				payload: candidateToPayload(candidate)
+			})),
+			selectedByUrl,
+			sendMessage: (message) => ext.runtime.sendMessage(message),
+			addBadge,
+			updateBadge,
+			removeBadge
 		});
 	}
 }
@@ -273,15 +279,18 @@ function runSweep(minDimension: number): void {
 	// Don't re-badge elements already selected.
 	const newCandidates = candidates.filter((c) => !selectedByUrl.has(c.url));
 
-	for (const candidate of newCandidates) {
-		selectedByUrl.set(candidate.url, candidate.element);
-		addBadge(candidate.element);
-	}
-
 	if (newCandidates.length > 0) {
-		ext.runtime.sendMessage({
+		void deliverCapturedItems({
 			type: MSG_SWEEP_RESULTS,
-			items: newCandidates.map(candidateToPayload)
+			items: newCandidates.map((candidate) => ({
+				element: candidate.element,
+				payload: candidateToPayload(candidate)
+			})),
+			selectedByUrl,
+			sendMessage: (message) => ext.runtime.sendMessage(message),
+			addBadge,
+			updateBadge,
+			removeBadge
 		});
 	}
 }
@@ -291,38 +300,20 @@ function runSweep(minDimension: number): void {
 // ---------------------------------------------------------------------------
 
 function captureItem(resolved: ResolvedImage, element: Element): void {
-	// Deduplication: if we already have this URL, skip.
-	if (selectedByUrl.has(resolved.url)) return;
-
-	selectedByUrl.set(resolved.url, element);
-	addBadge(element);
-
-	ext.runtime.sendMessage({
-		type: MSG_ITEM_CAPTURED,
-		item: resolvedToPayload(resolved, element)
+	void deliverCapturedItem({
+		element,
+		payload: resolvedToPayload(resolved, element),
+		selectedByUrl,
+		sendMessage: (message) => ext.runtime.sendMessage(message),
+		addBadge,
+		updateBadge,
+		removeBadge
 	});
 }
 
 // ---------------------------------------------------------------------------
 // Payload serialisation
 // ---------------------------------------------------------------------------
-
-type CapturedItemPayload = {
-	url: string;
-	selectedCandidateId?: string;
-	candidates?: ImageCandidate[];
-	source?: CaptureSource;
-	metadata?: CaptureMetadata;
-	detailUrl: string | null;
-	naturalWidth: number;
-	naturalHeight: number;
-	mimeType: string | null;
-	inlineData: string | null;
-	altText: string | null;
-	sourceUrl: string;
-	pageTitle: string;
-	capturedAt: string;
-};
 
 function resolvedToPayload(resolved: ResolvedImage, element: Element): CapturedItemPayload {
 	return {
