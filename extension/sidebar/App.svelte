@@ -51,7 +51,12 @@
 		removeCaptureTrayItem,
 		removeCaptureTrayIndexes
 	} from '../shared/capture-tray';
-	import { selectCandidateForItem, updateItemMetadata, updateSelectedItemId } from './item-state';
+	import {
+		selectCandidateForItem,
+		selectInstagramLargeCandidateForItem,
+		updateItemMetadata,
+		updateSelectedItemId
+	} from './item-state';
 	import type { CaptureCommandId } from './capture-commands';
 	import {
 		captureNoticeForCommandStart,
@@ -559,6 +564,16 @@
 	function selectCandidate(itemId: string, candidateId: string) {
 		items = selectCandidateForItem(items, itemId, candidateId);
 		void persistCaptureTray(items);
+		fetchSelectedDownloadCandidate(itemId);
+	}
+
+	function selectInstagramLargeCandidate(itemId: string) {
+		items = selectInstagramLargeCandidateForItem(items, itemId);
+		void persistCaptureTray(items);
+		fetchSelectedDownloadCandidate(itemId);
+	}
+
+	function fetchSelectedDownloadCandidate(itemId: string) {
 		const changed = items.find((item) => item.id === itemId);
 		if (changed?.storageMode === 'download' && changed.fetchStatus.state === 'fetching') {
 			void api.runtime.sendMessage({ type: MESSAGE_FETCH_IMAGE, url: changed.url });
@@ -726,6 +741,7 @@
 			<SelectedItemInspector
 				item={selectedItem}
 				onselectcandidate={selectCandidate}
+				onselectinstagramlarge={selectInstagramLargeCandidate}
 				onmetadatachange={updateMetadata}
 				onsourcechange={updateSource}
 			/>

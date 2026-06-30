@@ -1,6 +1,10 @@
 import { parseSrcset } from 'srcset';
 import type { ImageCandidate, ImageCandidateKind } from '../shared/candidates';
-import { applySourceAdapterCandidateHints, transformCandidateUrl } from '../shared/source-adapters';
+import {
+	applySourceAdapterCandidateHints,
+	instagramLargeMediaUrl,
+	transformCandidateUrl
+} from '../shared/source-adapters';
 
 export type SrcsetCandidate = {
 	url: string;
@@ -202,7 +206,7 @@ export function extractCssUrls(value: string): string[] {
 
 function metadataCandidates(document: Document, pageUrl: string): ImageCandidate[] {
 	const candidates: ImageCandidate[] = [];
-	const instagramMediaUrl = instagramMediaCandidateUrl(pageUrl);
+	const instagramMediaUrl = instagramLargeMediaUrl(pageUrl);
 
 	if (instagramMediaUrl) {
 		candidates.push(
@@ -275,19 +279,6 @@ function metadataCandidates(document: Document, pageUrl: string): ImageCandidate
 	}
 
 	return candidates;
-}
-
-function instagramMediaCandidateUrl(pageUrl: string): string | null {
-	try {
-		const url = new URL(pageUrl);
-		const host = url.hostname.replace(/^www\./, '').toLowerCase();
-		if (host !== 'instagram.com' && !host.endsWith('.instagram.com')) return null;
-		const parts = url.pathname.split('/').filter(Boolean);
-		if (parts.length < 2 || !['p', 'reel', 'tv'].includes(parts[0] ?? '')) return null;
-		return new URL(`/${parts[0]}/${parts[1]}/media?size=l`, url.origin).toString();
-	} catch {
-		return null;
-	}
 }
 
 function extractBackgroundUrls(element: Element): string[] {

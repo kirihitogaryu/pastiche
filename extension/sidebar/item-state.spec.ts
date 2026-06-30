@@ -3,6 +3,7 @@ import type { EnrichedItem } from '../shared/types';
 import type { ImageCandidate } from '../shared/candidates';
 import {
 	selectCandidateForItem,
+	selectInstagramLargeCandidateForItem,
 	tagsFromInput,
 	updateItemMetadata,
 	updateSelectedItemId
@@ -110,6 +111,72 @@ describe('sidebar item state helpers', () => {
 		expect(changed.naturalWidth).toBe(320);
 		expect(changed.naturalHeight).toBe(320);
 		expect(updated[1]).toBe(second);
+	});
+
+	it('adds and selects an Instagram large media candidate for post imports', () => {
+		expect.assertions(8);
+		const first = item({
+			id: 'first',
+			url: 'https://instagram.fcdn.example/thumb.jpg',
+			source: {
+				pageUrl: 'https://www.instagram.com/p/DHd5F-_JIny/',
+				canonicalPageUrl: 'https://www.instagram.com/p/DHd5F-_JIny/',
+				detailUrl: 'https://www.instagram.com/p/DHd5F-_JIny/',
+				sourceLabel: 'Instagram',
+				sourceType: 'social',
+				pageHost: 'instagram.com',
+				imageHost: 'instagram.fcdn.example'
+			}
+		});
+		const second = item({ id: 'second' });
+
+		const updated = selectInstagramLargeCandidateForItem([first, second], 'first');
+		const changed = updated[0];
+		const instagramCandidate = changed.candidates.find((candidate) =>
+			candidate.url.endsWith('/media?size=l')
+		);
+
+		expect(changed.url).toBe('https://www.instagram.com/p/DHd5F-_JIny/media?size=l');
+		expect(changed.selectedCandidateId).toBe(instagramCandidate?.id);
+		expect(changed.previewUrl).toBe('https://instagram.fcdn.example/thumb.jpg');
+		expect(changed.source.imageHost).toBe('www.instagram.com');
+		expect(changed.fetchStatus).toEqual({ state: 'idle' });
+		expect(instagramCandidate).toMatchObject({
+			kind: 'network',
+			confidence: 'high',
+			scoreReasons: ['Instagram large media endpoint']
+		});
+		expect(changed.candidates.filter((candidate) => candidate.url.endsWith('/media?size=l'))).toHaveLength(
+			1
+		);
+		expect(updated[1]).toBe(second);
+	});
+
+	it('reuses an existing Instagram large media candidate instead of duplicating it', () => {
+		expect.assertions(2);
+		const large = candidate({
+			id: 'ig-large',
+			url: 'https://www.instagram.com/p/DHd5F-_JIny/media?size=l',
+			kind: 'network'
+		});
+		const first = item({
+			id: 'first',
+			source: {
+				pageUrl: 'https://www.instagram.com/p/DHd5F-_JIny/',
+				canonicalPageUrl: 'https://www.instagram.com/p/DHd5F-_JIny/',
+				detailUrl: 'https://www.instagram.com/p/DHd5F-_JIny/',
+				sourceLabel: 'Instagram',
+				sourceType: 'social',
+				pageHost: 'instagram.com',
+				imageHost: null
+			},
+			candidates: [large]
+		});
+
+		const [changed] = selectInstagramLargeCandidateForItem([first], 'first');
+
+		expect(changed.selectedCandidateId).toBe('ig-large');
+		expect(changed.candidates).toHaveLength(1);
 	});
 
 	it('updates editable metadata and keeps title mirrored to the import filename', () => {

@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
 	applySourceAdapterCandidateHints,
+	instagramLargeMediaUrl,
 	sourceContextForPage,
 	sourceMetadataForPage
 } from './source-adapters';
@@ -64,6 +65,18 @@ describe('source adapters', () => {
 		expect(original.score).toBeGreaterThan(sample.score);
 		expect(original.scoreReasons).toContain('Danbooru original file');
 		expect(sample.scoreReasons).toContain('Danbooru sample file');
+	});
+
+	it('builds Instagram large media endpoints for post-like URLs', () => {
+		expect.assertions(3);
+
+		expect(instagramLargeMediaUrl('https://www.instagram.com/p/DHd5F-_JIny/')).toBe(
+			'https://www.instagram.com/p/DHd5F-_JIny/media?size=l'
+		);
+		expect(instagramLargeMediaUrl('https://instagram.com/reel/ABC123/?utm_source=ig_web_copy_link')).toBe(
+			'https://instagram.com/reel/ABC123/media?size=l'
+		);
+		expect(instagramLargeMediaUrl('https://www.instagram.com/explore/tags/art/')).toBeNull();
 	});
 
 	it('extracts Tumblr page tags as suggested import tags', () => {

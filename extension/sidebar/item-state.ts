@@ -1,5 +1,6 @@
 import type { CaptureMetadata, SourceTag } from '../shared/candidates';
 import type { EnrichedItem, FetchStatus } from '../shared/types';
+import { instagramLargeMediaUrl } from '../shared/source-adapters';
 
 export function updateSelectedItemId(
 	selectedItemId: string | null,
@@ -40,6 +41,52 @@ export function selectCandidateForItem(
 			}
 		};
 	});
+}
+
+export function selectInstagramLargeCandidateForItem(
+	items: EnrichedItem[],
+	itemId: string
+): EnrichedItem[] {
+	let candidateId: string | null = null;
+	const withCandidate = items.map((item) => {
+		if (item.id !== itemId) return item;
+		const largeUrl = instagramLargeMediaUrl(
+			item.source.detailUrl ?? item.source.canonicalPageUrl ?? item.source.pageUrl ?? item.sourceUrl
+		);
+		if (!largeUrl) return item;
+
+		const existing = item.candidates.find((candidate) => candidate.url === largeUrl);
+		candidateId = existing?.id ?? `instagram-large:${largeUrl}`;
+		if (existing) return item;
+
+		return {
+			...item,
+			candidates: [
+				...item.candidates,
+				{
+					id: candidateId,
+					url: largeUrl,
+					kind: 'network' as const,
+					width: null,
+					height: null,
+					visibleWidth: null,
+					visibleHeight: null,
+					mimeType: 'image/jpeg',
+					byteSize: null,
+					altText: item.altText,
+					sourceElementPath: null,
+					detailUrl: item.source.detailUrl ?? item.source.canonicalPageUrl ?? item.source.pageUrl,
+					inlineData: null,
+					score: 110,
+					confidence: 'high' as const,
+					rejectionReasons: [],
+					scoreReasons: ['Instagram large media endpoint']
+				}
+			]
+		};
+	});
+
+	return candidateId ? selectCandidateForItem(withCandidate, itemId, candidateId) : items;
 }
 
 export function updateItemMetadata(

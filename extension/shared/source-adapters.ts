@@ -66,6 +66,19 @@ export function transformCandidateUrl(url: string, context: SourceAdapterContext
 	return url;
 }
 
+export function instagramLargeMediaUrl(pageUrl: string): string | null {
+	try {
+		const url = new URL(pageUrl);
+		const host = url.hostname.replace(/^www\./, '').toLowerCase();
+		if (host !== 'instagram.com' && !host.endsWith('.instagram.com')) return null;
+		const parts = url.pathname.split('/').filter(Boolean);
+		if (parts.length < 2 || !['p', 'reel', 'tv'].includes(parts[0] ?? '')) return null;
+		return new URL(`/${parts[0]}/${parts[1]}/media?size=l`, url.origin).toString();
+	} catch {
+		return null;
+	}
+}
+
 export function applySourceAdapterCandidateHints(
 	candidate: ImageCandidate,
 	context: SourceAdapterContext

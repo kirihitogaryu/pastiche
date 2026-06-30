@@ -1,17 +1,25 @@
 <script lang="ts">
 	import type { CaptureMetadata, CaptureSource } from '../../shared/candidates';
 	import type { EnrichedItem } from '../../shared/types';
+	import { instagramLargeMediaUrl } from '../../shared/source-adapters';
 	import AlternatesDrawer from './AlternatesDrawer.svelte';
 	import MetadataEditor from './MetadataEditor.svelte';
 
 	type Props = {
 		item: EnrichedItem | null;
 		onselectcandidate: (itemId: string, candidateId: string) => void;
+		onselectinstagramlarge: (itemId: string) => void;
 		onmetadatachange: (itemId: string, patch: Partial<CaptureMetadata>) => void;
 		onsourcechange: (itemId: string, patch: Partial<CaptureSource>) => void;
 	};
 
-	let { item, onselectcandidate, onmetadatachange, onsourcechange }: Props = $props();
+	let {
+		item,
+		onselectcandidate,
+		onselectinstagramlarge,
+		onmetadatachange,
+		onsourcechange
+	}: Props = $props();
 	let alternatesOpen = $state(false);
 
 	const thumbSrc = $derived(() => {
@@ -29,6 +37,14 @@
 
 	const candidateCount = $derived(item?.candidates?.length ?? 0);
 	const scoreReasons = $derived(selectedCandidate()?.scoreReasons ?? []);
+	const instagramLargeUrl = $derived(() =>
+		item
+			? instagramLargeMediaUrl(
+					item.source.detailUrl ?? item.source.canonicalPageUrl ?? item.source.pageUrl ?? item.sourceUrl
+				)
+			: null
+	);
+	const usingInstagramLarge = $derived(Boolean(instagramLargeUrl() && item?.url === instagramLargeUrl()));
 </script>
 
 {#if item}
@@ -54,6 +70,16 @@
 			</a>
 			{#if scoreReasons.length}
 				<small>{scoreReasons[0]}</small>
+			{/if}
+			{#if instagramLargeUrl()}
+				<button
+					class="ig-large"
+					type="button"
+					disabled={usingInstagramLarge}
+					onclick={() => onselectinstagramlarge(item.id)}
+				>
+					{usingInstagramLarge ? 'Using Instagram large' : 'Use Instagram large'}
+				</button>
 			{/if}
 		</div>
 
@@ -157,5 +183,27 @@
 
 	a:hover {
 		color: var(--ext-accent);
+	}
+
+	.ig-large {
+		justify-self: start;
+		border: 1px solid var(--ext-border);
+		border-radius: var(--ext-radius-sm);
+		background: var(--ext-control);
+		color: var(--ext-text);
+		font: inherit;
+		font-size: 11px;
+		padding: 5px 7px;
+		cursor: pointer;
+	}
+
+	.ig-large:hover:not(:disabled) {
+		border-color: var(--ext-border-strong);
+		background: var(--ext-control-hover);
+	}
+
+	.ig-large:disabled {
+		color: var(--ext-dim);
+		cursor: default;
 	}
 </style>
