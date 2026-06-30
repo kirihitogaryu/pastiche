@@ -1,4 +1,4 @@
-import type { ImageCandidate } from './candidates';
+import type { ImageCandidate, SourceTag } from './candidates';
 import type { EnrichedItem } from './types';
 
 export const CAPTURE_TRAY_STORAGE_KEY = 'pastiche_capture_tray_items';
@@ -70,7 +70,9 @@ function hydrateStoredTrayItem(item: Partial<EnrichedItem>): EnrichedItem {
 			artist: item.metadata?.artist ?? null,
 			date: item.metadata?.date ?? null,
 			tags: stringArrayFromStorage(item.metadata?.tags),
+			acceptedConceptSlugs: stringArrayFromStorage(item.metadata?.acceptedConceptSlugs),
 			suggestedTags: stringArrayFromStorage(item.metadata?.suggestedTags),
+			sourceTags: sourceTagsFromStorage(item.metadata?.sourceTags),
 			description: item.metadata?.description ?? null,
 			rawPageTitle: item.metadata?.rawPageTitle ?? item.pageTitle ?? null,
 			rawAltText: item.metadata?.rawAltText ?? item.altText ?? null
@@ -118,4 +120,50 @@ function hydrateCandidate(candidate: unknown): ImageCandidate {
 
 function stringArrayFromStorage(value: unknown): string[] {
 	return storedTrayArray(value).filter((entry): entry is string => typeof entry === 'string');
+}
+
+function sourceTagsFromStorage(value: unknown): SourceTag[] {
+	return storedTrayArray(value).filter(isSourceTagFromStorage);
+}
+
+function isSourceTagFromStorage(value: unknown): value is SourceTag {
+	if (typeof value !== 'object' || value === null) return false;
+	const entry = value as Partial<SourceTag>;
+	return (
+		isSourceTagSource(entry.source) &&
+		isSourceTagCategory(entry.category) &&
+		typeof entry.label === 'string' &&
+		typeof entry.slug === 'string' &&
+		(entry.url === null || typeof entry.url === 'string') &&
+		isSourceTagConfidence(entry.confidence) &&
+		typeof entry.selectorHint === 'string'
+	);
+}
+
+function isSourceTagSource(value: unknown): value is SourceTag['source'] {
+	return (
+		value === 'danbooru' ||
+		value === 'deviantart' ||
+		value === 'tumblr' ||
+		value === 'x' ||
+		value === 'bluesky' ||
+		value === 'instagram' ||
+		value === 'generic'
+	);
+}
+
+function isSourceTagCategory(value: unknown): value is SourceTag['category'] {
+	return (
+		value === 'tag' ||
+		value === 'artist' ||
+		value === 'character' ||
+		value === 'copyright' ||
+		value === 'meta' ||
+		value === 'hashtag' ||
+		value === 'unknown'
+	);
+}
+
+function isSourceTagConfidence(value: unknown): value is SourceTag['confidence'] {
+	return value === 'high' || value === 'medium' || value === 'low';
 }

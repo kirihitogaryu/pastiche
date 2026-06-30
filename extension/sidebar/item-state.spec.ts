@@ -64,7 +64,9 @@ function item(partial: Partial<EnrichedItem>): EnrichedItem {
 			artist: null,
 			date: null,
 			tags: [],
+			acceptedConceptSlugs: [],
 			suggestedTags: [],
+			sourceTags: [],
 			description: null,
 			rawPageTitle: 'Example Post',
 			rawAltText: null
@@ -111,16 +113,41 @@ describe('sidebar item state helpers', () => {
 	});
 
 	it('updates editable metadata and keeps title mirrored to the import filename', () => {
-		expect.assertions(3);
+		expect.assertions(5);
 		const [updated] = updateItemMetadata([item({ id: 'first' })], 'first', {
 			title: 'Edited Title',
 			artist: 'Example Artist',
-			tags: ['study']
+			tags: ['study'],
+			acceptedConceptSlugs: [' dragon ', 'dragon', 'Black Hair'],
+			sourceTags: [
+				{
+					source: 'deviantart',
+					category: 'tag',
+					label: 'Dragon',
+					slug: 'dragon',
+					url: 'https://www.deviantart.com/tag/dragon',
+					confidence: 'high',
+					selectorHint: 'a[data-tagname][href*="/tag/"]'
+				},
+				{ source: 'deviantart', label: 7 } as never
+			]
 		});
 
 		expect(updated.metadata.title).toBe('Edited Title');
 		expect(updated.metadata.artist).toBe('Example Artist');
 		expect(updated.suggestedName).toBe('Edited Title');
+		expect(updated.metadata.acceptedConceptSlugs).toEqual(['dragon', 'black_hair']);
+		expect(updated.metadata.sourceTags).toEqual([
+			{
+				source: 'deviantart',
+				category: 'tag',
+				label: 'Dragon',
+				slug: 'dragon',
+				url: 'https://www.deviantart.com/tag/dragon',
+				confidence: 'high',
+				selectorHint: 'a[data-tagname][href*="/tag/"]'
+			}
+		]);
 	});
 
 	it('normalizes comma and newline separated tags', () => {

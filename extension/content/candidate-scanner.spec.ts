@@ -81,6 +81,19 @@ describe('candidate scanner', () => {
 		);
 	});
 
+	it('adds Instagram media endpoint candidates from post URLs', () => {
+		expect.assertions(1);
+
+		const candidates = scanDocumentForCandidates({
+			document,
+			pageUrl: 'https://www.instagram.com/p/DHd5F-_JIny/'
+		});
+
+		expect(candidates.map((candidate) => candidate.url)).toContain(
+			'https://www.instagram.com/p/DHd5F-_JIny/media?size=l'
+		);
+	});
+
 	it('parses multiple CSS url values and srcset descriptors', () => {
 		expect.assertions(2);
 

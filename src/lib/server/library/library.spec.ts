@@ -218,6 +218,58 @@ describe('local library archive', () => {
 		]);
 	});
 
+	it('applies user-accepted Atlas concepts from extension import metadata', async () => {
+		const result = await importLibraryItems({
+			destination_folder_id: null,
+			items: [
+				{
+					filename: 'Dragon study',
+					storage_mode: 'url_reference',
+					image_data: null,
+					source_image_url: 'https://example.com/dragon.jpg',
+					mime_type: 'image/jpeg',
+					natural_width: 1200,
+					natural_height: 900,
+					source_url: 'https://www.deviantart.com/example/art/dragon-study',
+					page_title: 'Dragon study',
+					alt_text: null,
+					captured_at: '2026-06-30T12:00:00.000Z',
+					metadata: {
+						sourceName: 'DeviantArt',
+						sourceType: 'gallery',
+						detailUrl: 'https://www.deviantart.com/example/art/dragon-study',
+						acceptedConceptSlugs: ['dragon', 'Black Hair', 'dragon'],
+						tags: ['page-only-suggestion']
+					}
+				}
+			]
+		});
+
+		const db = new Database(join(archiveRoot, 'workspace.sqlite'), { readonly: true });
+		const accepted = db
+			.prepare(
+				`
+				select atlas_concepts.slug, atlas_asset_concepts.evidence, atlas_asset_concepts.status
+				from atlas_asset_concepts
+				join atlas_concepts on atlas_concepts.id = atlas_asset_concepts.concept_id
+				where atlas_asset_concepts.asset_id = ?
+				order by atlas_concepts.slug
+			`
+			)
+			.all(result.imported[0].asset_id);
+		const suggestions = db
+			.prepare('select slug, status from atlas_tag_suggestions order by slug')
+			.all();
+		db.close();
+
+		expect(result.failed).toEqual([]);
+		expect(accepted).toEqual([
+			{ slug: 'black_hair', evidence: 'observed', status: 'approved' },
+			{ slug: 'dragon', evidence: 'observed', status: 'approved' }
+		]);
+		expect(suggestions).toEqual([{ slug: 'page_only_suggestion', status: 'suggested' }]);
+	});
+
 	it('uses live direct-only project folder refs for project membership', async () => {
 		const folder = createFolder({ name: 'Hands' });
 		const nested = createFolder({ name: 'Fingers', parentId: folder.id });

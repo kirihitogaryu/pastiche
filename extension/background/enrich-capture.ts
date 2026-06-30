@@ -34,6 +34,7 @@ type WireImportItem = {
 		creator: string | null;
 		dateDisplay: string | null;
 		tags: string[];
+		acceptedConceptSlugs: string[];
 		rawMetadata: Record<string, unknown>;
 	};
 };
@@ -118,6 +119,7 @@ export function wireImportItemForEnrichedItem(item: EnrichedItem): WireImportIte
 			creator: item.metadata.artist,
 			dateDisplay: item.metadata.date,
 			tags: item.metadata.tags,
+			acceptedConceptSlugs: item.metadata.acceptedConceptSlugs,
 			rawMetadata: {
 				description: item.metadata.description,
 				imageHost: item.source.imageHost,
@@ -125,7 +127,8 @@ export function wireImportItemForEnrichedItem(item: EnrichedItem): WireImportIte
 				rawAltText: item.metadata.rawAltText,
 				rawPageTitle: item.metadata.rawPageTitle,
 				selectedCandidateId: item.selectedCandidateId,
-				suggestedTags: item.metadata.suggestedTags
+				suggestedTags: item.metadata.suggestedTags,
+				sourceTags: item.metadata.sourceTags
 			}
 		}
 	};
@@ -215,7 +218,9 @@ function metadataForCapture(
 		artist: cleanString(captured.metadata?.artist),
 		date: cleanString(captured.metadata?.date),
 		tags: normalizeTags(captured.metadata?.tags),
+		acceptedConceptSlugs: normalizeConceptSlugs(captured.metadata?.acceptedConceptSlugs),
 		suggestedTags: normalizeTags(captured.metadata?.suggestedTags),
+		sourceTags: captured.metadata?.sourceTags ?? [],
 		description: cleanString(captured.metadata?.description),
 		rawPageTitle: cleanString(captured.metadata?.rawPageTitle) ?? captured.pageTitle ?? null,
 		rawAltText: cleanString(captured.metadata?.rawAltText) ?? selected?.altText ?? captured.altText
@@ -300,6 +305,25 @@ function cleanString(value: string | null | undefined): string | null {
 
 function normalizeTags(tags: string[] | undefined): string[] {
 	return [...new Set((tags ?? []).map((tag) => tag.trim()).filter(Boolean))];
+}
+
+function normalizeConceptSlugs(slugs: string[] | undefined): string[] {
+	return [
+		...new Set(
+			(slugs ?? [])
+				.map((slug) =>
+					slug
+						.trim()
+						.toLowerCase()
+						.replace(/&/g, ' and ')
+						.replace(/['"]/g, '')
+						.replace(/[^a-z0-9]+/g, '_')
+						.replace(/_+/g, '_')
+						.replace(/^_|_$/g, '')
+				)
+				.filter(Boolean)
+		)
+	];
 }
 
 function hashish(value: string): string {

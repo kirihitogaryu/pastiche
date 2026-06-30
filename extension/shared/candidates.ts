@@ -57,12 +57,26 @@ export type CaptureSource = {
 	imageHost: string | null;
 };
 
+export type SourceTag = {
+	source: 'danbooru' | 'deviantart' | 'tumblr' | 'x' | 'bluesky' | 'instagram' | 'generic';
+	category: 'tag' | 'artist' | 'character' | 'copyright' | 'meta' | 'hashtag' | 'unknown';
+	label: string;
+	slug: string;
+	url: string | null;
+	confidence: 'high' | 'medium' | 'low';
+	selectorHint: string;
+	deprecated?: boolean;
+	count?: number | null;
+};
+
 export type CaptureMetadata = {
 	title: string;
 	artist: string | null;
 	date: string | null;
 	tags: string[];
+	acceptedConceptSlugs: string[];
 	suggestedTags: string[];
+	sourceTags: SourceTag[];
 	description: string | null;
 	rawPageTitle: string | null;
 	rawAltText: string | null;

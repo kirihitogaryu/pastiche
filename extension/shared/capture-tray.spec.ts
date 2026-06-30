@@ -28,7 +28,9 @@ function item(partial: Partial<EnrichedItem>): EnrichedItem {
 			artist: null,
 			date: null,
 			tags: [],
+			acceptedConceptSlugs: [],
 			suggestedTags: [],
+			sourceTags: [],
 			description: null,
 			rawPageTitle: null,
 			rawAltText: null
@@ -96,7 +98,7 @@ describe('capture tray persistence helpers', () => {
 	});
 
 	it('hydrates older stored tray items with safe array defaults', () => {
-		expect.assertions(3);
+		expect.assertions(5);
 
 		const [stored] = captureTrayItemsFromStorage([
 			{
@@ -110,6 +112,8 @@ describe('capture tray persistence helpers', () => {
 		expect(stored.candidates).toEqual([]);
 		expect(stored.metadata.suggestedTags).toEqual([]);
 		expect(stored.metadata.tags).toEqual([]);
+		expect(stored.metadata.acceptedConceptSlugs).toEqual([]);
+		expect(stored.metadata.sourceTags).toEqual([]);
 	});
 
 	it('accepts Chrome storage array-like objects for fetched image captures', () => {
@@ -123,7 +127,7 @@ describe('capture tray persistence helpers', () => {
 	});
 
 	it('hydrates nested Chrome storage array-like values for direct image captures', () => {
-		expect.assertions(4);
+		expect.assertions(6);
 
 		const [stored] = captureTrayItemsFromStorage({
 			0: {
@@ -152,7 +156,20 @@ describe('capture tray persistence helpers', () => {
 				metadata: {
 					...item({}).metadata,
 					tags: { 0: 'saved' },
-					suggestedTags: { 0: 'reference' }
+					suggestedTags: { 0: 'reference' },
+					acceptedConceptSlugs: { 0: 'dragon', 1: 42, 2: 'flower' },
+					sourceTags: {
+						0: {
+							source: 'danbooru',
+							category: 'tag',
+							label: 'dragon',
+							slug: 'dragon',
+							url: null,
+							confidence: 'high',
+							selectorHint: 'test'
+						},
+						1: { source: 'danbooru', label: 7 }
+					}
 				}
 			}
 		});
@@ -161,5 +178,17 @@ describe('capture tray persistence helpers', () => {
 		expect(stored.candidates[0].scoreReasons).toEqual(['direct image URL']);
 		expect(stored.metadata.tags).toEqual(['saved']);
 		expect(stored.metadata.suggestedTags).toEqual(['reference']);
+		expect(stored.metadata.acceptedConceptSlugs).toEqual(['dragon', 'flower']);
+		expect(stored.metadata.sourceTags).toEqual([
+			{
+				source: 'danbooru',
+				category: 'tag',
+				label: 'dragon',
+				slug: 'dragon',
+				url: null,
+				confidence: 'high',
+				selectorHint: 'test'
+			}
+		]);
 	});
 });

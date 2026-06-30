@@ -1,4 +1,4 @@
-import type { CaptureMetadata } from '../shared/candidates';
+import type { CaptureMetadata, SourceTag } from '../shared/candidates';
 import type { EnrichedItem, FetchStatus } from '../shared/types';
 
 export function updateSelectedItemId(
@@ -53,9 +53,13 @@ export function updateItemMetadata(
 			...item.metadata,
 			...patch,
 			tags: patch.tags ? normalizeTags(patch.tags) : item.metadata.tags,
+			acceptedConceptSlugs: patch.acceptedConceptSlugs
+				? normalizeConceptSlugs(patch.acceptedConceptSlugs)
+				: item.metadata.acceptedConceptSlugs,
 			suggestedTags: patch.suggestedTags
 				? normalizeTags(patch.suggestedTags)
-				: item.metadata.suggestedTags
+				: item.metadata.suggestedTags,
+			sourceTags: patch.sourceTags ? normalizeSourceTags(patch.sourceTags) : item.metadata.sourceTags
 		};
 
 		return {
@@ -78,6 +82,90 @@ function fetchStatusAfterCandidateChange(item: EnrichedItem, candidateUrl: strin
 
 function normalizeTags(tags: string[]): string[] {
 	return [...new Set(tags.map((tag) => tag.trim()).filter(Boolean))];
+}
+
+function normalizeConceptSlugs(slugs: string[]): string[] {
+	return [
+		...new Set(
+			slugs
+				.map((slug) =>
+					slug
+						.trim()
+						.toLowerCase()
+						.replace(/&/g, ' and ')
+						.replace(/['"]/g, '')
+						.replace(/[^a-z0-9]+/g, '_')
+						.replace(/_+/g, '_')
+						.replace(/^_|_$/g, '')
+				)
+				.filter(Boolean)
+		)
+	];
+}
+
+function normalizeSourceTags(tags: SourceTag[]): SourceTag[] {
+	const seen = new Set<string>();
+	const normalized: SourceTag[] = [];
+	for (const tag of tags) {
+		if (!isSourceTag(tag)) continue;
+		const slug = tag.slug.trim();
+		const label = tag.label.trim();
+		const selectorHint = tag.selectorHint.trim();
+		if (!slug || !label || !selectorHint) continue;
+		const key = `${tag.source}:${tag.category}:${slug}`;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		normalized.push({
+			...tag,
+			label,
+			slug,
+			url: tag.url?.trim() || null,
+			selectorHint
+		});
+	}
+	return normalized;
+}
+
+function isSourceTag(value: unknown): value is SourceTag {
+	if (typeof value !== 'object' || value === null) return false;
+	const tag = value as Partial<SourceTag>;
+	return (
+		isSourceTagSource(tag.source) &&
+		isSourceTagCategory(tag.category) &&
+		typeof tag.label === 'string' &&
+		typeof tag.slug === 'string' &&
+		(tag.url === null || typeof tag.url === 'string') &&
+		isSourceTagConfidence(tag.confidence) &&
+		typeof tag.selectorHint === 'string'
+	);
+}
+
+function isSourceTagSource(value: unknown): value is SourceTag['source'] {
+	return (
+		value === 'danbooru' ||
+		value === 'deviantart' ||
+		value === 'tumblr' ||
+		value === 'x' ||
+		value === 'bluesky' ||
+		value === 'instagram' ||
+		value === 'generic'
+	);
+}
+
+function isSourceTagCategory(value: unknown): value is SourceTag['category'] {
+	return (
+		value === 'tag' ||
+		value === 'artist' ||
+		value === 'character' ||
+		value === 'copyright' ||
+		value === 'meta' ||
+		value === 'hashtag' ||
+		value === 'unknown'
+	);
+}
+
+function isSourceTagConfidence(value: unknown): value is SourceTag['confidence'] {
+	return value === 'high' || value === 'medium' || value === 'low';
 }
 
 function hostnameFrom(url: string): string | null {

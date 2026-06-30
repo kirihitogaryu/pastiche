@@ -67,38 +67,106 @@ describe('source adapters', () => {
 	});
 
 	it('extracts Tumblr page tags as suggested import tags', () => {
-		expect.assertions(1);
+		expect.assertions(2);
 		document.head.innerHTML = `
 			<meta property="article:tag" content="illustration">
 			<meta property="article:tag" content="color study">
 		`;
 
-		expect(
-			sourceMetadataForPage(document, { pageUrl: 'https://artist.tumblr.com/post/1' })
-		).toMatchObject({
+		const metadata = sourceMetadataForPage(document, {
+			pageUrl: 'https://artist.tumblr.com/post/1'
+		});
+
+		expect(metadata).toMatchObject({
 			suggestedTags: ['illustration', 'color study']
 		});
+		expect(metadata.sourceTags).toEqual([
+			expect.objectContaining({ source: 'tumblr', category: 'tag', slug: 'illustration' }),
+			expect.objectContaining({ source: 'tumblr', category: 'tag', slug: 'color_study' })
+		]);
 	});
 
 	it('extracts Danbooru sidebar tags as suggested import tags', () => {
-		expect.assertions(1);
+		expect.assertions(3);
 		document.body.innerHTML = `
-			<section id="tag-list">
-				<ul class="artist-tag-list"><li><a class="search-tag" href="/posts?tags=cakiada">cakiada</a></li></ul>
-				<ul class="copyright-tag-list"><li><a class="search-tag" href="/posts?tags=neon_genesis_evangelion">neon genesis evangelion</a></li></ul>
-				<ul class="character-tag-list"><li><a class="search-tag" href="/posts?tags=ikari_shinji">ikari shinji</a></li></ul>
+			<section id="tag-list" class="tag-list categorized-tag-list">
+				<ul class="artist-tag-list"><li data-tag-name="cakiada" data-is-deprecated="false"><a class="search-tag" href="/posts?tags=cakiada">cakiada</a><span class="post-count" title="4">4</span></li></ul>
+				<ul class="copyright-tag-list"><li data-tag-name="neon_genesis_evangelion" data-is-deprecated="false"><a class="search-tag" href="/posts?tags=neon_genesis_evangelion">neon genesis evangelion</a></li></ul>
+				<ul class="character-tag-list"><li data-tag-name="ikari_shinji" data-is-deprecated="false"><a class="search-tag" href="/posts?tags=ikari_shinji">ikari shinji</a></li></ul>
 				<ul class="general-tag-list">
-					<li><a class="search-tag" href="/posts?tags=2boys">2boys</a></li>
-					<li><a class="search-tag" href="/posts?tags=flower">flower</a></li>
+					<li data-tag-name="2boys" data-is-deprecated="false"><a class="search-tag" href="/posts?tags=2boys">2boys</a></li>
+					<li data-tag-name="flower" data-is-deprecated="false"><a class="search-tag" href="/posts?tags=flower">flower</a></li>
 				</ul>
 			</section>
 		`;
 
-		expect(
-			sourceMetadataForPage(document, { pageUrl: 'https://danbooru.donmai.us/posts/1' })
-		).toMatchObject({
+		const metadata = sourceMetadataForPage(document, {
+			pageUrl: 'https://danbooru.donmai.us/posts/1'
+		});
+
+		expect(metadata).toMatchObject({
 			suggestedTags: ['cakiada', 'neon genesis evangelion', 'ikari shinji', '2boys', 'flower']
 		});
+		expect(metadata.sourceTags.map((tag) => [tag.category, tag.slug])).toEqual([
+			['artist', 'cakiada'],
+			['copyright', 'neon_genesis_evangelion'],
+			['character', 'ikari_shinji'],
+			['tag', '2boys'],
+			['tag', 'flower']
+		]);
+		expect(metadata.sourceTags[0]).toMatchObject({ count: 4, confidence: 'high' });
+	});
+
+	it('extracts DeviantArt rendered tag links as source tags', () => {
+		expect.assertions(2);
+		document.body.innerHTML = `
+			<a href="https://www.deviantart.com/tag/dragon" data-tagname="dragon" title="dragon">dragon</a>
+			<a href="https://www.deviantart.com/tag/adoptable" data-tagname="adoptable" title="adoptable">adoptable</a>
+		`;
+
+		const metadata = sourceMetadataForPage(document, {
+			pageUrl: 'https://www.deviantart.com/example/art/dragon-space-rift'
+		});
+
+		expect(metadata.suggestedTags).toEqual(['dragon', 'adoptable']);
+		expect(metadata.sourceTags).toEqual([
+			expect.objectContaining({ source: 'deviantart', category: 'tag', slug: 'dragon' }),
+			expect.objectContaining({ source: 'deviantart', category: 'tag', slug: 'adoptable' })
+		]);
+	});
+
+	it('extracts Tumblr rendered tag links from tagged routes', () => {
+		expect.assertions(2);
+		document.body.innerHTML = `
+			<a data-testid="tag-link" href="/infezmite/tagged/my%20art">my art</a>
+			<a data-testid="tag-link" href="/infezmite/tagged/artists%20on%20tumblr">artists on tumblr</a>
+		`;
+
+		const metadata = sourceMetadataForPage(document, {
+			pageUrl: 'https://www.tumblr.com/infezmite/123'
+		});
+
+		expect(metadata.suggestedTags).toEqual(['my art', 'artists on tumblr']);
+		expect(metadata.sourceTags.map((tag) => tag.slug)).toEqual(['my_art', 'artists_on_tumblr']);
+	});
+
+	it('extracts social hashtag links without scanning arbitrary page words', () => {
+		expect.assertions(2);
+		document.body.innerHTML = `
+			<a href="https://x.com/hashtag/Watercolor">#Watercolor</a>
+			<a href="https://x.com/search?q=%23eva">Search</a>
+			<p>#notalink should not be treated as a tag on its own.</p>
+		`;
+
+		const metadata = sourceMetadataForPage(document, {
+			pageUrl: 'https://x.com/artist/status/1'
+		});
+
+		expect(metadata.suggestedTags).toEqual(['#Watercolor', '#eva']);
+		expect(metadata.sourceTags).toEqual([
+			expect.objectContaining({ source: 'x', category: 'hashtag', slug: 'watercolor' }),
+			expect.objectContaining({ source: 'x', category: 'hashtag', slug: 'eva' })
+		]);
 	});
 
 	it('extracts DeviantArt title and artist hints', () => {

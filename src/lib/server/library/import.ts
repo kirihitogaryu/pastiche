@@ -1,10 +1,12 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
+import { normalizeAtlasSlug } from '$lib/atlas/normalization';
 import {
 	applyAtlasIngestionProposal,
 	createAtlasIngestionProposal
 } from '$lib/server/atlas/ingest';
+import { applyAtlasAssetPatch } from '$lib/server/atlas/mutate';
 import {
 	applyApolloPythonSeedForAsset,
 	shouldApplyApolloPythonSeed
@@ -101,6 +103,24 @@ export async function importLibraryItems(request: ImportRequest): Promise<Import
 					now
 				});
 				applyAtlasIngestionProposal(db, proposal);
+
+				const acceptedConceptSlugs = normalizeAcceptedConceptSlugs(
+					item.metadata.acceptedConceptSlugs
+				);
+				if (acceptedConceptSlugs.length) {
+					applyAtlasAssetPatch(
+						db,
+						assetId,
+						{
+							concepts: acceptedConceptSlugs.map((slug) => ({
+								slug,
+								evidence: 'observed',
+								status: 'approved'
+							}))
+						},
+						now
+					);
+				}
 			}
 
 			if (shouldApplyApolloPythonSeed({ title: item.filename, sourceUrl: item.source_url })) {
@@ -198,6 +218,19 @@ function extensionForMimeType(mimeType: string | null) {
 function serializeMetadata(metadata: ImportItem['metadata']) {
 	if (!metadata) return null;
 	return JSON.stringify(metadata);
+}
+
+function normalizeAcceptedConceptSlugs(value: string[] | undefined) {
+	if (!value) return [];
+	const seen = new Set<string>();
+	const slugs: string[] = [];
+	for (const item of value) {
+		const slug = normalizeAtlasSlug(item);
+		if (!slug || seen.has(slug)) continue;
+		seen.add(slug);
+		slugs.push(slug);
+	}
+	return slugs;
 }
 
 function atlasSourceForImport(

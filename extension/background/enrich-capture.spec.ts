@@ -72,7 +72,19 @@ describe('capture enrichment', () => {
 					artist: 'Example Artist',
 					date: '2026',
 					tags: ['illustration'],
+					acceptedConceptSlugs: ['dragon', 'Black Hair'],
 					suggestedTags: ['green'],
+					sourceTags: [
+						{
+							source: 'danbooru',
+							category: 'tag',
+							label: 'dragon',
+							slug: 'dragon',
+							url: 'https://danbooru.donmai.us/posts?tags=dragon',
+							confidence: 'high',
+							selectorHint: 'test'
+						}
+					],
 					description: null,
 					rawPageTitle: 'Page Title',
 					rawAltText: 'Alt title'
@@ -103,14 +115,16 @@ describe('capture enrichment', () => {
 				detailUrl: 'https://example.com/post/1',
 				creator: 'Example Artist',
 				dateDisplay: '2026',
-				tags: ['illustration']
+				tags: ['illustration'],
+				acceptedConceptSlugs: ['dragon', 'black_hair']
 			}
 		});
 		expect(wireImportItemForEnrichedItem(item).metadata?.rawMetadata).toMatchObject({
 			selectedCandidateId: original.id,
 			pageHost: 'example.com',
 			imageHost: 'cdn.example.com',
-			suggestedTags: ['green']
+			suggestedTags: ['green'],
+			sourceTags: [expect.objectContaining({ source: 'danbooru', slug: 'dragon' })]
 		});
 	});
 

@@ -84,6 +84,9 @@ function isImportMetadata(
 		isOptionalNullableString(value.rights) &&
 		(value.tags === undefined ||
 			(Array.isArray(value.tags) && value.tags.every((tag) => typeof tag === 'string'))) &&
+		(value.acceptedConceptSlugs === undefined ||
+			(Array.isArray(value.acceptedConceptSlugs) &&
+				value.acceptedConceptSlugs.every((slug) => typeof slug === 'string'))) &&
 		(value.rawMetadata === undefined || isRecord(value.rawMetadata))
 	);
 }

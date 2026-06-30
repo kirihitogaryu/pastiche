@@ -202,6 +202,22 @@ export function extractCssUrls(value: string): string[] {
 
 function metadataCandidates(document: Document, pageUrl: string): ImageCandidate[] {
 	const candidates: ImageCandidate[] = [];
+	const instagramMediaUrl = instagramMediaCandidateUrl(pageUrl);
+
+	if (instagramMediaUrl) {
+		candidates.push(
+			createCandidate({
+				url: instagramMediaUrl,
+				kind: 'meta',
+				pageUrl,
+				width: null,
+				height: null,
+				visibleWidth: null,
+				visibleHeight: null,
+				altText: null
+			})
+		);
+	}
 
 	for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[property], meta[name]')) {
 		const key = (meta.getAttribute('property') ?? meta.getAttribute('name') ?? '').toLowerCase();
@@ -259,6 +275,19 @@ function metadataCandidates(document: Document, pageUrl: string): ImageCandidate
 	}
 
 	return candidates;
+}
+
+function instagramMediaCandidateUrl(pageUrl: string): string | null {
+	try {
+		const url = new URL(pageUrl);
+		const host = url.hostname.replace(/^www\./, '').toLowerCase();
+		if (host !== 'instagram.com' && !host.endsWith('.instagram.com')) return null;
+		const parts = url.pathname.split('/').filter(Boolean);
+		if (parts.length < 2 || !['p', 'reel', 'tv'].includes(parts[0] ?? '')) return null;
+		return new URL(`/${parts[0]}/${parts[1]}/media?size=l`, url.origin).toString();
+	} catch {
+		return null;
+	}
 }
 
 function extractBackgroundUrls(element: Element): string[] {

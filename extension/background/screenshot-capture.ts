@@ -28,7 +28,9 @@ export function capturedPayloadForVisibleScreenshot(
 			artist: null,
 			date: null,
 			tags: ['rendered capture'],
+			acceptedConceptSlugs: [],
 			suggestedTags: ['screenshot fallback'],
+			sourceTags: [],
 			description: 'Rendered visible viewport capture. Not an original image file.',
 			rawPageTitle: input.pageTitle,
 			rawAltText: null

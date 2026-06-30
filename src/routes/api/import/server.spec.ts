@@ -160,10 +160,22 @@ describe('POST /api/import', () => {
 								creator: 'artist',
 								dateDisplay: '2026-06-30',
 								tags: ['illustration', 'reference'],
+								acceptedConceptSlugs: ['dragon', 'black_hair'],
 								rawMetadata: {
 									selectedCandidateId: 'candidate-original',
 									pageHost: 'x.com',
-									imageHost: 'pbs.twimg.com'
+									imageHost: 'pbs.twimg.com',
+									sourceTags: [
+										{
+											source: 'danbooru',
+											category: 'tag',
+											label: 'dragon',
+											slug: 'dragon',
+											url: null,
+											confidence: 'high',
+											selectorHint: 'test'
+										}
+									]
 								}
 							}
 						}

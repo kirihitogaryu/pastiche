@@ -59,6 +59,7 @@ export type LibraryImportMetadata = {
 	period?: string | null;
 	rights?: string | null;
 	tags?: string[];
+	acceptedConceptSlugs?: string[];
 	rawMetadata?: Record<string, unknown>;
 };
 

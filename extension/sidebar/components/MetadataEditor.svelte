@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { CaptureMetadata, CaptureSource } from '../../shared/candidates';
+	import TagPicker from './TagPicker.svelte';
 
 	type Props = {
 		metadata: CaptureMetadata;
@@ -14,7 +15,6 @@
 	let date = $state('');
 	let sourceLabel = $state('');
 	let originalUrl = $state('');
-	let tags = $state('');
 
 	$effect(() => {
 		title = metadata.title;
@@ -22,15 +22,13 @@
 		date = metadata.date ?? '';
 		sourceLabel = source.sourceLabel;
 		originalUrl = source.detailUrl ?? source.canonicalPageUrl ?? source.pageUrl;
-		tags = (metadata.tags ?? []).join(', ');
 	});
 
 	function commitMetadata() {
 		onmetadatachange({
 			title: title.trim() || metadata.title,
 			artist: artist.trim() || null,
-			date: date.trim() || null,
-			tags: tagsFromInput(tags)
+			date: date.trim() || null
 		});
 		onsourcechange({
 			sourceLabel: sourceLabel.trim() || source.sourceLabel,
@@ -40,22 +38,15 @@
 		});
 	}
 
-	function addSuggestedTag(tag: string) {
-		const next = new Set(tagsFromInput(tags));
-		next.add(tag);
-		tags = [...next].join(', ');
-		onmetadatachange({ tags: [...next] });
-	}
+	const groupedSourceTags = $derived(groupSourceTags(metadata.sourceTags ?? []));
 
-	function tagsFromInput(input: string): string[] {
-		return [
-			...new Set(
-				input
-					.split(/[,\n]/)
-					.map((tag) => tag.trim())
-					.filter(Boolean)
-			)
-		];
+	function groupSourceTags(tags: CaptureMetadata['sourceTags']) {
+		const groups = new Map<string, typeof tags>();
+		for (const tag of tags) {
+			const key = `${tag.source} ${tag.category}`;
+			groups.set(key, [...(groups.get(key) ?? []), tag]);
+		}
+		return [...groups.entries()].map(([label, values]) => ({ label, values }));
 	}
 </script>
 
@@ -92,13 +83,24 @@
 
 	<label>
 		<span>Tags</span>
-		<textarea bind:value={tags} rows="2" onblur={commitMetadata}></textarea>
+		<TagPicker
+			values={metadata.acceptedConceptSlugs ?? []}
+			onchange={(values) => onmetadatachange({ acceptedConceptSlugs: values })}
+		/>
 	</label>
 
-	{#if (metadata.suggestedTags ?? []).length > 0}
-		<div class="suggested" aria-label="Suggested tags">
-			{#each metadata.suggestedTags ?? [] as tag (tag)}
-				<button type="button" onclick={() => addSuggestedTag(tag)}>{tag}</button>
+	{#if groupedSourceTags.length > 0}
+		<div class="source-tags" aria-label="Source tags">
+			<span>Source tags</span>
+			{#each groupedSourceTags as group (group.label)}
+				<div class="source-group">
+					<small>{group.label}</small>
+					<div>
+						{#each group.values as tag (`${tag.source}:${tag.category}:${tag.slug}`)}
+							<a href={tag.url ?? undefined} target="_blank" rel="noreferrer">{tag.label}</a>
+						{/each}
+					</div>
+				</div>
 			{/each}
 		</div>
 	{/if}
@@ -129,8 +131,7 @@
 		text-transform: uppercase;
 	}
 
-	input,
-	textarea {
+	input {
 		width: 100%;
 		border: 1px solid var(--ext-border);
 		border-radius: var(--ext-radius-sm);
@@ -142,24 +143,34 @@
 		outline: none;
 	}
 
-	textarea {
-		resize: vertical;
-		min-height: 54px;
-	}
-
-	input:focus,
-	textarea:focus {
+	input:focus {
 		border-color: var(--ext-accent);
 		box-shadow: 0 0 0 1px var(--ext-accent-soft);
 	}
 
-	.suggested {
+	.source-tags {
+		display: grid;
+		gap: 6px;
+	}
+
+	.source-group {
+		display: grid;
+		gap: 4px;
+	}
+
+	.source-group small {
+		color: var(--ext-dim);
+		font-size: 10px;
+		text-transform: capitalize;
+	}
+
+	.source-group div {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 5px;
 	}
 
-	.suggested button {
+	.source-group a {
 		border: 1px solid var(--ext-border);
 		border-radius: 999px;
 		background: var(--ext-control);
@@ -167,10 +178,10 @@
 		font: inherit;
 		font-size: 10px;
 		padding: 4px 7px;
-		cursor: pointer;
+		text-decoration: none;
 	}
 
-	.suggested button:hover {
+	.source-group a:hover {
 		color: var(--ext-text);
 		border-color: var(--ext-accent);
 	}
