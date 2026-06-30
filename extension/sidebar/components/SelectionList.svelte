@@ -34,7 +34,9 @@
 		margin: 0;
 		padding: 0;
 		overflow-y: auto;
-		flex: 1;
+		flex: none;
+		max-height: 240px;
 		min-height: 0;
+		border-top: 1px solid rgb(255 255 255 / 8%);
 	}
 </style>

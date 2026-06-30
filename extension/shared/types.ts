@@ -222,6 +222,7 @@ export type ExtensionMessage =
 	| { type: 'PASTICHE_ITEM_CAPTURED'; item: CapturedItemPayload }
 	| { type: 'PASTICHE_SWEEP_RESULTS'; items: CapturedItemPayload[] }
 	| { type: 'PASTICHE_LASSO_RESULTS'; items: CapturedItemPayload[] }
+	| { type: 'PASTICHE_CAPTURE_FAILED'; error: string }
 	| { type: 'PASTICHE_DO_IMPORT'; payload: ImportJobPayload }
 	| { type: 'PASTICHE_RETRY_ITEM'; item: EnrichedItem; destinationFolderId: string | null };
 

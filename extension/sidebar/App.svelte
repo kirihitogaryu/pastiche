@@ -53,6 +53,12 @@
 	} from '../shared/capture-tray';
 	import { selectCandidateForItem, updateItemMetadata, updateSelectedItemId } from './item-state';
 	import type { CaptureCommandId } from './capture-commands';
+	import {
+		captureNoticeForCommandStart,
+		captureNoticeForSweepResult,
+		captureNoticeFromError,
+		type CaptureNotice
+	} from './capture-status';
 
 	const api = getExtensionApi();
 
@@ -68,7 +74,9 @@
 	let importResult = $state<ImportResult | null>(null);
 	let importNotification = $state<ImportNotification | null>(null);
 	let captureError = $state<string | null>(null);
+	let captureNotice = $state<CaptureNotice | null>(null);
 	let importNotificationTimer: ReturnType<typeof setTimeout> | null = null;
+	let captureNoticeTimer: ReturnType<typeof setTimeout> | null = null;
 	let trayPollTimer: ReturnType<typeof setInterval> | null = null;
 	const shownStoredImportNotificationIds = new Set<string>();
 
@@ -94,6 +102,7 @@
 			api.runtime.onMessage.removeListener(handleIncomingMessage);
 			api.storage.onChanged?.removeListener(handleStorageChanged);
 			if (importNotificationTimer) clearTimeout(importNotificationTimer);
+			if (captureNoticeTimer) clearTimeout(captureNoticeTimer);
 			if (trayPollTimer) clearInterval(trayPollTimer);
 		};
 	});
@@ -110,6 +119,14 @@
 				items = mergeCaptureTrayItem(items, item);
 				selectedItemId = item.id;
 				captureError = null;
+				showCaptureNotice(
+					{
+						tone: 'success',
+						title: 'Image added',
+						detail: item.metadata.title
+					},
+					{ autoDismiss: true }
+				);
 				void persistCaptureTray(items);
 				break;
 			}
@@ -119,6 +136,15 @@
 				items = mergeCaptureTrayItems(items, incoming);
 				if (incoming[0]) selectedItemId = incoming[0].id;
 				captureError = null;
+				if (incoming.length > 0) {
+					showCaptureNotice(
+						captureNoticeForSweepResult({
+							found: incoming.length,
+							delivered: incoming.length
+						}),
+						{ autoDismiss: true }
+					);
+				}
 				void persistCaptureTray(items);
 				break;
 			}
@@ -189,10 +215,12 @@
 			}
 
 			case MESSAGE_CAPTURE_FAILED: {
-				captureError =
+				const error =
 					typeof message.error === 'string'
 						? message.error
 						: 'Could not add that image to the capture tray.';
+				captureError = null;
+				showCaptureNotice(captureNoticeFromError(error));
 				break;
 			}
 		}
@@ -230,6 +258,20 @@
 		void api.storage.local.set({ [CONTEXT_IMPORT_NOTIFICATION_KEY]: null });
 	}
 
+	function showCaptureNotice(notice: CaptureNotice, options: { autoDismiss?: boolean } = {}) {
+		if (captureNoticeTimer) {
+			clearTimeout(captureNoticeTimer);
+			captureNoticeTimer = null;
+		}
+		captureNotice = notice;
+		if (options.autoDismiss) {
+			captureNoticeTimer = setTimeout(() => {
+				captureNotice = null;
+				captureNoticeTimer = null;
+			}, 6500);
+		}
+	}
+
 	async function restoreStoredImportNotification() {
 		const stored = await api.storage.local.get([CONTEXT_IMPORT_NOTIFICATION_KEY]);
 		const notification = recentStoredImportNotification(stored[CONTEXT_IMPORT_NOTIFICATION_KEY]);
@@ -249,27 +291,31 @@
 		await refreshCaptureTray();
 	}
 
-	async function refreshCaptureTray() {
+	async function refreshCaptureTray(): Promise<EnrichedItem[]> {
 		try {
 			const response = (await api.runtime.sendMessage({
 				type: MESSAGE_GET_CAPTURE_TRAY
 			})) as CaptureTrayResponse | { ok?: false; error?: string };
 			if (response?.ok) {
 				applyCaptureTrayItems(response.items);
-				return;
+				return response.items;
 			}
 		} catch {
 			// Fall through to direct storage read for older or waking service workers.
 		}
 
 		const stored = await api.storage.local.get([CAPTURE_TRAY_STORAGE_KEY]);
-		applyCaptureTrayItems(captureTrayItemsFromStorage(stored[CAPTURE_TRAY_STORAGE_KEY]));
+		const next = captureTrayItemsFromStorage(stored[CAPTURE_TRAY_STORAGE_KEY]);
+		applyCaptureTrayItems(next);
+		return next;
 	}
 
 	function applyCaptureTrayItems(next: EnrichedItem[]) {
+		const hadItems = items.length > 0;
 		if (sameItemList(items, next)) return;
 		items = next;
 		selectedItemId = updateSelectedItemId(selectedItemId, next);
+		if (hadItems && next.length === 0) captureNotice = null;
 	}
 
 	async function persistCaptureTray(next: EnrichedItem[]) {
@@ -331,31 +377,34 @@
 	async function sendActiveTabMessage(
 		message: Record<string, unknown>,
 		options: { directImageFallback?: boolean } = {}
-	) {
+	): Promise<Record<string, unknown> | null> {
 		const tab = await activeTab();
 		if (!tab?.id) {
 			captureError = 'No active tab found.';
-			return;
+			return null;
 		}
 
 		try {
 			await ensureContentScript(tab.id);
-			await api.tabs.sendMessage(tab.id, message);
+			const response = (await api.tabs.sendMessage(tab.id, message)) as
+				| Record<string, unknown>
+				| undefined;
 			captureError = null;
 			setTimeout(() => void refreshCaptureTray(), 250);
+			return response ?? null;
 		} catch (error) {
 			if (options.directImageFallback) {
 				try {
 					await captureActiveTabImage(tab);
 					captureError = null;
-					return;
+					return { ok: true, fallback: true };
 				} catch (fallbackError) {
 					console.error(fallbackError);
 					captureError =
 						fallbackError instanceof Error
 							? fallbackError.message
 							: 'Could not capture this page as an image.';
-					return;
+					return null;
 				}
 			}
 			console.error(error);
@@ -363,14 +412,17 @@
 				error instanceof Error
 					? error.message
 					: 'Could not talk to this page. Refresh the tab and try again.';
+			return null;
 		}
 	}
 
 	async function activateSingleCapture() {
+		showCaptureNotice(captureNoticeForCommandStart('pick'));
 		await sendActiveTabMessage({ type: MESSAGE_CAPTURE_ACTIVATE }, { directImageFallback: true });
 	}
 
 	async function captureCurrentTabImage() {
+		showCaptureNotice(captureNoticeForCommandStart('tab'));
 		const tab = await activeTab();
 		if (!tab) {
 			captureError = 'No active tab found.';
@@ -380,14 +432,20 @@
 		try {
 			await captureActiveTabImage(tab);
 			captureError = null;
+			showCaptureNotice(
+				{ tone: 'success', title: 'Image added', detail: 'Current tab image is staged.' },
+				{ autoDismiss: true }
+			);
 		} catch (error) {
 			console.error(error);
 			captureError =
 				error instanceof Error ? error.message : 'Could not capture this tab as an image.';
+			showCaptureNotice(captureNoticeFromError(captureError));
 		}
 	}
 
 	async function captureVisibleTab() {
+		showCaptureNotice(captureNoticeForCommandStart('visible'));
 		const tab = await activeTab();
 		if (!tab?.url) {
 			captureError = 'No active tab found.';
@@ -404,14 +462,20 @@
 			if (!result?.ok) throw new Error(result?.error ?? 'Could not capture the visible viewport.');
 			captureError = null;
 			await refreshCaptureTray();
+			showCaptureNotice(
+				{ tone: 'success', title: 'Visible area captured', detail: 'Viewport capture is staged.' },
+				{ autoDismiss: true }
+			);
 		} catch (error) {
 			console.error(error);
 			captureError =
 				error instanceof Error ? error.message : 'Could not capture the visible viewport.';
+			showCaptureNotice(captureNoticeFromError(captureError));
 		}
 	}
 
 	async function activateLasso() {
+		showCaptureNotice(captureNoticeForCommandStart('area'));
 		await sendActiveTabMessage(
 			{ type: MESSAGE_CAPTURE_ACTIVATE_LASSO },
 			{ directImageFallback: true }
@@ -419,13 +483,24 @@
 	}
 
 	async function runSweep() {
-		await sendActiveTabMessage(
+		showCaptureNotice(captureNoticeForCommandStart('batch'));
+		const response = await sendActiveTabMessage(
 			{
 				type: MESSAGE_SWEEP,
 				minDimension: 300
 			},
 			{ directImageFallback: true }
 		);
+		if (response && typeof response.found === 'number') {
+			showCaptureNotice(
+				captureNoticeForSweepResult({
+					found: response.found,
+					delivered: typeof response.delivered === 'number' ? response.delivered : 0
+				}),
+				{ autoDismiss: Number(response.delivered ?? 0) > 0 }
+			);
+			await refreshCaptureTray();
+		}
 	}
 
 	function runCaptureCommand(command: CaptureCommandId) {
@@ -467,6 +542,7 @@
 	async function clearAll() {
 		items = [];
 		selectedItemId = null;
+		captureNotice = null;
 		await persistCaptureTray([]);
 		await sendActiveTabMessage({ type: MESSAGE_CLEAR_SELECTION });
 	}
@@ -616,76 +692,88 @@
 		<div class="capture-error">{captureError}</div>
 	{/if}
 
-	{#if importNotification}
-		<div
-			class="import-notification"
-			class:notification-error={importNotification.state === 'error'}
-		>
-			<span class={`notification-dot ${importNotification.state}`}></span>
-			<div>
-				<strong>{importNotification.title}</strong>
-				<span>{importNotification.detail}</span>
-			</div>
-			<button
-				type="button"
-				aria-label="Dismiss import notification"
-				onclick={dismissImportNotification}>×</button
-			>
-		</div>
-	{/if}
-
-	<!-- Selection list or empty state -->
-	{#if items.length > 0}
-		<SelectedItemInspector
-			item={selectedItem}
-			onselectcandidate={selectCandidate}
-			onmetadatachange={updateMetadata}
-			onsourcechange={updateSource}
-		/>
-		<SelectionList
-			{items}
-			{selectedItemId}
-			onselect={selectItem}
-			onremove={removeItem}
-			onrename={renameItem}
-			onoverridemodetoggle={toggleStorageMode}
-		/>
-	{:else}
-		<EmptyState connected={status?.connected ?? false} onsweep={runSweep} />
-	{/if}
-
-	<!-- Folder assignment + import (only when there's something to import) -->
-	{#if items.length > 0}
-		<div class="bottom">
-			<FolderDropdown
-				folders={status?.recentFolders ?? []}
-				selected={selectedFolderId}
-				createName={createFolderName}
-				onselect={(id) => (selectedFolderId = id)}
-				oncreatenamechange={(name) => (createFolderName = name)}
-			/>
-
-			<div class="import-row">
-				<button class="import-btn" type="button" disabled={!canImport} onclick={doImport}>
-					{importButtonLabel()}
-				</button>
-			</div>
-
-			<!-- Per-item import results -->
-			{#if importResult}
-				<div class="result-banner" class:result-error={!importResult.ok}>
-					{#if importResult.ok}
-						{importResult.imported.length} imported
-						{#if importResult.failed.length}
-							· {importResult.failed.length} failed
-						{/if}
-					{:else}
-						{importResult.error ?? 'Import failed'}
-					{/if}
+	<div class="scroll-region">
+		{#if captureNotice}
+			<div class={`capture-notice ${captureNotice.tone}`} aria-live="polite">
+				<span class={`notice-dot ${captureNotice.tone}`}></span>
+				<div>
+					<strong>{captureNotice.title}</strong>
+					<span>{captureNotice.detail}</span>
 				</div>
-			{/if}
-		</div>
-	{/if}
+			</div>
+		{/if}
+
+		{#if importNotification}
+			<div
+				class="import-notification"
+				class:notification-error={importNotification.state === 'error'}
+			>
+				<span class={`notification-dot ${importNotification.state}`}></span>
+				<div>
+					<strong>{importNotification.title}</strong>
+					<span>{importNotification.detail}</span>
+				</div>
+				<button
+					type="button"
+					aria-label="Dismiss import notification"
+					onclick={dismissImportNotification}>×</button
+				>
+			</div>
+		{/if}
+
+		<!-- Selection list or empty state -->
+		{#if items.length > 0}
+			<SelectedItemInspector
+				item={selectedItem}
+				onselectcandidate={selectCandidate}
+				onmetadatachange={updateMetadata}
+				onsourcechange={updateSource}
+			/>
+			<SelectionList
+				{items}
+				{selectedItemId}
+				onselect={selectItem}
+				onremove={removeItem}
+				onrename={renameItem}
+				onoverridemodetoggle={toggleStorageMode}
+			/>
+		{:else}
+			<EmptyState connected={status?.connected ?? false} onsweep={runSweep} />
+		{/if}
+
+		<!-- Folder assignment + import (only when there's something to import) -->
+		{#if items.length > 0}
+			<div class="bottom">
+				<FolderDropdown
+					folders={status?.recentFolders ?? []}
+					selected={selectedFolderId}
+					createName={createFolderName}
+					onselect={(id) => (selectedFolderId = id)}
+					oncreatenamechange={(name) => (createFolderName = name)}
+				/>
+
+				<div class="import-row">
+					<button class="import-btn" type="button" disabled={!canImport} onclick={doImport}>
+						{importButtonLabel()}
+					</button>
+				</div>
+
+				<!-- Per-item import results -->
+				{#if importResult}
+					<div class="result-banner" class:result-error={!importResult.ok}>
+						{#if importResult.ok}
+							{importResult.imported.length} imported
+							{#if importResult.failed.length}
+								· {importResult.failed.length} failed
+							{/if}
+						{:else}
+							{importResult.error ?? 'Import failed'}
+						{/if}
+					</div>
+				{/if}
+			</div>
+		{/if}
+	</div>
 </main>
 
 <style>
@@ -707,6 +795,15 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+	}
+
+	.scroll-region {
+		min-height: 0;
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		overflow-y: auto;
+		scrollbar-gutter: stable;
 	}
 
 	.capture-error {
@@ -731,6 +828,79 @@
 		background: #28231d;
 		box-shadow: 0 10px 28px rgb(0 0 0 / 22%);
 		flex-shrink: 0;
+	}
+
+	.capture-notice {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		align-items: center;
+		gap: 9px;
+		margin: 10px 12px 0;
+		padding: 10px;
+		border: 1px solid rgb(255 255 255 / 10%);
+		border-radius: 7px;
+		background: #28231d;
+		flex-shrink: 0;
+	}
+
+	.capture-notice.success {
+		border-color: rgb(152 195 121 / 25%);
+		background: rgb(152 195 121 / 9%);
+	}
+
+	.capture-notice.warning {
+		border-color: rgb(208 168 92 / 25%);
+		background: rgb(208 168 92 / 9%);
+	}
+
+	.capture-notice.error {
+		border-color: rgb(224 108 117 / 28%);
+		background: rgb(224 108 117 / 9%);
+	}
+
+	.notice-dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: #8f7765;
+	}
+
+	.notice-dot.working {
+		background: #d0a85c;
+		animation: pulse 1s ease-in-out infinite;
+	}
+
+	.notice-dot.success {
+		background: #98c379;
+	}
+
+	.notice-dot.warning {
+		background: #d0a85c;
+	}
+
+	.notice-dot.error {
+		background: #e06c75;
+	}
+
+	.capture-notice div {
+		min-width: 0;
+		display: grid;
+		gap: 2px;
+	}
+
+	.capture-notice strong {
+		color: #eee7dc;
+		font-size: 12px;
+		font-weight: 600;
+	}
+
+	.capture-notice span:not(.notice-dot) {
+		min-width: 0;
+		color: #8f7765;
+		font-size: 11px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.import-notification.notification-error {

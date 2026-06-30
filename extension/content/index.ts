@@ -76,6 +76,7 @@ const MSG_CLEAR_SELECTION = 'PASTICHE_CLEAR_SELECTION';
 const MSG_ITEM_CAPTURED = 'PASTICHE_ITEM_CAPTURED';
 const MSG_SWEEP_RESULTS = 'PASTICHE_SWEEP_RESULTS';
 const MSG_LASSO_RESULTS = 'PASTICHE_LASSO_RESULTS';
+const MSG_CAPTURE_FAILED = 'PASTICHE_CAPTURE_FAILED';
 
 // Default size threshold — overridden by PASTICHE_SWEEP message payload.
 const DEFAULT_MIN_DIMENSION = 300;
@@ -239,20 +240,27 @@ function onLassoPointerUp(event: PointerEvent): void {
 	const candidates = collectInRegion(selectionRect, DEFAULT_MIN_DIMENSION);
 	const newCandidates = candidates.filter((c) => !selectedByUrl.has(c.url));
 
-	if (newCandidates.length > 0) {
-		void deliverCapturedItems({
-			type: MSG_LASSO_RESULTS,
-			items: newCandidates.map((candidate) => ({
-				element: candidate.element,
-				payload: candidateToPayload(candidate)
-			})),
-			selectedByUrl,
-			sendMessage: (message) => ext.runtime.sendMessage(message),
-			addBadge,
-			updateBadge,
-			removeBadge
-		});
+	if (newCandidates.length === 0) {
+		void notifyCaptureFailed(
+			candidates.length > 0
+				? 'All images in that area are already selected.'
+				: 'No images found in that area.'
+		);
+		return;
 	}
+
+	void deliverCapturedItems({
+		type: MSG_LASSO_RESULTS,
+		items: newCandidates.map((candidate) => ({
+			element: candidate.element,
+			payload: candidateToPayload(candidate)
+		})),
+		selectedByUrl,
+		sendMessage: (message) => ext.runtime.sendMessage(message),
+		addBadge,
+		updateBadge,
+		removeBadge
+	});
 }
 
 function onLassoPointerCancel(): void {
@@ -273,26 +281,41 @@ function cleanupLassoDrag(): void {
 // Page sweep
 // ---------------------------------------------------------------------------
 
-function runSweep(minDimension: number): void {
+async function runSweep(
+	minDimension: number
+): Promise<{ ok: boolean; found: number; delivered: number; error?: string }> {
 	const candidates = sweepPage(minDimension);
 
 	// Don't re-badge elements already selected.
 	const newCandidates = candidates.filter((c) => !selectedByUrl.has(c.url));
 
-	if (newCandidates.length > 0) {
-		void deliverCapturedItems({
-			type: MSG_SWEEP_RESULTS,
-			items: newCandidates.map((candidate) => ({
-				element: candidate.element,
-				payload: candidateToPayload(candidate)
-			})),
-			selectedByUrl,
-			sendMessage: (message) => ext.runtime.sendMessage(message),
-			addBadge,
-			updateBadge,
-			removeBadge
-		});
+	if (newCandidates.length === 0) {
+		return { ok: true, found: candidates.length, delivered: 0 };
 	}
+
+	const result = await deliverCapturedItems({
+		type: MSG_SWEEP_RESULTS,
+		items: newCandidates.map((candidate) => ({
+			element: candidate.element,
+			payload: candidateToPayload(candidate)
+		})),
+		selectedByUrl,
+		sendMessage: (message) => ext.runtime.sendMessage(message),
+		addBadge,
+		updateBadge,
+		removeBadge
+	});
+
+	if (!result.ok) {
+		await notifyCaptureFailed(result.error);
+		return { ok: false, found: candidates.length, delivered: 0, error: result.error };
+	}
+
+	return {
+		ok: true,
+		found: candidates.length,
+		delivered: result.delivered ?? newCandidates.length
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -350,6 +373,14 @@ function detailUrlForElement(element: Element): string | null {
 	}
 }
 
+async function notifyCaptureFailed(error: string): Promise<void> {
+	try {
+		await ext.runtime.sendMessage({ type: MSG_CAPTURE_FAILED, error });
+	} catch {
+		// Best effort; the sidebar also updates from command responses when possible.
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Keyboard handler — Escape always exits
 // ---------------------------------------------------------------------------
@@ -400,12 +431,8 @@ ext.runtime.onMessage.addListener(
 				break;
 
 			case MSG_SWEEP:
-				runSweep(message.minDimension ?? DEFAULT_MIN_DIMENSION);
-				// Results sent via a separate sendMessage, not via sendResponse,
-				// because the sweep may take a tick and sendResponse must be
-				// synchronous after returning true.
-				sendResponse({ ok: true });
-				break;
+				void runSweep(message.minDimension ?? DEFAULT_MIN_DIMENSION).then(sendResponse);
+				return true;
 
 			case MSG_DESELECT_ITEM: {
 				const url = message.url;

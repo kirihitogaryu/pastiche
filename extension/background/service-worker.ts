@@ -184,6 +184,10 @@ async function handleMessage(message: ExtensionMessage): Promise<unknown> {
 		case MESSAGE_LASSO_RESULTS:
 			return handleBatchCaptured(message.items);
 
+		case MESSAGE_CAPTURE_FAILED:
+			broadcastToSidebar({ type: MESSAGE_CAPTURE_FAILED, error: message.error });
+			return { ok: true };
+
 		case MESSAGE_DO_IMPORT:
 			return handleDoImport(message.payload);
 
