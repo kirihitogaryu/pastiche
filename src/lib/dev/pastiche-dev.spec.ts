@@ -61,8 +61,8 @@ describe('pastiche dev command', () => {
 		const attempts: string[] = [];
 
 		await ensureNativeDependencies('/repo', {
-			checkBetterSqlite: async () => {
-				attempts.push('check');
+			checkBetterSqlite: async (cwd) => {
+				attempts.push(`check:${cwd}`);
 				if (attempts.length === 1) {
 					throw new Error(
 						'The module better_sqlite3.node was compiled using NODE_MODULE_VERSION 127. This version of Node.js requires NODE_MODULE_VERSION 147.'
@@ -77,7 +77,7 @@ describe('pastiche dev command', () => {
 
 		expect(needsNativeDependencyRebuild(new Error('Module did not self-register'))).toBe(true);
 		expect(needsNativeDependencyRebuild(new Error('Different failure'))).toBe(false);
-		expect(attempts).toEqual(['check', 'rebuild:/repo', 'check']);
+		expect(attempts).toEqual(['check:/repo', 'rebuild:/repo', 'check:/repo']);
 	});
 
 	it('puts the launcher Node directory first for child npm commands', () => {

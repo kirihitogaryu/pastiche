@@ -87,7 +87,7 @@ export function childEnvForCurrentNode(nodePath = process.execPath, baseEnv = pr
 
 /**
  * @typedef {{
- *   checkBetterSqlite?: () => Promise<void>;
+ *   checkBetterSqlite?: (cwd: string) => Promise<void>;
  *   rebuildBetterSqlite?: (cwd: string) => Promise<void>;
  *   log?: (message: string) => void;
  * }} NativeDependencyOptions
@@ -103,7 +103,7 @@ export async function ensureNativeDependencies(cwd, options = {}) {
 	const log = options.log ?? console.log;
 
 	try {
-		await checkBetterSqlite();
+		await checkBetterSqlite(cwd);
 		return;
 	} catch (error) {
 		if (!needsNativeDependencyRebuild(error)) throw error;
@@ -113,14 +113,19 @@ export async function ensureNativeDependencies(cwd, options = {}) {
 	}
 
 	await rebuildBetterSqlite(cwd);
-	await checkBetterSqlite();
+	await checkBetterSqlite(cwd);
 }
 
-async function defaultCheckBetterSqlite() {
-	await runCommand(process.execPath, [
-		'-e',
-		"const Database=require('better-sqlite3'); const db=new Database(':memory:'); db.prepare('select 1').get(); db.close();"
-	]);
+/** @param {string} cwd */
+async function defaultCheckBetterSqlite(cwd) {
+	await runCommand(
+		process.execPath,
+		[
+			'-e',
+			"const Database=require('better-sqlite3'); const db=new Database(':memory:'); db.prepare('select 1').get(); db.close();"
+		],
+		{ cwd }
+	);
 }
 
 /** @param {string} cwd */
