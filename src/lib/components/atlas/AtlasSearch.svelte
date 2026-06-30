@@ -364,7 +364,7 @@
 					</div>
 					<div class="entity-row">
 						{#each entityResults as entity (`${entity.kind}-${entity.slug}`)}
-							<button type="button" class="entity-card" onclick={() => openAtlasSearch(entity.query)}>
+							<button type="button" class="entity-card" onclick={() => openAtlasWiki(`artist:${entity.slug}`)}>
 								<span class="entity-thumbs" aria-hidden="true">
 									{#each entity.thumbnailUrls.slice(0, 3) as thumbnailUrl}
 										<img src={thumbnailUrl} alt="" loading="lazy" />

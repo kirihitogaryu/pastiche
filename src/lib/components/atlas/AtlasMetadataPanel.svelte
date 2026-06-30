@@ -165,15 +165,16 @@
 		const entities: MetadataDisplayRow[] =
 			atlas?.entities.map((entity) => {
 				const wiki = wikiBySlug.get(entity.slug);
+				const isArtist = entity.kind === 'artist';
 				return {
 					group: 'Source Entities',
 					label: displayLabel(entity.kind),
 					value: entity.label,
-					slug: entity.slug,
-					definition: wiki?.shortDefinition,
+					slug: isArtist ? `artist:${entity.slug}` : entity.slug,
+					definition: isArtist ? 'Open artist profile' : wiki?.shortDefinition,
 					tone: atlasRowTone(entity),
 					meta: entity.provenance,
-					missingWiki: !wiki
+					missingWiki: isArtist ? false : !wiki
 				};
 			}) ?? [];
 

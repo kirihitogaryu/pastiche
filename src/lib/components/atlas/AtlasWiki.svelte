@@ -8,7 +8,7 @@
 	import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
 	import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
 	import XIcon from 'phosphor-svelte/lib/XIcon';
-	import type { AtlasWikiEntrySummary } from '$lib/atlas/types';
+	import type { AtlasEntityKind, AtlasEntityProfile, AtlasWikiEntrySummary } from '$lib/atlas/types';
 	import { rankAtlasWikiEntries } from '$lib/atlas/wikiSearch';
 	import {
 		appState,
@@ -61,6 +61,10 @@
 
 	type WikiPatchResponse = {
 		entry: AtlasWikiEntry;
+	};
+
+	type EntityProfileResponse = {
+		entity: AtlasEntityProfile;
 	};
 
 	type NewWikiDraft = {
@@ -214,9 +218,12 @@
 	let activeSlug = $state<string | null>(null);
 	let activeDocSlug = $state<string | null>(null);
 	let activeDoc = $state<WikiDoc | null>(null);
+	let activeEntity = $state<AtlasEntityProfile | null>(null);
 	let loading = $state(true);
+	let entityLoading = $state(false);
 	let docLoading = $state(false);
 	let error = $state<string | null>(null);
+	let entityError = $state<string | null>(null);
 	let docError = $state<string | null>(null);
 	let query = $state('');
 	let wikiEditMode = $state(false);
@@ -248,7 +255,7 @@
 			: buildBrowseGroups(filteredEntries)
 	);
 	let activeEntry = $derived(
-		activeDocSlug || creatingNewTag || reviewMode
+		activeDocSlug || activeEntity || creatingNewTag || reviewMode
 			? null
 			: (entries.find((entry) => entry.slug === activeSlug) ?? null)
 	);
@@ -256,6 +263,17 @@
 
 	$effect(() => {
 		void loadEntries();
+	});
+
+	$effect(() => {
+		const ref = entityRefFromWikiSlug(appState.activeAtlasWikiSlug);
+		if (!ref) {
+			activeEntity = null;
+			entityLoading = false;
+			entityError = null;
+			return;
+		}
+		void loadEntity(ref.kind, ref.slug);
 	});
 
 	async function loadEntries() {
@@ -270,8 +288,10 @@
 				);
 			}
 			entries = body.entries;
+			const requested = appState.activeAtlasWikiSlug;
 			activeSlug =
-				appState.activeAtlasWikiSlug &&
+				requested &&
+				!entityRefFromWikiSlug(requested) &&
 				body.entries.some((entry) => entry.slug === appState.activeAtlasWikiSlug)
 					? appState.activeAtlasWikiSlug
 					: null;
@@ -279,6 +299,30 @@
 			error = loadError instanceof Error ? loadError.message : 'Atlas wiki could not be loaded.';
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function loadEntity(kind: AtlasEntityKind, slug: string) {
+		creatingNewTag = false;
+		reviewMode = false;
+		closeWikiEditor();
+		activeSlug = null;
+		activeDocSlug = null;
+		activeDoc = null;
+		activeEntity = null;
+		entityLoading = true;
+		entityError = null;
+		try {
+			const response = await fetch(`/api/atlas/entities/${kind}/${encodeURIComponent(slug)}`);
+			const body = (await response.json()) as EntityProfileResponse | { error?: string };
+			if (!response.ok || !('entity' in body)) {
+				throw new Error('error' in body && body.error ? body.error : 'Artist profile not found.');
+			}
+			activeEntity = body.entity;
+		} catch (loadError) {
+			entityError = loadError instanceof Error ? loadError.message : 'Artist profile not found.';
+		} finally {
+			entityLoading = false;
 		}
 	}
 
@@ -309,16 +353,30 @@
 		creatingNewTag = false;
 		reviewMode = false;
 		activeSlug = slug;
+		activeEntity = null;
+		entityError = null;
 		activeDocSlug = null;
 		activeDoc = null;
 		closeWikiEditor();
 		appState.activeAtlasWikiSlug = slug;
 	}
 
+	function selectEntity(kind: AtlasEntityKind, slug: string) {
+		creatingNewTag = false;
+		reviewMode = false;
+		activeSlug = null;
+		activeDocSlug = null;
+		activeDoc = null;
+		closeWikiEditor();
+		appState.activeAtlasWikiSlug = `${kind}:${slug}`;
+	}
+
 	function openWikiGuide() {
 		creatingNewTag = false;
 		reviewMode = false;
 		activeSlug = null;
+		activeEntity = null;
+		entityError = null;
 		activeDocSlug = null;
 		activeDoc = null;
 		appState.activeAtlasWikiSlug = null;
@@ -731,6 +789,30 @@
 		return value.replace(/_/g, ' ');
 	}
 
+	function entityRefFromWikiSlug(value: string | null): { kind: AtlasEntityKind; slug: string } | null {
+		const match = value?.match(/^(artist):(.+)$/);
+		if (!match) return null;
+		return { kind: match[1] as AtlasEntityKind, slug: match[2] };
+	}
+
+	function entityProfileSummary(entity: AtlasEntityProfile) {
+		return (
+			entity.summary ||
+			entity.notes ||
+			`Artist profile for ${entity.label}. Linked works and source identities are built from imported assets.`
+		);
+	}
+
+	function entityDetailList(values: string[]) {
+		return values.length ? values.join(', ') : 'None recorded yet';
+	}
+
+	function entityLinkLabel(link: AtlasEntityProfile['links'][number]) {
+		return [link.sourceLabel || link.host, link.username ? `@${link.username}` : null]
+			.filter(Boolean)
+			.join(' ');
+	}
+
 	function referenceLabel(value: string) {
 		return entryBySlug.get(value)?.label ?? displayLabel(value);
 	}
@@ -827,11 +909,20 @@
 			<button
 				type="button"
 				class="guide-link"
-				class:active={!activeEntry && !activeDocSlug && !creatingNewTag && !reviewMode}
+				class:active={!activeEntry && !activeEntity && !activeDocSlug && !creatingNewTag && !reviewMode}
 				onclick={openWikiGuide}
 			>
 				Wiki Guide
 			</button>
+			{#if activeEntity}
+				<button
+					type="button"
+					class="guide-link active entity-nav-link"
+					onclick={() => activeEntity && selectEntity(activeEntity.kind, activeEntity.slug)}
+				>
+					{activeEntity.label}
+				</button>
+			{/if}
 		</div>
 
 		<div class="search-wrap">
@@ -1031,6 +1122,104 @@
 						{/each}
 					</datalist>
 				</header>
+			</article>
+		{:else if activeEntity || entityLoading || entityError}
+			<article class="entry entity-profile entry-animate" aria-label="Atlas artist profile">
+				<nav class="breadcrumbs" aria-label="Wiki breadcrumbs">
+					<span>Atlas Wiki</span><span class="crumb-sep">›</span><span>Artists</span>
+					<span class="crumb-sep">›</span><span class="current">{activeEntity?.label ?? 'Loading'}</span>
+				</nav>
+				{#if entityLoading}
+					<div class="state">Loading artist profile...</div>
+				{:else if entityError}
+					<div class="state error">{entityError}</div>
+				{:else if activeEntity}
+					<header class="entry-header entity-header">
+						<div class="entry-title-row">
+							<div>
+								<h2>{activeEntity.label}</h2>
+								<p class="entity-kind">{displayLabel(activeEntity.kind)} entity</p>
+							</div>
+							<button
+								type="button"
+								class="wiki-action primary"
+								onclick={() => activeEntity && openAtlasSearch(`artist:(${activeEntity.slug})`)}
+							>
+								Browse works
+							</button>
+						</div>
+						{#if activeEntity.aliases.length}
+							<p class="aliases">
+								Aliases: {activeEntity.aliases.map((alias) => alias.alias).join(', ')}
+							</p>
+						{/if}
+						<p class="definition">{entityProfileSummary(activeEntity)}</p>
+					</header>
+
+					<section class="entry-section" aria-labelledby="artist-works-title">
+						<h3 id="artist-works-title" class="section-title">Imported Works</h3>
+						<div class="examples entity-work-grid">
+							{#each activeEntity.works.slice(0, 8) as work}
+								<button
+									type="button"
+									class="example-card"
+									aria-label={`Open ${work.title} in Atlas inspect`}
+									onclick={() => openAtlasAsset(work.id)}
+								>
+									<div class="example-img asset-thumb" aria-hidden="true">
+										{#if work.thumbnailUrl}
+											<img src={work.thumbnailUrl} alt="" loading="lazy" />
+										{:else}
+											<span>No preview</span>
+										{/if}
+									</div>
+									<p class="example-label">Imported work</p>
+									<p class="example-title">{work.title}</p>
+									<p class="example-meta">{new Date(work.importedAt).toLocaleDateString()}</p>
+								</button>
+							{:else}
+								<div class="example-card empty-example">
+									<div class="example-img" aria-hidden="true"></div>
+									<p class="example-label">No works yet</p>
+									<p class="example-meta">Imported works attributed to this artist will appear here.</p>
+								</div>
+							{/each}
+						</div>
+					</section>
+
+					<section class="info-grid entity-info-grid" aria-label="Artist profile metadata">
+						<div class="info-block">
+							<h3 class="section-title small">Profile Links</h3>
+							{#if activeEntity.links.length}
+								<div class="entity-link-list">
+									{#each activeEntity.links as link}
+										<a class="reference-chip relation" href={link.url} target="_blank" rel="noreferrer">
+											{entityLinkLabel(link)}
+										</a>
+									{/each}
+								</div>
+							{:else}
+								<p class="empty-copy">No profile links recorded yet.</p>
+							{/if}
+						</div>
+						<div class="info-block">
+							<h3 class="section-title small">Style / Movement</h3>
+							<p><strong>Styles:</strong> {entityDetailList(activeEntity.styles)}</p>
+							<p><strong>Movements:</strong> {entityDetailList(activeEntity.movements)}</p>
+							<p><strong>Period:</strong> {activeEntity.historicalPeriod ?? 'None recorded yet'}</p>
+						</div>
+						<div class="info-block">
+							<h3 class="section-title small">Subjects / Media</h3>
+							<p><strong>Subjects:</strong> {entityDetailList(activeEntity.commonSubjects)}</p>
+							<p><strong>Media:</strong> {entityDetailList(activeEntity.media)}</p>
+						</div>
+					</section>
+
+					<section class="ai-guidance">
+						<h3 class="section-title small">Artist Notes</h3>
+						<p>{activeEntity.aiGuidance ?? 'No artist-specific AI tagging guidance recorded yet.'}</p>
+					</section>
+				{/if}
 			</article>
 		{:else if activeEntry}
 			<article class="entry entry-animate" aria-label={`${activeEntry.label} wiki entry`}>
@@ -1854,6 +2043,11 @@
 		color: var(--color-text);
 	}
 
+	.entity-nav-link {
+		margin-top: 0.45rem;
+		color: var(--wiki-link-entity);
+	}
+
 	.nav-status {
 		margin: 0.45rem 0 0;
 		color: var(--wiki-muted);
@@ -2544,6 +2738,15 @@
 		font-size: 0.94rem;
 	}
 
+	.entity-kind {
+		margin-top: 0.28rem;
+		color: var(--wiki-muted);
+		font-size: 0.84rem;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
 	.entry-section {
 		margin-top: 1.6rem;
 	}
@@ -2569,6 +2772,10 @@
 		display: grid;
 		grid-template-columns: repeat(4, minmax(9rem, 1fr));
 		gap: 1.1rem;
+	}
+
+	.entity-work-grid {
+		grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
 	}
 
 	.example-card {
@@ -2895,6 +3102,10 @@
 		border-bottom: 1px solid var(--color-border-soft);
 	}
 
+	.entity-info-grid {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+
 	.info-block {
 		min-width: 0;
 		margin-right: 1.5rem;
@@ -2912,6 +3123,32 @@
 		padding-left: 1rem;
 		color: var(--wiki-soft);
 		line-height: 1.52;
+	}
+
+	.entity-link-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.45rem;
+	}
+
+	.reference-chip {
+		min-height: 1.9rem;
+		display: inline-flex;
+		align-items: center;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-md);
+		background: oklch(100% 0 0 / 0.025);
+		color: var(--wiki-link-entity);
+		padding: 0 0.62rem;
+		text-decoration: none;
+		font-size: 0.82rem;
+	}
+
+	.reference-chip:hover,
+	.reference-chip:focus-visible {
+		border-color: var(--color-border-strong);
+		background: oklch(100% 0 0 / 0.055);
+		color: var(--color-text);
 	}
 
 	.reference-list li + li {
