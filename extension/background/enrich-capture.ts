@@ -32,6 +32,8 @@ type WireImportItem = {
 		sourceType: CaptureSource['sourceType'];
 		detailUrl: string | null;
 		creator: string | null;
+		artistProfileUrl: string | null;
+		artistUsername: string | null;
 		dateDisplay: string | null;
 		tags: string[];
 		acceptedConceptSlugs: string[];
@@ -117,6 +119,8 @@ export function wireImportItemForEnrichedItem(item: EnrichedItem): WireImportIte
 			sourceType: item.source.sourceType,
 			detailUrl: item.source.detailUrl ?? item.source.canonicalPageUrl ?? item.source.pageUrl,
 			creator: item.metadata.artist,
+			artistProfileUrl: item.metadata.artistProfileUrl,
+			artistUsername: item.metadata.artistUsername,
 			dateDisplay: item.metadata.date,
 			tags: item.metadata.tags,
 			acceptedConceptSlugs: item.metadata.acceptedConceptSlugs,
@@ -216,6 +220,8 @@ function metadataForCapture(
 	return {
 		title,
 		artist: cleanString(captured.metadata?.artist),
+		artistProfileUrl: cleanString(captured.metadata?.artistProfileUrl),
+		artistUsername: cleanString(captured.metadata?.artistUsername),
 		date: cleanString(captured.metadata?.date),
 		tags: normalizeTags(captured.metadata?.tags),
 		acceptedConceptSlugs: normalizeConceptSlugs(captured.metadata?.acceptedConceptSlugs),

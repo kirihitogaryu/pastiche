@@ -63,6 +63,8 @@ function item(partial: Partial<EnrichedItem>): EnrichedItem {
 		metadata: partial.metadata ?? {
 			title: 'Original Work',
 			artist: null,
+			artistProfileUrl: null,
+			artistUsername: null,
 			date: null,
 			tags: [],
 			acceptedConceptSlugs: [],

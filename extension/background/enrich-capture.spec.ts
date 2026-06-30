@@ -70,6 +70,8 @@ describe('capture enrichment', () => {
 				metadata: {
 					title: 'Metadata Title',
 					artist: 'Example Artist',
+					artistProfileUrl: 'https://www.deviantart.com/exampleartist',
+					artistUsername: 'exampleartist',
 					date: '2026',
 					tags: ['illustration'],
 					acceptedConceptSlugs: ['dragon', 'Black Hair'],
@@ -114,6 +116,8 @@ describe('capture enrichment', () => {
 				sourceType: 'gallery',
 				detailUrl: 'https://example.com/post/1',
 				creator: 'Example Artist',
+				artistProfileUrl: 'https://www.deviantart.com/exampleartist',
+				artistUsername: 'exampleartist',
 				dateDisplay: '2026',
 				tags: ['illustration'],
 				acceptedConceptSlugs: ['dragon', 'black_hair']

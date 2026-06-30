@@ -68,6 +68,8 @@ function hydrateStoredTrayItem(item: Partial<EnrichedItem>): EnrichedItem {
 		metadata: {
 			title: item.metadata?.title ?? item.suggestedName ?? 'Untitled',
 			artist: item.metadata?.artist ?? null,
+			artistProfileUrl: item.metadata?.artistProfileUrl ?? null,
+			artistUsername: item.metadata?.artistUsername ?? null,
 			date: item.metadata?.date ?? null,
 			tags: stringArrayFromStorage(item.metadata?.tags),
 			acceptedConceptSlugs: stringArrayFromStorage(item.metadata?.acceptedConceptSlugs),

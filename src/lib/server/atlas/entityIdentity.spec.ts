@@ -62,6 +62,7 @@ describe('artist entity identity resolution', () => {
 				.prepare('select host, username, normalized_url from atlas_entity_links order by rowid')
 				.all();
 
+			if (!first || !second) throw new Error('artist resolution failed');
 			expect(second.id).toBe(first.id);
 			expect(second.slug).toBe(first.slug);
 			expect(links).toEqual([
@@ -98,6 +99,7 @@ describe('artist entity identity resolution', () => {
 				.prepare('select alias, normalized_alias, source from atlas_entity_aliases order by alias')
 				.all();
 
+			if (!first || !second) throw new Error('artist resolution failed');
 			expect(second.id).toBe(first.id);
 			expect(second.label).toBe('Example Artist');
 			expect(aliases).toEqual([

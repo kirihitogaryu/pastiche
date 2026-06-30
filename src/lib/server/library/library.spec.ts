@@ -77,6 +77,9 @@ describe('local library archive', () => {
 			'atlas_claims',
 			'atlas_concepts',
 			'atlas_entities',
+			'atlas_entity_aliases',
+			'atlas_entity_links',
+			'atlas_entity_profiles',
 			'atlas_ingestion_runs',
 			'atlas_tag_suggestions',
 			'atlas_wiki_entries',
@@ -238,6 +241,9 @@ describe('local library archive', () => {
 						sourceName: 'DeviantArt',
 						sourceType: 'gallery',
 						detailUrl: 'https://www.deviantart.com/example/art/dragon-study',
+						creator: 'ExampleArtist',
+						artistProfileUrl: 'https://www.deviantart.com/exampleartist',
+						artistUsername: 'ExampleArtist',
 						acceptedConceptSlugs: ['dragon', 'Black Hair', 'dragon'],
 						tags: ['page-only-suggestion']
 					}
@@ -260,6 +266,17 @@ describe('local library archive', () => {
 		const suggestions = db
 			.prepare('select slug, status from atlas_tag_suggestions order by slug')
 			.all();
+		const artistLinks = db
+			.prepare(
+				`
+				select atlas_entities.kind, atlas_entities.slug, atlas_entities.label,
+					atlas_entity_links.host, atlas_entity_links.username, atlas_entity_links.normalized_url
+				from atlas_entities
+				join atlas_entity_links on atlas_entity_links.entity_id = atlas_entities.id
+				order by atlas_entities.slug
+			`
+			)
+			.all();
 		db.close();
 
 		expect(result.failed).toEqual([]);
@@ -268,6 +285,16 @@ describe('local library archive', () => {
 			{ slug: 'dragon', evidence: 'observed', status: 'approved' }
 		]);
 		expect(suggestions).toEqual([{ slug: 'page_only_suggestion', status: 'suggested' }]);
+		expect(artistLinks).toEqual([
+			{
+				kind: 'artist',
+				slug: 'exampleartist',
+				label: 'ExampleArtist',
+				host: 'deviantart.com',
+				username: 'exampleartist',
+				normalized_url: 'https://deviantart.com/exampleartist'
+			}
+		]);
 	});
 
 	it('uses live direct-only project folder refs for project membership', async () => {

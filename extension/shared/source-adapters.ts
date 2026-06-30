@@ -40,13 +40,15 @@ export function sourceMetadataForPage(
 	const altTitle = context.altText?.trim() || null;
 	const title =
 		titleForHost(pageHost, ogTitle) ?? altTitle ?? titleFromUrl(context.imageUrl) ?? 'Untitled';
-	const artist = artistForHost(document, pageHost);
+	const artistIdentity = artistIdentityForHost(document, pageHost, context.pageUrl);
 	const sourceTags = sourceTagsForHost(document, pageHost);
 	const suggestedTags = sourceTags.map((tag) => tag.label);
 
 	return {
 		title,
-		artist,
+		artist: artistIdentity.artist,
+		artistProfileUrl: artistIdentity.profileUrl,
+		artistUsername: artistIdentity.username,
 		date: null,
 		tags: [],
 		acceptedConceptSlugs: [],
@@ -132,12 +134,41 @@ function titleForHost(host: string, title: string | null): string | null {
 	return clean;
 }
 
-function artistForHost(document: Document, host: string): string | null {
+function artistIdentityForHost(
+	document: Document,
+	host: string,
+	pageUrl: string
+): { artist: string | null; profileUrl: string | null; username: string | null } {
 	if (host.endsWith('deviantart.com')) {
 		const creator = metaContent(document, 'name', 'twitter:creator');
-		return creator?.replace(/^@/, '').trim() || null;
+		const username = creator?.replace(/^@/, '').trim() || null;
+		return {
+			artist: username,
+			username,
+			profileUrl: username ? `https://www.deviantart.com/${username}` : null
+		};
 	}
-	return null;
+	if (isXHost(host)) {
+		const username = firstPathSegment(pageUrl);
+		return username ? { artist: username, username, profileUrl: `https://x.com/${username}` } : emptyArtistIdentity();
+	}
+	if (host === 'instagram.com' || host.endsWith('.instagram.com')) {
+		const username = firstPathSegment(pageUrl);
+		return username
+			? { artist: username, username, profileUrl: `https://www.instagram.com/${username}` }
+			: emptyArtistIdentity();
+	}
+	if (host.endsWith('.tumblr.com')) {
+		const username = host.slice(0, -'.tumblr.com'.length);
+		return username
+			? { artist: username, username, profileUrl: `https://${username}.tumblr.com` }
+			: emptyArtistIdentity();
+	}
+	return emptyArtistIdentity();
+}
+
+function emptyArtistIdentity() {
+	return { artist: null, profileUrl: null, username: null };
 }
 
 function sourceTagsForHost(document: Document, host: string): SourceTag[] {
@@ -394,6 +425,18 @@ function hostnameFrom(url: string | null | undefined): string | null {
 function readableHost(host: string | null): string | null {
 	if (!host) return null;
 	return host.replace(/^www\./, '');
+}
+
+function firstPathSegment(url: string): string | null {
+	try {
+		const segment = new URL(url).pathname.split('/').filter(Boolean)[0]?.replace(/^@/, '');
+		if (!segment || ['p', 'reel', 'status', 'search', 'explore', 'tags'].includes(segment)) {
+			return null;
+		}
+		return segment;
+	} catch {
+		return null;
+	}
 }
 
 function isXHost(host: string): boolean {

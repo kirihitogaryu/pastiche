@@ -193,7 +193,9 @@ describe('source adapters', () => {
 			sourceMetadataForPage(document, { pageUrl: 'https://www.deviantart.com/example/art/1' })
 		).toMatchObject({
 			title: 'A Work',
-			artist: 'ExampleArtist'
+			artist: 'ExampleArtist',
+			artistUsername: 'ExampleArtist',
+			artistProfileUrl: 'https://www.deviantart.com/ExampleArtist'
 		});
 	});
 

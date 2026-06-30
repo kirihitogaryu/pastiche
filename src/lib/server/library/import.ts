@@ -91,6 +91,8 @@ export async function importLibraryItems(request: ImportRequest): Promise<Import
 					sourceName: item.metadata.sourceName ?? null,
 					detailUrl: item.metadata.detailUrl ?? null,
 					creator: item.metadata.creator ?? null,
+					artistProfileUrl: item.metadata.artistProfileUrl ?? null,
+					artistUsername: item.metadata.artistUsername ?? null,
 					dateDisplay: item.metadata.dateDisplay ?? null,
 					medium: item.metadata.medium ?? null,
 					objectName: item.metadata.objectName ?? null,

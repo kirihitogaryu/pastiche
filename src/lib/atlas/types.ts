@@ -61,6 +61,8 @@ export type AtlasIngestionInput = {
 	sourceName: string | null;
 	detailUrl: string | null;
 	creator: string | null;
+	artistProfileUrl?: string | null;
+	artistUsername?: string | null;
 	dateDisplay: string | null;
 	medium: string | null;
 	objectName: string | null;
@@ -79,6 +81,9 @@ export type AtlasEntityProposal = {
 	slug: string;
 	sourceText: string;
 	provenance: string;
+	profileUrl?: string | null;
+	username?: string | null;
+	sourceLabel?: string | null;
 };
 
 export type AtlasClaimProposal = {

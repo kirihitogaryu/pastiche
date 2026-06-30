@@ -72,6 +72,8 @@ export type SourceTag = {
 export type CaptureMetadata = {
 	title: string;
 	artist: string | null;
+	artistProfileUrl: string | null;
+	artistUsername: string | null;
 	date: string | null;
 	tags: string[];
 	acceptedConceptSlugs: string[];

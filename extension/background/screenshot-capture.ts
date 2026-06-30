@@ -26,6 +26,8 @@ export function capturedPayloadForVisibleScreenshot(
 		metadata: {
 			title: `Visible capture - ${titleBase}`,
 			artist: null,
+			artistProfileUrl: null,
+			artistUsername: null,
 			date: null,
 			tags: ['rendered capture'],
 			acceptedConceptSlugs: [],

@@ -51,6 +51,8 @@ export type LibraryImportMetadata = {
 		| null;
 	detailUrl?: string | null;
 	creator?: string | null;
+	artistProfileUrl?: string | null;
+	artistUsername?: string | null;
 	dateDisplay?: string | null;
 	medium?: string | null;
 	objectName?: string | null;

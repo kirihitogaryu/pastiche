@@ -75,6 +75,8 @@ function isImportMetadata(
 			isImportSourceType(value.sourceType)) &&
 		isOptionalNullableString(value.detailUrl) &&
 		isOptionalNullableString(value.creator) &&
+		isOptionalNullableString(value.artistProfileUrl) &&
+		isOptionalNullableString(value.artistUsername) &&
 		isOptionalNullableString(value.dateDisplay) &&
 		isOptionalNullableString(value.medium) &&
 		isOptionalNullableString(value.objectName) &&
