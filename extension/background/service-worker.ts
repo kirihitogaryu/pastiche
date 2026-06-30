@@ -41,6 +41,7 @@ import {
 import { policyForSource } from './storage-policy';
 import {
 	MESSAGE_GET_STATUS,
+	MESSAGE_GET_CAPTURE_TRAY,
 	MESSAGE_SMOKE_IMPORT,
 	MESSAGE_CAPTURE_TAB_IMAGE,
 	MESSAGE_CAPTURE_VISIBLE_TAB,
@@ -163,6 +164,9 @@ async function handleMessage(message: ExtensionMessage): Promise<unknown> {
 	switch (message.type) {
 		case MESSAGE_GET_STATUS:
 			return getPasticheStatus();
+
+		case MESSAGE_GET_CAPTURE_TRAY:
+			return getCaptureTray();
 
 		case MESSAGE_SMOKE_IMPORT:
 			return smokeImport();
@@ -718,6 +722,27 @@ async function updateLibraryIndex(urlHashes: string[]): Promise<void> {
 // Capture tray persistence
 // ---------------------------------------------------------------------------
 
+const CAPTURE_TRAY_UPDATED_AT_KEY = 'pastiche_capture_tray_updated_at';
+
+async function getCaptureTray(): Promise<{
+	ok: true;
+	items: EnrichedItem[];
+	updatedAt: string | null;
+}> {
+	const stored = await api.storage.local.get([
+		CAPTURE_TRAY_STORAGE_KEY,
+		CAPTURE_TRAY_UPDATED_AT_KEY
+	]);
+	return {
+		ok: true,
+		items: captureTrayItemsFromStorage(stored[CAPTURE_TRAY_STORAGE_KEY]),
+		updatedAt:
+			typeof stored[CAPTURE_TRAY_UPDATED_AT_KEY] === 'string'
+				? stored[CAPTURE_TRAY_UPDATED_AT_KEY]
+				: null
+	};
+}
+
 async function getCaptureTrayItems(): Promise<EnrichedItem[]> {
 	const stored = await api.storage.local.get([CAPTURE_TRAY_STORAGE_KEY]);
 	return captureTrayItemsFromStorage(stored[CAPTURE_TRAY_STORAGE_KEY]);
@@ -726,14 +751,16 @@ async function getCaptureTrayItems(): Promise<EnrichedItem[]> {
 async function addCaptureTrayItem(item: EnrichedItem): Promise<void> {
 	const items = await getCaptureTrayItems();
 	await api.storage.local.set({
-		[CAPTURE_TRAY_STORAGE_KEY]: mergeCaptureTrayItem(items, item)
+		[CAPTURE_TRAY_STORAGE_KEY]: mergeCaptureTrayItem(items, item),
+		[CAPTURE_TRAY_UPDATED_AT_KEY]: new Date().toISOString()
 	});
 }
 
 async function addCaptureTrayItems(items: EnrichedItem[]): Promise<void> {
 	const existing = await getCaptureTrayItems();
 	await api.storage.local.set({
-		[CAPTURE_TRAY_STORAGE_KEY]: mergeCaptureTrayItems(existing, items)
+		[CAPTURE_TRAY_STORAGE_KEY]: mergeCaptureTrayItems(existing, items),
+		[CAPTURE_TRAY_UPDATED_AT_KEY]: new Date().toISOString()
 	});
 }
 
@@ -754,7 +781,10 @@ async function updateCaptureTrayFetchStatus(
 		}
 		return { ...item, fetchStatus };
 	});
-	await api.storage.local.set({ [CAPTURE_TRAY_STORAGE_KEY]: next });
+	await api.storage.local.set({
+		[CAPTURE_TRAY_STORAGE_KEY]: next,
+		[CAPTURE_TRAY_UPDATED_AT_KEY]: new Date().toISOString()
+	});
 }
 
 // ---------------------------------------------------------------------------

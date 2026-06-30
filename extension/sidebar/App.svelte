@@ -2,6 +2,7 @@
 	import { getExtensionApi } from '../shared/browser';
 	import {
 		MESSAGE_GET_STATUS,
+		MESSAGE_GET_CAPTURE_TRAY,
 		MESSAGE_DO_IMPORT,
 		MESSAGE_FETCH_IMAGE,
 		MESSAGE_ITEM_READY,
@@ -21,7 +22,12 @@
 		MESSAGE_DESELECT_ITEM,
 		MESSAGE_CLEAR_SELECTION
 	} from '../shared/messages';
-	import type { ConnectionState, EnrichedItem, ImportResult } from '../shared/types';
+	import type {
+		CaptureTrayResponse,
+		ConnectionState,
+		EnrichedItem,
+		ImportResult
+	} from '../shared/types';
 	import type { TabInfo } from '../shared/browser';
 	import type { CaptureMetadata, CaptureSource } from '../shared/candidates';
 	import StatusBar from './components/StatusBar.svelte';
@@ -63,6 +69,7 @@
 	let importNotification = $state<ImportNotification | null>(null);
 	let captureError = $state<string | null>(null);
 	let importNotificationTimer: ReturnType<typeof setTimeout> | null = null;
+	let trayPollTimer: ReturnType<typeof setInterval> | null = null;
 	const shownStoredImportNotificationIds = new Set<string>();
 
 	// Folder assignment
@@ -80,10 +87,14 @@
 		// Listen for messages pushed from the service worker.
 		api.runtime.onMessage.addListener(handleIncomingMessage);
 		api.storage.onChanged?.addListener(handleStorageChanged);
+		trayPollTimer = setInterval(() => {
+			void refreshCaptureTray();
+		}, 1000);
 		return () => {
 			api.runtime.onMessage.removeListener(handleIncomingMessage);
 			api.storage.onChanged?.removeListener(handleStorageChanged);
 			if (importNotificationTimer) clearTimeout(importNotificationTimer);
+			if (trayPollTimer) clearInterval(trayPollTimer);
 		};
 	});
 
@@ -193,8 +204,7 @@
 	) {
 		if (areaName !== 'local' || !(CAPTURE_TRAY_STORAGE_KEY in changes)) return;
 		const next = captureTrayItemsFromStorage(changes[CAPTURE_TRAY_STORAGE_KEY].newValue);
-		items = next;
-		selectedItemId = updateSelectedItemId(selectedItemId, next);
+		applyCaptureTrayItems(next);
 	}
 
 	function showImportNotification(notification: ImportNotification) {
@@ -236,14 +246,38 @@
 	}
 
 	async function restoreCaptureTray() {
+		await refreshCaptureTray();
+	}
+
+	async function refreshCaptureTray() {
+		try {
+			const response = (await api.runtime.sendMessage({
+				type: MESSAGE_GET_CAPTURE_TRAY
+			})) as CaptureTrayResponse | { ok?: false; error?: string };
+			if (response?.ok) {
+				applyCaptureTrayItems(response.items);
+				return;
+			}
+		} catch {
+			// Fall through to direct storage read for older or waking service workers.
+		}
+
 		const stored = await api.storage.local.get([CAPTURE_TRAY_STORAGE_KEY]);
-		const next = captureTrayItemsFromStorage(stored[CAPTURE_TRAY_STORAGE_KEY]);
+		applyCaptureTrayItems(captureTrayItemsFromStorage(stored[CAPTURE_TRAY_STORAGE_KEY]));
+	}
+
+	function applyCaptureTrayItems(next: EnrichedItem[]) {
+		if (sameItemList(items, next)) return;
 		items = next;
 		selectedItemId = updateSelectedItemId(selectedItemId, next);
 	}
 
 	async function persistCaptureTray(next: EnrichedItem[]) {
 		await api.storage.local.set({ [CAPTURE_TRAY_STORAGE_KEY]: next });
+	}
+
+	function sameItemList(left: EnrichedItem[], right: EnrichedItem[]) {
+		return JSON.stringify(left) === JSON.stringify(right);
 	}
 
 	// ---------------------------------------------------------------------------
@@ -291,6 +325,7 @@
 			pageTitle: tab.title ?? null
 		})) as { ok?: boolean; error?: string };
 		if (!result?.ok) throw new Error(result?.error ?? 'Active tab is not a selectable image.');
+		await refreshCaptureTray();
 	}
 
 	async function sendActiveTabMessage(
@@ -307,6 +342,7 @@
 			await ensureContentScript(tab.id);
 			await api.tabs.sendMessage(tab.id, message);
 			captureError = null;
+			setTimeout(() => void refreshCaptureTray(), 250);
 		} catch (error) {
 			if (options.directImageFallback) {
 				try {
@@ -367,6 +403,7 @@
 			})) as { ok?: boolean; error?: string };
 			if (!result?.ok) throw new Error(result?.error ?? 'Could not capture the visible viewport.');
 			captureError = null;
+			await refreshCaptureTray();
 		} catch (error) {
 			console.error(error);
 			captureError =

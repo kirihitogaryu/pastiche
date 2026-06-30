@@ -55,6 +55,12 @@ export type ConnectionState = {
 	importedSources: ImportedSource[];
 };
 
+export type CaptureTrayResponse = {
+	ok: true;
+	items: EnrichedItem[];
+	updatedAt: string | null;
+};
+
 export type SmokeImportResponse = {
 	ok: boolean;
 	error?: string;
@@ -204,6 +210,7 @@ export type QueuedJob = {
  */
 export type ExtensionMessage =
 	| { type: 'PASTICHE_GET_STATUS' }
+	| { type: 'PASTICHE_GET_CAPTURE_TRAY' }
 	| { type: 'PASTICHE_SMOKE_IMPORT' }
 	| { type: 'PASTICHE_CAPTURE_TAB_IMAGE'; url: string; pageTitle: string | null }
 	| {

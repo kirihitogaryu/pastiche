@@ -12,6 +12,9 @@
 /** Sidebar → SW: get current Pastiche connection state. */
 export const MESSAGE_GET_STATUS = 'PASTICHE_GET_STATUS';
 
+/** Sidebar → SW: get the durable capture tray staged by the service worker. */
+export const MESSAGE_GET_CAPTURE_TRAY = 'PASTICHE_GET_CAPTURE_TRAY';
+
 /** Settings page → SW: run a smoke import to verify connection. */
 export const MESSAGE_SMOKE_IMPORT = 'PASTICHE_SMOKE_IMPORT';
 
