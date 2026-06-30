@@ -34,7 +34,7 @@ export function ensureAtlasSchema(db: Database.Database) {
 			source text not null,
 			confidence text not null,
 			created_at text not null,
-			unique(entity_id, normalized_alias, source)
+			unique(entity_id, alias, source)
 		);
 
 		create table if not exists atlas_entity_links (
