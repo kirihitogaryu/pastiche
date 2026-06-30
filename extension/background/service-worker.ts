@@ -25,6 +25,10 @@ import { computeSourceHash, sourceKeyForUrls } from '../shared/source-hash';
 import { normalizeImageQualityUrl, resolveCanonicalImage } from './canonical-image';
 import { enrichCapturedItem, wireImportItemForEnrichedItem } from './enrich-capture';
 import {
+	CONTEXT_IMPORT_NOTIFICATION_KEY,
+	storedImportNotificationFromMessage
+} from '../shared/import-notification';
+import {
 	CONTEXT_MENU_SAVE_IMAGE_ID,
 	imageContextCaptureSource,
 	type ImageContextCaptureSource,
@@ -112,7 +116,7 @@ async function handleImageContextMenuClick(
 	const source = imageContextCaptureSource(info, tab);
 	if (!source) return;
 
-	broadcastToSidebar({
+	await notifyContextImport({
 		type: MESSAGE_CONTEXT_IMPORT_STARTED,
 		sourceImageUrl: source.imageUrl
 	});
@@ -124,9 +128,9 @@ async function handleImageContextMenuClick(
 			destinationFolderId: settings.defaultDestinationId,
 			items: [item]
 		});
-		broadcastToSidebar({ type: MESSAGE_CONTEXT_IMPORT_FINISHED, result });
+		await notifyContextImport({ type: MESSAGE_CONTEXT_IMPORT_FINISHED, result });
 	} catch (error) {
-		broadcastToSidebar({
+		await notifyContextImport({
 			type: MESSAGE_CONTEXT_IMPORT_FINISHED,
 			result: {
 				ok: false,
@@ -684,6 +688,17 @@ function broadcastToSidebar(message: Record<string, unknown>): void {
 	api.runtime.sendMessage(message).catch(() => {
 		// No receiver — sidebar may be closed. That's fine.
 	});
+}
+
+async function notifyContextImport(
+	message:
+		| { type: typeof MESSAGE_CONTEXT_IMPORT_STARTED; sourceImageUrl: string }
+		| { type: typeof MESSAGE_CONTEXT_IMPORT_FINISHED; result: ImportResult }
+): Promise<void> {
+	await api.storage.local.set({
+		[CONTEXT_IMPORT_NOTIFICATION_KEY]: storedImportNotificationFromMessage(message)
+	});
+	broadcastToSidebar(message);
 }
 
 /** Convert a Blob to a base64 string (without the data URL prefix).

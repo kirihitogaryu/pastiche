@@ -28,7 +28,13 @@
 	import EmptyState from './components/EmptyState.svelte';
 	import SelectedItemInspector from './components/SelectedItemInspector.svelte';
 	import CaptureCommandStrip from './components/CaptureCommandStrip.svelte';
-	import { importNotificationFromMessage, type ImportNotification } from './import-notification';
+	import {
+		CONTEXT_IMPORT_NOTIFICATION_KEY,
+		importNotificationFromMessage,
+		importNotificationFromResult,
+		recentStoredImportNotification,
+		type ImportNotification
+	} from '../shared/import-notification';
 	import { selectCandidateForItem, updateItemMetadata, updateSelectedItemId } from './item-state';
 	import type { CaptureCommandId } from './capture-commands';
 
@@ -47,6 +53,7 @@
 	let importNotification = $state<ImportNotification | null>(null);
 	let captureError = $state<string | null>(null);
 	let importNotificationTimer: ReturnType<typeof setTimeout> | null = null;
+	const shownStoredImportNotificationIds = new Set<string>();
 
 	// Folder assignment
 	let selectedFolderId = $state<string | null>(null);
@@ -172,6 +179,30 @@
 		}
 	}
 
+	function dismissImportNotification() {
+		if (importNotificationTimer) {
+			clearTimeout(importNotificationTimer);
+			importNotificationTimer = null;
+		}
+		importNotification = null;
+		void api.storage.local.set({ [CONTEXT_IMPORT_NOTIFICATION_KEY]: null });
+	}
+
+	async function restoreStoredImportNotification() {
+		const stored = await api.storage.local.get([CONTEXT_IMPORT_NOTIFICATION_KEY]);
+		const notification = recentStoredImportNotification(stored[CONTEXT_IMPORT_NOTIFICATION_KEY]);
+		if (
+			!notification ||
+			shownStoredImportNotificationIds.has(notification.id) ||
+			importNotification
+		) {
+			return;
+		}
+
+		shownStoredImportNotificationIds.add(notification.id);
+		showImportNotification(notification);
+	}
+
 	// ---------------------------------------------------------------------------
 	// Connection
 	// ---------------------------------------------------------------------------
@@ -180,6 +211,7 @@
 		loading = true;
 		status = (await api.runtime.sendMessage({ type: MESSAGE_GET_STATUS })) as ConnectionState;
 		loading = false;
+		await restoreStoredImportNotification();
 	}
 
 	// ---------------------------------------------------------------------------
@@ -424,6 +456,7 @@
 
 		importing = false;
 		importResult = result;
+		showImportNotification(importNotificationFromResult(result));
 
 		if (result.ok) {
 			// Remove successfully imported items from the list.
@@ -480,7 +513,7 @@
 			<button
 				type="button"
 				aria-label="Dismiss import notification"
-				onclick={() => (importNotification = null)}>×</button
+				onclick={dismissImportNotification}>×</button
 			>
 		</div>
 	{/if}
