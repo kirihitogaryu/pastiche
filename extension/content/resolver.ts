@@ -1,5 +1,6 @@
 import { chooseBestCandidate, scoreCandidate } from '../shared/candidate-scoring';
 import type { CaptureMetadata, CaptureSource, ImageCandidate } from '../shared/candidates';
+import { sourceContextForPage, sourceMetadataForPage } from '../shared/source-adapters';
 import { candidatesForElement } from './candidate-scanner';
 
 /**
@@ -398,16 +399,9 @@ function sourceForResolvedCandidate(candidate: ImageCandidate): CaptureSource {
 }
 
 function sourceForUrl(url: string, detailUrl: string | null): CaptureSource {
-	const pageHost = hostnameFrom(window.location.href);
-	const imageHost = hostnameFrom(url);
 	return {
-		pageUrl: window.location.href,
-		canonicalPageUrl: window.location.href,
-		detailUrl,
-		sourceLabel: pageHost ?? imageHost ?? 'Unknown Source',
-		sourceType: pageHost ? 'web' : imageHost ? 'cdn' : 'unknown',
-		pageHost: pageHost ?? '',
-		imageHost
+		...sourceContextForPage(window.location.href, url),
+		detailUrl
 	};
 }
 
@@ -416,16 +410,14 @@ function metadataForResolvedCandidate(candidate: ImageCandidate): CaptureMetadat
 }
 
 function metadataForText(text: string | null, url: string): CaptureMetadata {
-	const title = text?.trim() || titleFromFilename(url) || document.title?.trim() || 'Untitled';
+	const adapterMetadata = sourceMetadataForPage(document, {
+		pageUrl: window.location.href,
+		imageUrl: url,
+		altText: text
+	});
 	return {
-		title,
-		artist: null,
-		date: null,
-		tags: [],
-		suggestedTags: [],
-		description: null,
-		rawPageTitle: document.title || null,
-		rawAltText: text
+		...adapterMetadata,
+		title: adapterMetadata.title || text?.trim() || titleFromFilename(url) || 'Untitled'
 	};
 }
 

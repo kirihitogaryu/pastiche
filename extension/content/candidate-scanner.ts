@@ -1,5 +1,6 @@
 import { parseSrcset } from 'srcset';
 import type { ImageCandidate, ImageCandidateKind } from '../shared/candidates';
+import { applySourceAdapterCandidateHints, transformCandidateUrl } from '../shared/source-adapters';
 
 export type SrcsetCandidate = {
 	url: string;
@@ -204,10 +205,7 @@ function metadataCandidates(document: Document, pageUrl: string): ImageCandidate
 
 	for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[property], meta[name]')) {
 		const key = (meta.getAttribute('property') ?? meta.getAttribute('name') ?? '').toLowerCase();
-		if (
-			(key === 'og:image' || key === 'og:image:url' || key === 'twitter:image') &&
-			meta.content
-		) {
+		if ((key === 'og:image' || key === 'og:image:url' || key === 'twitter:image') && meta.content) {
 			candidates.push(
 				createCandidate({
 					url: meta.content,
@@ -311,26 +309,33 @@ function createCandidate(input: {
 	inlineData?: string | null;
 	mimeType?: string | null;
 }): ImageCandidate {
-	const url = absolutizeUrl(input.url, input.pageUrl);
-	return {
-		id: `${input.kind}:${url}`,
-		url,
-		kind: input.kind,
-		width: input.width,
-		height: input.height,
-		visibleWidth: input.visibleWidth,
-		visibleHeight: input.visibleHeight,
-		mimeType: input.mimeType ?? null,
-		byteSize: null,
-		altText: input.altText,
-		sourceElementPath: null,
-		detailUrl: null,
-		inlineData: input.inlineData ?? null,
-		score: 0,
-		confidence: 'medium',
-		rejectionReasons: [],
-		scoreReasons: []
-	};
+	const url = transformCandidateUrl(absolutizeUrl(input.url, input.pageUrl), {
+		pageUrl: input.pageUrl
+	});
+	return applySourceAdapterCandidateHints(
+		{
+			id: `${input.kind}:${url}`,
+			url,
+			kind: input.kind,
+			width: input.width,
+			height: input.height,
+			visibleWidth: input.visibleWidth,
+			visibleHeight: input.visibleHeight,
+			mimeType: input.mimeType ?? null,
+			byteSize: null,
+			altText: input.altText,
+			sourceElementPath: null,
+			detailUrl: null,
+			inlineData: input.inlineData ?? null,
+			score: 0,
+			confidence: 'medium',
+			rejectionReasons: [],
+			scoreReasons: []
+		},
+		{
+			pageUrl: input.pageUrl
+		}
+	);
 }
 
 function imageValuesFromJson(value: string): string[] {
@@ -348,7 +353,9 @@ function imageValues(value: unknown): string[] {
 
 	const object = value as Record<string, unknown>;
 	const direct = object.image ?? object.thumbnailUrl ?? object.contentUrl ?? object.url;
-	const nested = Object.values(object).flatMap((entry) => (entry === direct ? [] : imageValues(entry)));
+	const nested = Object.values(object).flatMap((entry) =>
+		entry === direct ? [] : imageValues(entry)
+	);
 	return [...imageValues(direct), ...nested];
 }
 
