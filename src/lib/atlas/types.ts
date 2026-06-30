@@ -142,6 +142,36 @@ export type AtlasWikiEntrySummary = AtlasConceptSummary & {
 	aiGuidance: string;
 };
 
+export type AtlasEntityProfile = {
+	entityId: string;
+	kind: AtlasEntityKind;
+	slug: string;
+	label: string;
+	summary: string | null;
+	notes: string | null;
+	movements: string[];
+	styles: string[];
+	commonSubjects: string[];
+	historicalPeriod: string | null;
+	media: string[];
+	aiGuidance: string | null;
+	aliases: Array<{ alias: string; source: string; confidence: string }>;
+	links: Array<{
+		url: string;
+		host: string;
+		username: string | null;
+		sourceLabel: string | null;
+		confidence: string;
+	}>;
+	works: Array<{
+		id: string;
+		title: string;
+		thumbnailUrl: string | null;
+		sourceUrl: string;
+		importedAt: string;
+	}>;
+};
+
 export type AtlasIngestionProposal = {
 	assetId: string;
 	source: AtlasSourceKind;

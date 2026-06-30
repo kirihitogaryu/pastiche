@@ -31,6 +31,9 @@ describe('Atlas schema', () => {
 		expect(tables).toEqual(
 			expect.arrayContaining([
 				'atlas_entities',
+				'atlas_entity_aliases',
+				'atlas_entity_links',
+				'atlas_entity_profiles',
 				'atlas_claims',
 				'atlas_tag_suggestions',
 				'atlas_ingestion_runs',

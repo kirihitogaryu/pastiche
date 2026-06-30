@@ -13,6 +13,45 @@ export function ensureAtlasSchema(db: Database.Database) {
 			unique(kind, slug)
 		);
 
+		create table if not exists atlas_entity_profiles (
+			entity_id text primary key references atlas_entities(id) on delete cascade,
+			summary text,
+			notes text,
+			movements_json text not null default '[]',
+			styles_json text not null default '[]',
+			common_subjects_json text not null default '[]',
+			historical_period text,
+			media_json text not null default '[]',
+			ai_guidance text,
+			updated_at text not null
+		);
+
+		create table if not exists atlas_entity_aliases (
+			id text primary key,
+			entity_id text not null references atlas_entities(id) on delete cascade,
+			alias text not null,
+			normalized_alias text not null,
+			source text not null,
+			confidence text not null,
+			created_at text not null,
+			unique(entity_id, normalized_alias, source)
+		);
+
+		create table if not exists atlas_entity_links (
+			id text primary key,
+			entity_id text not null references atlas_entities(id) on delete cascade,
+			url text not null,
+			normalized_url text not null,
+			host text not null,
+			username text,
+			source_label text,
+			confidence text not null,
+			first_seen_asset_id text references assets(id) on delete set null,
+			last_seen_at text not null,
+			created_at text not null,
+			unique(entity_id, normalized_url)
+		);
+
 		create table if not exists atlas_claims (
 			id text primary key,
 			asset_id text not null references assets(id) on delete cascade,
