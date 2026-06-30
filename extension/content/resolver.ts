@@ -1,3 +1,6 @@
+import { chooseBestCandidate, scoreCandidate } from '../shared/candidate-scoring';
+import { candidatesForElement } from './candidate-scanner';
+
 /**
  * content/resolver.ts
  *
@@ -69,6 +72,22 @@ export function resolveTargetAtPoint(
  * where we already have the element reference).
  */
 export function resolveElement(el: Element): ResolvedImage | null {
+	const candidate = chooseBestCandidate(
+		candidatesForElement(el, window.location.href).map((item) =>
+			scoreCandidate(item, { minDimension: 300, directSelection: true })
+		)
+	);
+	if (candidate) {
+		return {
+			url: applyArtsyUpsize(candidate.url),
+			naturalWidth: candidate.width ?? measuredWidthFor(el),
+			naturalHeight: candidate.height ?? measuredHeightFor(el),
+			mimeType: candidate.mimeType,
+			inlineData: candidate.inlineData,
+			altText: candidate.altText
+		};
+	}
+
 	if (el instanceof HTMLImageElement) return resolveImg(el);
 	if (el instanceof HTMLVideoElement) return resolveVideo(el);
 	if (el instanceof HTMLCanvasElement) return resolveCanvas(el);
@@ -290,4 +309,18 @@ function rectsIntersect(a: DOMRect, b: DOMRect): boolean {
 
 function rectContainsPoint(rect: DOMRect, x: number, y: number): boolean {
 	return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+}
+
+function measuredWidthFor(el: Element): number {
+	if (el instanceof HTMLImageElement) return el.naturalWidth || el.width || el.offsetWidth;
+	if (el instanceof HTMLVideoElement) return el.videoWidth || el.offsetWidth;
+	if (el instanceof HTMLCanvasElement) return el.width;
+	return (el as HTMLElement).offsetWidth || 0;
+}
+
+function measuredHeightFor(el: Element): number {
+	if (el instanceof HTMLImageElement) return el.naturalHeight || el.height || el.offsetHeight;
+	if (el instanceof HTMLVideoElement) return el.videoHeight || el.offsetHeight;
+	if (el instanceof HTMLCanvasElement) return el.height;
+	return (el as HTMLElement).offsetHeight || 0;
 }
