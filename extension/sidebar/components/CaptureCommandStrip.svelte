@@ -39,48 +39,53 @@
 	.strip {
 		display: grid;
 		grid-template-columns: repeat(4, minmax(0, 1fr));
-		gap: 5px;
-		padding: 8px 10px;
-		border-bottom: 1px solid rgb(255 255 255 / 8%);
-		background: #1a1612;
+		gap: 4px;
+		padding: 6px 8px;
+		border-bottom: 1px solid var(--ext-border-soft);
+		background: var(--ext-panel);
 		flex-shrink: 0;
 	}
 
 	button {
 		min-width: 0;
-		height: 34px;
+		height: 30px;
 		display: grid;
 		grid-template-columns: auto minmax(0, 1fr);
 		align-items: center;
-		gap: 5px;
-		border: 1px solid rgb(255 255 255 / 10%);
-		border-radius: 6px;
-		background: #28231d;
-		color: #aaa196;
+		gap: 4px;
+		border: 1px solid var(--ext-border);
+		border-radius: var(--ext-radius-md);
+		background: var(--ext-control);
+		color: var(--ext-muted);
 		font: inherit;
 		font-size: 11px;
-		padding: 0 7px;
+		padding: 0 6px;
 		cursor: pointer;
 	}
 
 	button:hover:not(:disabled) {
-		background: #312b24;
-		color: #eee7dc;
-		border-color: rgb(255 255 255 / 18%);
+		background: var(--ext-control-hover);
+		color: var(--ext-text);
+		border-color: var(--ext-border-strong);
+	}
+
+	button:focus-visible {
+		outline: 2px solid var(--ext-accent);
+		outline-offset: 2px;
 	}
 
 	button.disabled {
-		opacity: 0.44;
+		opacity: 0.62;
 		cursor: not-allowed;
 	}
 
 	button.clear {
-		color: #d49a8f;
+		color: var(--ext-danger);
 	}
 
 	.icon {
-		width: 13px;
-		height: 13px;
+		width: 12px;
+		height: 12px;
 		position: relative;
 		display: block;
 		color: currentColor;
@@ -168,13 +173,13 @@
 	kbd {
 		grid-column: 2;
 		justify-self: start;
-		border-radius: 3px;
-		background: rgb(255 255 255 / 8%);
-		color: #6b6258;
+		border-radius: var(--ext-radius-sm);
+		background: oklch(100% 0 0 / 0.07);
+		color: var(--ext-dim);
 		font: inherit;
-		font-size: 9px;
+		font-size: 8.5px;
 		line-height: 1;
-		padding: 2px 4px;
+		padding: 2px 3px;
 	}
 
 	button span:not(.icon) {

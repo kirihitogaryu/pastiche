@@ -35,8 +35,9 @@
 		padding: 0;
 		overflow-y: auto;
 		flex: none;
-		max-height: 240px;
+		max-height: 220px;
 		min-height: 0;
-		border-top: 1px solid rgb(255 255 255 / 8%);
+		border-top: 1px solid var(--ext-border-soft);
+		background: var(--ext-bg);
 	}
 </style>

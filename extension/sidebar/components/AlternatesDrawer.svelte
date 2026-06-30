@@ -47,7 +47,7 @@
 
 <style>
 	.drawer {
-		border-top: 1px solid rgb(255 255 255 / 8%);
+		border-top: 1px solid var(--ext-border-soft);
 		padding-top: 10px;
 		display: grid;
 		gap: 8px;
@@ -60,7 +60,7 @@
 	}
 
 	strong {
-		color: #eee7dc;
+		color: var(--ext-text);
 		font-size: 12px;
 	}
 
@@ -68,10 +68,15 @@
 		width: 24px;
 		height: 24px;
 		border: 0;
-		border-radius: 5px;
+		border-radius: var(--ext-radius-sm);
 		background: transparent;
-		color: #8f7765;
+		color: var(--ext-dim);
 		cursor: pointer;
+	}
+
+	.head button:hover {
+		background: var(--ext-control-hover);
+		color: var(--ext-text);
 	}
 
 	.list {
@@ -87,22 +92,27 @@
 		gap: 2px 7px;
 		width: 100%;
 		text-align: left;
-		border: 1px solid rgb(255 255 255 / 8%);
-		border-radius: 6px;
-		background: #211c17;
-		color: #aaa196;
+		border: 1px solid var(--ext-border);
+		border-radius: var(--ext-radius-md);
+		background: var(--ext-bg);
+		color: var(--ext-muted);
 		font: inherit;
 		padding: 7px;
 		cursor: pointer;
 	}
 
 	.list button.selected {
-		border-color: rgb(182 122 255 / 65%);
-		background: rgb(182 122 255 / 10%);
+		border-color: var(--ext-accent);
+		background: var(--ext-accent-soft);
+	}
+
+	.list button:hover {
+		border-color: var(--ext-border-strong);
+		background: var(--ext-control);
 	}
 
 	.kind {
-		color: #d0a85c;
+		color: var(--ext-accent);
 		font-size: 10px;
 		text-transform: uppercase;
 	}
@@ -116,7 +126,7 @@
 
 	.facts {
 		grid-column: 2;
-		color: #6b6258;
+		color: var(--ext-dim);
 		font-size: 10px;
 	}
 </style>

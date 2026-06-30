@@ -77,17 +77,18 @@
 	.inspector {
 		display: grid;
 		gap: 10px;
-		padding: 12px;
-		border-bottom: 1px solid rgb(255 255 255 / 8%);
-		background: #1a1612;
+		padding: 10px;
+		border-bottom: 1px solid var(--ext-border-soft);
+		background: var(--ext-panel);
 		flex-shrink: 0;
 	}
 
 	.preview {
 		width: 100%;
 		aspect-ratio: 16 / 9;
-		border-radius: 6px;
-		background: #211c17;
+		border: 1px solid var(--ext-border-soft);
+		border-radius: var(--ext-radius-md);
+		background: var(--ext-bg);
 		overflow: hidden;
 	}
 
@@ -114,7 +115,7 @@
 
 	strong {
 		min-width: 0;
-		color: #eee7dc;
+		color: var(--ext-text);
 		font-size: 13px;
 		line-height: 1.3;
 		overflow-wrap: anywhere;
@@ -122,21 +123,27 @@
 
 	.title-row button {
 		flex-shrink: 0;
-		border: 1px solid rgb(255 255 255 / 10%);
+		border: 1px solid var(--ext-border);
 		border-radius: 999px;
-		background: #28231d;
-		color: #aaa196;
+		background: var(--ext-control);
+		color: var(--ext-muted);
 		font: inherit;
 		font-size: 10px;
 		padding: 4px 7px;
 		cursor: pointer;
 	}
 
+	.title-row button:hover {
+		background: var(--ext-control-hover);
+		border-color: var(--ext-border-strong);
+		color: var(--ext-text);
+	}
+
 	span,
 	a,
 	small {
 		min-width: 0;
-		color: #8f7765;
+		color: var(--ext-muted);
 		font-size: 11px;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -144,7 +151,11 @@
 	}
 
 	a {
-		color: #aaa196;
+		color: var(--ext-text);
 		text-decoration: none;
+	}
+
+	a:hover {
+		color: var(--ext-accent);
 	}
 </style>

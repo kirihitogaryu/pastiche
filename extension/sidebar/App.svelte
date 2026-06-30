@@ -740,40 +740,40 @@
 		{:else}
 			<EmptyState connected={status?.connected ?? false} onsweep={runSweep} />
 		{/if}
-
-		<!-- Folder assignment + import (only when there's something to import) -->
-		{#if items.length > 0}
-			<div class="bottom">
-				<FolderDropdown
-					folders={status?.recentFolders ?? []}
-					selected={selectedFolderId}
-					createName={createFolderName}
-					onselect={(id) => (selectedFolderId = id)}
-					oncreatenamechange={(name) => (createFolderName = name)}
-				/>
-
-				<div class="import-row">
-					<button class="import-btn" type="button" disabled={!canImport} onclick={doImport}>
-						{importButtonLabel()}
-					</button>
-				</div>
-
-				<!-- Per-item import results -->
-				{#if importResult}
-					<div class="result-banner" class:result-error={!importResult.ok}>
-						{#if importResult.ok}
-							{importResult.imported.length} imported
-							{#if importResult.failed.length}
-								· {importResult.failed.length} failed
-							{/if}
-						{:else}
-							{importResult.error ?? 'Import failed'}
-						{/if}
-					</div>
-				{/if}
-			</div>
-		{/if}
 	</div>
+
+	<!-- Folder assignment + import (only when there's something to import) -->
+	{#if items.length > 0}
+		<div class="bottom">
+			<FolderDropdown
+				folders={status?.recentFolders ?? []}
+				selected={selectedFolderId}
+				createName={createFolderName}
+				onselect={(id) => (selectedFolderId = id)}
+				oncreatenamechange={(name) => (createFolderName = name)}
+			/>
+
+			<div class="import-row">
+				<button class="import-btn" type="button" disabled={!canImport} onclick={doImport}>
+					{importButtonLabel()}
+				</button>
+			</div>
+
+			<!-- Per-item import results -->
+			{#if importResult}
+				<div class="result-banner" class:result-error={!importResult.ok}>
+					{#if importResult.ok}
+						{importResult.imported.length} imported
+						{#if importResult.failed.length}
+							· {importResult.failed.length} failed
+						{/if}
+					{:else}
+						{importResult.error ?? 'Import failed'}
+					{/if}
+				</div>
+			{/if}
+		</div>
+	{/if}
 </main>
 
 <style>
@@ -781,13 +781,44 @@
 		box-sizing: border-box;
 	}
 
+	:global(:root) {
+		color-scheme: dark;
+		--ext-bg: oklch(13% 0.01 70);
+		--ext-panel: oklch(16% 0.01 70);
+		--ext-panel-soft: oklch(18% 0.01 70);
+		--ext-control: oklch(21% 0.012 70);
+		--ext-control-hover: oklch(25% 0.012 70);
+		--ext-selected: oklch(27% 0.018 74);
+		--ext-border: oklch(100% 0 0 / 0.11);
+		--ext-border-soft: oklch(100% 0 0 / 0.07);
+		--ext-border-strong: oklch(100% 0 0 / 0.2);
+		--ext-text: oklch(90% 0.01 75);
+		--ext-muted: oklch(70% 0.012 75);
+		--ext-dim: oklch(55% 0.012 75);
+		--ext-subtle: oklch(45% 0.012 75);
+		--ext-accent: oklch(78% 0.08 78);
+		--ext-accent-strong: oklch(83% 0.1 78);
+		--ext-accent-soft: oklch(78% 0.08 78 / 0.12);
+		--ext-danger: oklch(62% 0.18 28);
+		--ext-danger-soft: oklch(62% 0.18 28 / 0.12);
+		--ext-success: oklch(72% 0.12 150);
+		--ext-success-soft: oklch(72% 0.12 150 / 0.12);
+		--ext-warning: oklch(76% 0.08 78);
+		--ext-warning-soft: oklch(76% 0.08 78 / 0.12);
+		--ext-radius-sm: 4px;
+		--ext-radius-md: 6px;
+		--ext-radius-lg: 8px;
+	}
+
 	:global(body) {
 		margin: 0;
-		background: #1d1914;
-		color: #eee7dc;
+		background: var(--ext-bg);
+		color: var(--ext-text);
 		font-family: Montserrat, system-ui, sans-serif;
 		font-size: 13px;
 		-webkit-font-smoothing: antialiased;
+		scrollbar-width: thin;
+		scrollbar-color: oklch(62% 0.006 75 / 0.42) transparent;
 	}
 
 	main {
@@ -795,6 +826,7 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+		background: var(--ext-bg);
 	}
 
 	.scroll-region {
@@ -806,13 +838,26 @@
 		scrollbar-gutter: stable;
 	}
 
+	.scroll-region::-webkit-scrollbar {
+		width: 6px;
+	}
+
+	.scroll-region::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	.scroll-region::-webkit-scrollbar-thumb {
+		border-radius: 999px;
+		background: oklch(62% 0.006 75 / 0.36);
+	}
+
 	.capture-error {
 		padding: 7px 12px;
-		border-bottom: 1px solid rgb(224 108 117 / 24%);
-		color: #e06c75;
+		border-bottom: 1px solid oklch(62% 0.18 28 / 0.24);
+		color: var(--ext-danger);
 		font-size: 11px;
 		line-height: 1.35;
-		background: rgb(224 108 117 / 9%);
+		background: var(--ext-danger-soft);
 		flex-shrink: 0;
 	}
 
@@ -823,10 +868,9 @@
 		gap: 9px;
 		margin: 10px 12px 0;
 		padding: 10px;
-		border: 1px solid rgb(255 255 255 / 10%);
-		border-radius: 7px;
-		background: #28231d;
-		box-shadow: 0 10px 28px rgb(0 0 0 / 22%);
+		border: 1px solid var(--ext-border);
+		border-radius: var(--ext-radius-lg);
+		background: var(--ext-panel-soft);
 		flex-shrink: 0;
 	}
 
@@ -837,49 +881,49 @@
 		gap: 9px;
 		margin: 10px 12px 0;
 		padding: 10px;
-		border: 1px solid rgb(255 255 255 / 10%);
-		border-radius: 7px;
-		background: #28231d;
+		border: 1px solid var(--ext-border);
+		border-radius: var(--ext-radius-lg);
+		background: var(--ext-panel-soft);
 		flex-shrink: 0;
 	}
 
 	.capture-notice.success {
-		border-color: rgb(152 195 121 / 25%);
-		background: rgb(152 195 121 / 9%);
+		border-color: oklch(72% 0.12 150 / 0.28);
+		background: var(--ext-success-soft);
 	}
 
 	.capture-notice.warning {
-		border-color: rgb(208 168 92 / 25%);
-		background: rgb(208 168 92 / 9%);
+		border-color: oklch(76% 0.08 78 / 0.28);
+		background: var(--ext-warning-soft);
 	}
 
 	.capture-notice.error {
-		border-color: rgb(224 108 117 / 28%);
-		background: rgb(224 108 117 / 9%);
+		border-color: oklch(62% 0.18 28 / 0.28);
+		background: var(--ext-danger-soft);
 	}
 
 	.notice-dot {
 		width: 8px;
 		height: 8px;
 		border-radius: 50%;
-		background: #8f7765;
+		background: var(--ext-dim);
 	}
 
 	.notice-dot.working {
-		background: #d0a85c;
+		background: var(--ext-warning);
 		animation: pulse 1s ease-in-out infinite;
 	}
 
 	.notice-dot.success {
-		background: #98c379;
+		background: var(--ext-success);
 	}
 
 	.notice-dot.warning {
-		background: #d0a85c;
+		background: var(--ext-warning);
 	}
 
 	.notice-dot.error {
-		background: #e06c75;
+		background: var(--ext-danger);
 	}
 
 	.capture-notice div {
@@ -889,14 +933,14 @@
 	}
 
 	.capture-notice strong {
-		color: #eee7dc;
+		color: var(--ext-text);
 		font-size: 12px;
 		font-weight: 600;
 	}
 
 	.capture-notice span:not(.notice-dot) {
 		min-width: 0;
-		color: #8f7765;
+		color: var(--ext-muted);
 		font-size: 11px;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -904,32 +948,32 @@
 	}
 
 	.import-notification.notification-error {
-		border-color: rgb(224 108 117 / 28%);
-		background: rgb(224 108 117 / 9%);
+		border-color: oklch(62% 0.18 28 / 0.28);
+		background: var(--ext-danger-soft);
 	}
 
 	.notification-dot {
 		width: 8px;
 		height: 8px;
 		border-radius: 50%;
-		background: #8f7765;
+		background: var(--ext-dim);
 	}
 
 	.notification-dot.working {
-		background: #d0a85c;
+		background: var(--ext-warning);
 		animation: pulse 1s ease-in-out infinite;
 	}
 
 	.notification-dot.success {
-		background: #98c379;
+		background: var(--ext-success);
 	}
 
 	.notification-dot.queued {
-		background: #b67aff;
+		background: var(--ext-accent);
 	}
 
 	.notification-dot.error {
-		background: #e06c75;
+		background: var(--ext-danger);
 	}
 
 	.import-notification div {
@@ -939,14 +983,14 @@
 	}
 
 	.import-notification strong {
-		color: #eee7dc;
+		color: var(--ext-text);
 		font-size: 12px;
 		font-weight: 600;
 	}
 
 	.import-notification span:not(.notification-dot) {
 		min-width: 0;
-		color: #8f7765;
+		color: var(--ext-muted);
 		font-size: 11px;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -957,16 +1001,16 @@
 		width: 24px;
 		height: 24px;
 		border: 0;
-		border-radius: 5px;
+		border-radius: var(--ext-radius-sm);
 		background: transparent;
-		color: #8f7765;
+		color: var(--ext-dim);
 		cursor: pointer;
 		font: inherit;
 	}
 
 	.import-notification button:hover {
-		background: rgb(255 255 255 / 7%);
-		color: #eee7dc;
+		background: var(--ext-control-hover);
+		color: var(--ext-text);
 	}
 
 	/* Bottom zone */
@@ -975,7 +1019,7 @@
 		flex-direction: column;
 		gap: 7px;
 		padding: 10px 0;
-		border-top: 1px solid rgb(255 255 255 / 8%);
+		border-top: 1px solid var(--ext-border-soft);
 		flex-shrink: 0;
 	}
 
@@ -985,11 +1029,11 @@
 
 	.import-btn {
 		width: 100%;
-		padding: 10px;
-		background: #b67aff;
+		padding: 9px 10px;
+		background: var(--ext-accent);
 		border: none;
-		border-radius: 6px;
-		color: #0f0c0a;
+		border-radius: var(--ext-radius-md);
+		color: var(--ext-bg);
 		font-size: 13px;
 		font-weight: 600;
 		font-family: inherit;
@@ -998,24 +1042,24 @@
 	}
 
 	.import-btn:hover:not(:disabled) {
-		background: #c48fff;
+		background: var(--ext-accent-strong);
 	}
 
 	.import-btn:disabled {
-		background: #28231d;
-		color: #6b6258;
+		background: var(--ext-control);
+		color: var(--ext-dim);
 		cursor: not-allowed;
-		border: 1px solid rgb(255 255 255 / 10%);
+		border: 1px solid var(--ext-border);
 	}
 
 	/* Result banner */
 	.result-banner {
 		padding: 4px 12px;
 		font-size: 11px;
-		color: #98c379;
+		color: var(--ext-success);
 	}
 
 	.result-banner.result-error {
-		color: #e06c75;
+		color: var(--ext-danger);
 	}
 </style>

@@ -123,7 +123,7 @@
 	}
 
 	span {
-		color: #8f7765;
+		color: var(--ext-muted);
 		font-size: 10px;
 		font-weight: 600;
 		text-transform: uppercase;
@@ -132,13 +132,13 @@
 	input,
 	textarea {
 		width: 100%;
-		border: 1px solid rgb(255 255 255 / 10%);
-		border-radius: 5px;
-		background: #211c17;
-		color: #eee7dc;
+		border: 1px solid var(--ext-border);
+		border-radius: var(--ext-radius-sm);
+		background: var(--ext-bg);
+		color: var(--ext-text);
 		font: inherit;
 		font-size: 12px;
-		padding: 7px 8px;
+		padding: 6px 8px;
 		outline: none;
 	}
 
@@ -149,7 +149,8 @@
 
 	input:focus,
 	textarea:focus {
-		border-color: rgb(182 122 255 / 70%);
+		border-color: var(--ext-accent);
+		box-shadow: 0 0 0 1px var(--ext-accent-soft);
 	}
 
 	.suggested {
@@ -159,10 +160,10 @@
 	}
 
 	.suggested button {
-		border: 1px solid rgb(255 255 255 / 10%);
+		border: 1px solid var(--ext-border);
 		border-radius: 999px;
-		background: #28231d;
-		color: #aaa196;
+		background: var(--ext-control);
+		color: var(--ext-muted);
 		font: inherit;
 		font-size: 10px;
 		padding: 4px 7px;
@@ -170,7 +171,7 @@
 	}
 
 	.suggested button:hover {
-		color: #eee7dc;
-		border-color: rgb(182 122 255 / 55%);
+		color: var(--ext-text);
+		border-color: var(--ext-accent);
 	}
 </style>

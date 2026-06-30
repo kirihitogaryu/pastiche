@@ -152,7 +152,7 @@
 		{/if}
 
 		{#if fetchState() === 'error'}
-			<span class="fetch-error">Download failed — will send as reference</span>
+			<span class="fetch-error">Download failed, will send as reference</span>
 		{/if}
 	</div>
 
@@ -189,9 +189,9 @@
 	.item {
 		display: flex;
 		align-items: flex-start;
-		gap: 9px;
-		padding: 9px 12px;
-		border-bottom: 1px solid rgb(255 255 255 / 6%);
+		gap: 8px;
+		padding: 8px 10px;
+		border-bottom: 1px solid var(--ext-border-soft);
 		position: relative;
 	}
 
@@ -200,11 +200,12 @@
 	}
 
 	.item.duplicate {
-		background: rgb(183 121 255 / 4%);
+		background: var(--ext-accent-soft);
 	}
 
 	.item.selected {
-		background: rgb(182 122 255 / 9%);
+		background: var(--ext-selected);
+		box-shadow: inset 2px 0 0 var(--ext-accent);
 	}
 
 	/* Thumbnail */
@@ -214,35 +215,35 @@
 	}
 
 	.thumb {
-		width: 48px;
-		height: 48px;
+		width: 44px;
+		height: 44px;
 		border-radius: 4px;
 		object-fit: cover;
 		display: block;
-		background: #28231d;
+		background: var(--ext-control);
 	}
 
 	.thumb-loading,
 	.thumb-error,
 	.thumb-placeholder {
-		width: 48px;
-		height: 48px;
+		width: 44px;
+		height: 44px;
 		border-radius: 4px;
-		background: #28231d;
+		background: var(--ext-control);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 	}
 
 	.thumb-error {
-		color: #e06c75;
+		color: var(--ext-danger);
 	}
 
 	.spinner {
 		width: 14px;
 		height: 14px;
-		border: 2px solid rgb(255 255 255 / 12%);
-		border-top-color: #b67aff;
+		border: 2px solid oklch(100% 0 0 / 0.12);
+		border-top-color: var(--ext-accent);
 		border-radius: 50%;
 		animation: spin 0.7s linear infinite;
 		display: block;
@@ -261,8 +262,8 @@
 		width: 14px;
 		height: 14px;
 		border-radius: 50%;
-		background: #b67aff;
-		color: #fff;
+		background: var(--ext-accent);
+		color: var(--ext-bg);
 		font-size: 9px;
 		display: flex;
 		align-items: center;
@@ -287,7 +288,7 @@
 		cursor: text;
 		font-size: 12px;
 		font-family: inherit;
-		color: #eee7dc;
+		color: var(--ext-text);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -296,15 +297,15 @@
 	}
 
 	.name:hover {
-		color: #b67aff;
+		color: var(--ext-accent);
 	}
 
 	.name-input {
 		width: 100%;
-		background: #28231d;
-		border: 1px solid #b67aff;
-		border-radius: 3px;
-		color: #eee7dc;
+		background: var(--ext-control);
+		border: 1px solid var(--ext-accent);
+		border-radius: var(--ext-radius-sm);
+		color: var(--ext-text);
 		font-size: 12px;
 		font-family: inherit;
 		padding: 1px 4px;
@@ -315,7 +316,7 @@
 	.dims,
 	.source {
 		font-size: 10px;
-		color: #6b6258;
+		color: var(--ext-dim);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -335,7 +336,7 @@
 		padding: 0;
 		font-size: 10px;
 		font-family: inherit;
-		color: #6b6258;
+		color: var(--ext-dim);
 		cursor: pointer;
 		text-decoration: underline;
 		text-underline-offset: 2px;
@@ -343,13 +344,13 @@
 	}
 
 	.mode-toggle:hover {
-		color: #aaa196;
+		color: var(--ext-muted);
 	}
 
 	.already,
 	.fetch-error {
 		font-size: 10px;
-		color: #8f7765;
+		color: var(--ext-muted);
 	}
 
 	/* Remove button */
@@ -362,8 +363,8 @@
 		height: 24px;
 		background: none;
 		border: none;
-		border-radius: 4px;
-		color: #6b6258;
+		border-radius: var(--ext-radius-sm);
+		color: var(--ext-dim);
 		cursor: pointer;
 		padding: 0;
 		margin-top: 2px;
@@ -371,8 +372,8 @@
 	}
 
 	.remove-btn:hover {
-		background: rgb(224 108 117 / 14%);
-		color: #e06c75;
+		background: var(--ext-danger-soft);
+		color: var(--ext-danger);
 	}
 
 	.select-hit {

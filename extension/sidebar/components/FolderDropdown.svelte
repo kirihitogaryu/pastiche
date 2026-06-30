@@ -85,7 +85,7 @@
 
 	.label {
 		font-size: 11px;
-		color: #8f7765;
+		color: var(--ext-muted);
 		white-space: nowrap;
 		flex-shrink: 0;
 	}
@@ -97,10 +97,10 @@
 
 	.select {
 		width: 100%;
-		background: #28231d;
-		border: 1px solid rgb(255 255 255 / 14%);
-		border-radius: 5px;
-		color: #eee7dc;
+		background: var(--ext-control);
+		border: 1px solid var(--ext-border);
+		border-radius: var(--ext-radius-sm);
+		color: var(--ext-text);
 		font-size: 12px;
 		font-family: inherit;
 		padding: 5px 8px;
@@ -110,8 +110,8 @@
 
 	.select option,
 	.select optgroup {
-		background: #28231d;
-		color: #eee7dc;
+		background: var(--ext-control);
+		color: var(--ext-text);
 	}
 
 	.create-row {
@@ -125,10 +125,10 @@
 	.create-input {
 		flex: 1;
 		min-width: 0;
-		background: #28231d;
-		border: 1px solid #b67aff;
-		border-radius: 5px;
-		color: #eee7dc;
+		background: var(--ext-control);
+		border: 1px solid var(--ext-accent);
+		border-radius: var(--ext-radius-sm);
+		color: var(--ext-text);
 		font-size: 12px;
 		font-family: inherit;
 		padding: 5px 8px;
@@ -136,13 +136,13 @@
 	}
 
 	.create-input::placeholder {
-		color: #6b6258;
+		color: var(--ext-dim);
 	}
 
 	.cancel-btn {
 		background: none;
 		border: none;
-		color: #6b6258;
+		color: var(--ext-dim);
 		font-size: 12px;
 		cursor: pointer;
 		padding: 4px;
@@ -150,6 +150,6 @@
 	}
 
 	.cancel-btn:hover {
-		color: #aaa196;
+		color: var(--ext-muted);
 	}
 </style>

@@ -54,9 +54,11 @@
 <style>
 	:global(body) {
 		margin: 0;
-		background: #1d1914;
-		color: #eee7dc;
+		background: oklch(13% 0.01 70);
+		color: oklch(90% 0.01 75);
 		font-family: Montserrat, system-ui, sans-serif;
+		font-size: 13px;
+		-webkit-font-smoothing: antialiased;
 	}
 
 	main {
@@ -65,7 +67,11 @@
 	}
 
 	h1 {
+		margin: 0 0 18px;
+		color: oklch(90% 0.01 75);
 		font-family: Georgia, serif;
+		font-size: 24px;
+		font-weight: 600;
 	}
 
 	form,
@@ -76,15 +82,49 @@
 
 	form {
 		gap: 16px;
+		padding: 18px;
+		border: 1px solid oklch(100% 0 0 / 0.11);
+		border-radius: 8px;
+		background: oklch(16% 0.01 70);
+	}
+
+	label span {
+		color: oklch(70% 0.012 75);
+		font-size: 11px;
+		font-weight: 600;
+		text-transform: uppercase;
 	}
 
 	input,
 	select,
 	button {
-		border: 1px solid rgb(255 255 255 / 14%);
+		border: 1px solid oklch(100% 0 0 / 0.11);
 		border-radius: 6px;
-		background: #28231d;
+		background: oklch(21% 0.012 70);
 		color: inherit;
-		padding: 10px;
+		font: inherit;
+		padding: 9px 10px;
+	}
+
+	input:disabled,
+	select:disabled {
+		color: oklch(52% 0.012 75);
+	}
+
+	button {
+		background: oklch(78% 0.08 78);
+		color: oklch(13% 0.01 70);
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	button:hover {
+		background: oklch(83% 0.1 78);
+	}
+
+	p {
+		margin: 0;
+		color: oklch(72% 0.12 150);
+		font-size: 12px;
 	}
 </style>
