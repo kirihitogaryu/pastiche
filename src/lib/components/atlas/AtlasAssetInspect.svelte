@@ -15,6 +15,7 @@
 	import XIcon from 'phosphor-svelte/lib/XIcon';
 	import type { AtlasBatchInput } from '$lib/atlas/batch';
 	import { countAtlasEditOperations, mergeAtlasEditPatches } from '$lib/atlas/editSession';
+	import { previewAtlasEditSession } from '$lib/atlas/editPreview';
 	import type { AtlasAssetSummary } from '$lib/atlas/types';
 	import { openAtlasWiki } from '$lib/state/app-state.svelte';
 	import type { Asset } from '$lib/types';
@@ -37,7 +38,14 @@
 	let exportMenuOpen = $state(false);
 	let exportStatus = $state<string | null>(null);
 	let pendingPatch = $state<AtlasBatchInput>({});
-	let subtitle = $derived([asset.creator, asset.year, asset.medium].filter(Boolean).join(' · '));
+	let stagedPreview = $derived(
+		editMode ? previewAtlasEditSession(asset, atlas, pendingPatch) : { asset, atlas }
+	);
+	let visibleAsset = $derived(stagedPreview.asset);
+	let visibleAtlas = $derived(stagedPreview.atlas);
+	let subtitle = $derived(
+		[visibleAsset.creator, visibleAsset.year, visibleAsset.medium].filter(Boolean).join(' · ')
+	);
 	let pendingEditCount = $derived(countAtlasEditOperations(pendingPatch));
 
 	function openSource() {
@@ -127,7 +135,7 @@
 	}
 </script>
 
-<section class="atlas-inspect" aria-label={`Atlas inspect ${asset.title}`}>
+<section class="atlas-inspect" aria-label={`Atlas inspect ${visibleAsset.title}`}>
 	<header class="top">
 		<div class="title-zone">
 			{#if onBack}
@@ -137,7 +145,7 @@
 				</button>
 			{/if}
 			<div class="asset-title">
-				<h1>{asset.title}</h1>
+				<h1>{visibleAsset.title}</h1>
 				{#if subtitle}
 					<span>{subtitle}</span>
 				{/if}
@@ -216,7 +224,13 @@
 
 	<div class="body" class:rail-collapsed={!metadataOpen}>
 		{#if metadataOpen}
-			<AtlasMetadataPanel {asset} {atlas} {editMode} {saving} onPatch={queueAtlasPatch} />
+			<AtlasMetadataPanel
+				asset={visibleAsset}
+				atlas={visibleAtlas}
+				{editMode}
+				{saving}
+				onPatch={queueAtlasPatch}
+			/>
 		{/if}
 		<div class="main-scroll">
 			{#if error}
@@ -238,18 +252,18 @@
 					{/if}
 				</p>
 			{/if}
-			<AtlasImageStage {asset} {onPreview} />
+			<AtlasImageStage asset={visibleAsset} {onPreview} />
 			{#if editMode}
-				<AtlasBatchEditor {asset} {atlas} {saving} onApply={queueAtlasPatch} />
+				<AtlasBatchEditor asset={visibleAsset} atlas={visibleAtlas} {saving} onApply={queueAtlasPatch} />
 			{/if}
 			<AtlasDescriptionSection
-				description={asset.description}
+				description={visibleAsset.description}
 				{editMode}
 				{saving}
 				onSave={(description) => queueAtlasPatch({ identity: { description } })}
 			/>
 			<AtlasAiMetadataSection />
-			<AtlasSimilarImages assetId={asset.id} />
+			<AtlasSimilarImages assetId={visibleAsset.id} />
 		</div>
 	</div>
 </section>

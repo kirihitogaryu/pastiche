@@ -408,12 +408,33 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 			'AI may apply when a snake-like creature is clearly visible. Do not identify it as Python without metadata or iconographic support.'
 	}),
 	visual('dragon', 'dragon', 'Use when a dragon is visibly depicted.', {
-		category: 'animal',
+		category: 'creature',
 		displayGroup: 'Subjects / Visual Entities',
 		broader: ['mythological_creature'],
 		related: ['serpent', 'lizard', 'python_(mythology)', 'wing'],
 		confusable: ['serpent', 'lizard'],
-		allowedClassifiers: ['pose', 'state', 'view', 'position', 'scale', 'visual_role'],
+		allowedClassifiers: [
+			'pose',
+			'stance',
+			'state',
+			'view',
+			'position',
+			'scale',
+			'body_plan',
+			'body_extent',
+			'scale_color',
+			'eye_color',
+			'pupil_shape',
+			'wing_position',
+			'wing_type',
+			'tail_position',
+			'tail_tip_shape',
+			'underbelly_color',
+			'horn_count',
+			'spine_presence',
+			'snout_shape',
+			'visual_role'
+		],
 		useWhen: [
 			'Use for visible dragons, including winged or clawed reptilian mythological creatures.',
 			'Use alongside a named mythological entity when the named creature is visually depicted as a dragon.'
@@ -517,10 +538,10 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 	}),
 	visual('wing', 'wing', 'Use when wings are visibly depicted.', {
 		aliases: ['wings'],
-		category: 'object',
-		displayGroup: 'Subjects / Visual Entities',
+		category: 'anatomy',
+		displayGroup: 'Anatomy / Body Features',
 		related: ['dragon', 'cupid_(deity)'],
-		allowedClassifiers: ['position', 'scale', 'visual_role'],
+		allowedClassifiers: ['position', 'scale', 'wing_position', 'wing_type', 'wing_color', 'visual_role'],
 		useWhen: [
 			'Use for visible wings attached to creatures, figures, angels, deities, or symbolic beings.',
 			'Use on the specific winged instance when the wing is useful for visual retrieval.'
@@ -908,6 +929,98 @@ export const ATLAS_WIKI_SEED_CONCEPTS: AtlasWikiSeedConcept[] = [
 		'dominant',
 		'large',
 		'small'
+	]),
+	classifier('stance', 'stance', 'Describes the weight-bearing stance of a visible subject.', [
+		'crouched',
+		'upright',
+		'low',
+		'wide'
+	]),
+	classifier('body_plan', 'body plan', 'Describes the broad anatomical body plan of a visible subject.', [
+		'quadruped',
+		'biped',
+		'serpentine',
+		'winged_quadruped'
+	]),
+	classifier('body_extent', 'body extent', 'Describes how much of a visible subject is shown.', [
+		'full_body',
+		'upper_body',
+		'head_only',
+		'partial_body'
+	]),
+	classifier('scale_color', 'scale color', 'Describes the visible color of scales on a subject.', [
+		'green',
+		'blue',
+		'black',
+		'white',
+		'red'
+	]),
+	classifier('eye_color', 'eye color', 'Describes the visible eye color of a subject.', [
+		'red',
+		'blue',
+		'green',
+		'brown',
+		'gray'
+	]),
+	classifier('pupil_shape', 'pupil shape', 'Describes the visible pupil shape of a subject.', [
+		'slit',
+		'round',
+		'horizontal'
+	]),
+	classifier('wing_position', 'wing position', 'Describes the position or posture of visible wings.', [
+		'raised',
+		'spread',
+		'folded',
+		'outstretched'
+	]),
+	classifier('wing_type', 'wing type', 'Describes the visible type of wing.', [
+		'membranous',
+		'webbed_membrane',
+		'feathered',
+		'insect',
+		'stylized'
+	]),
+	classifier('wing_color', 'wing color', 'Describes the visible color of wings.', [
+		'green',
+		'blue',
+		'white',
+		'black',
+		'red'
+	]),
+	classifier('tail_position', 'tail position', 'Describes the position or posture of a visible tail.', [
+		'curved_up',
+		'curled',
+		'straight',
+		'lowered'
+	]),
+	classifier('tail_tip_shape', 'tail tip shape', 'Describes the visible shape of the end of a tail.', [
+		'spade',
+		'pointed',
+		'tufted',
+		'rounded'
+	]),
+	classifier(
+		'underbelly_color',
+		'underbelly color',
+		'Describes the visible color of a creature underbelly.',
+		['gray', 'white', 'cream', 'green', 'yellow']
+	),
+	classifier('horn_count', 'horn count', 'Describes visible horn quantity.', [
+		'one',
+		'two',
+		'several',
+		'many'
+	]),
+	classifier('spine_presence', 'spine presence', 'Describes whether visible spines are present.', [
+		'present',
+		'absent',
+		'dorsal_spines'
+	]),
+	classifier('snout_shape', 'snout shape', 'Describes the visible shape of a snout or muzzle.', [
+		'long_hooked',
+		'long',
+		'short',
+		'blunt'
 	]),
 	classifier('quantity', 'quantity', 'Describes the count or plurality of a visible instance.', [
 		'single',

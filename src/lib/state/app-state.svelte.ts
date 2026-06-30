@@ -71,7 +71,7 @@ export type ExploreFilterOptionsState = {
 	};
 };
 
-export type AtlasView = 'home' | 'asset' | 'wiki' | 'review';
+export type AtlasView = 'home' | 'asset' | 'wiki' | 'review' | 'search';
 
 export function defaultLibraryFilters(): LibraryFilterState {
 	return {
@@ -163,6 +163,7 @@ export const appState = $state({
 	atlasView: 'home' as AtlasView,
 	activeAtlasAssetId: null as string | null,
 	activeAtlasWikiSlug: null as string | null,
+	atlasSearchQuery: '' as string,
 	selectedAssetIds: [] as string[],
 	mobileState: 'browse' as MobileState,
 	addOpen: false,
@@ -433,6 +434,21 @@ export function openAtlasHome() {
 	appState.atlasView = 'home';
 	appState.activeAtlasAssetId = null;
 	appState.activeAtlasWikiSlug = null;
+	appState.mobileState = 'browse';
+	appState.addOpen = false;
+	appState.filterOpen = false;
+	appState.inspectorOpen = false;
+	appState.shellScrolled = false;
+	appState.focusedPreviewOpen = false;
+}
+
+export function openAtlasSearch(query = appState.query) {
+	appState.mode = 'atlas';
+	appState.atlasView = 'search';
+	appState.activeAtlasAssetId = null;
+	appState.activeAtlasWikiSlug = null;
+	appState.atlasSearchQuery = query.trim();
+	appState.query = query;
 	appState.mobileState = 'browse';
 	appState.addOpen = false;
 	appState.filterOpen = false;

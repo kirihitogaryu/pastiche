@@ -1,7 +1,7 @@
 <script lang="ts">
 	import BookOpenIcon from 'phosphor-svelte/lib/BookOpenIcon';
 	import CompassIcon from 'phosphor-svelte/lib/CompassIcon';
-	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
+	import DatabaseIcon from 'phosphor-svelte/lib/DatabaseIcon';
 	import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
 	import ScribbleIcon from 'phosphor-svelte/lib/ScribbleIcon';
 	import type { AppMode } from '$lib/types';
@@ -32,9 +32,9 @@
 		<ScribbleIcon size={22} weight={mode === 'canvas' ? 'fill' : 'regular'} />
 		<span>Canvas</span>
 	</button>
-	<button class:active={mode === 'resources'} type="button" onclick={() => onSelect('resources')}>
-		<FolderIcon size={21} weight={mode === 'resources' ? 'fill' : 'regular'} />
-		<span>Resources</span>
+	<button class:active={mode === 'atlas'} type="button" onclick={() => onSelect('atlas')}>
+		<DatabaseIcon size={21} weight={mode === 'atlas' ? 'fill' : 'regular'} />
+		<span>Atlas</span>
 	</button>
 </nav>
 

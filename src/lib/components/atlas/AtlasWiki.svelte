@@ -1,6 +1,5 @@
 <script lang="ts">
 	import AtlasWikiReferenceEditor from './AtlasWikiReferenceEditor.svelte';
-	import ArrowLeftIcon from 'phosphor-svelte/lib/ArrowLeftIcon';
 	import CaretDownIcon from 'phosphor-svelte/lib/CaretDownIcon';
 	import CheckIcon from 'phosphor-svelte/lib/CheckIcon';
 	import CopySimpleIcon from 'phosphor-svelte/lib/CopySimpleIcon';
@@ -11,7 +10,11 @@
 	import XIcon from 'phosphor-svelte/lib/XIcon';
 	import type { AtlasWikiEntrySummary } from '$lib/atlas/types';
 	import { rankAtlasWikiEntries } from '$lib/atlas/wikiSearch';
-	import { appState, openAtlasAsset, openAtlasHome } from '$lib/state/app-state.svelte';
+	import {
+		appState,
+		openAtlasAsset,
+		openAtlasSearch
+	} from '$lib/state/app-state.svelte';
 
 	type AtlasWikiEntry = AtlasWikiEntrySummary & {
 		longDescription: string | null;
@@ -233,6 +236,7 @@
 	let reviewLoading = $state(false);
 	let reviewError = $state<string | null>(null);
 	let vocabularyExportStatus = $state<string | null>(null);
+	let expandedReferenceLists = $state<Record<string, boolean>>({});
 
 	let entryBySlug = $derived(new Map(entries.map((entry) => [entry.slug, entry])));
 	let filteredEntries = $derived(
@@ -246,7 +250,7 @@
 	let activeEntry = $derived(
 		activeDocSlug || creatingNewTag || reviewMode
 			? null
-			: (entries.find((entry) => entry.slug === activeSlug) ?? filteredEntries[0] ?? null)
+			: (entries.find((entry) => entry.slug === activeSlug) ?? null)
 	);
 	let markdownBlocks = $derived(activeDoc ? parseMarkdown(activeDoc.markdown) : []);
 
@@ -267,11 +271,10 @@
 			}
 			entries = body.entries;
 			activeSlug =
-				(appState.activeAtlasWikiSlug &&
-					body.entries.some((entry) => entry.slug === appState.activeAtlasWikiSlug) &&
-					appState.activeAtlasWikiSlug) ||
-				body.entries[0]?.slug ||
-				null;
+				appState.activeAtlasWikiSlug &&
+				body.entries.some((entry) => entry.slug === appState.activeAtlasWikiSlug)
+					? appState.activeAtlasWikiSlug
+					: null;
 		} catch (loadError) {
 			error = loadError instanceof Error ? loadError.message : 'Atlas wiki could not be loaded.';
 		} finally {
@@ -310,6 +313,16 @@
 		activeDoc = null;
 		closeWikiEditor();
 		appState.activeAtlasWikiSlug = slug;
+	}
+
+	function openWikiGuide() {
+		creatingNewTag = false;
+		reviewMode = false;
+		activeSlug = null;
+		activeDocSlug = null;
+		activeDoc = null;
+		appState.activeAtlasWikiSlug = null;
+		closeWikiEditor();
 	}
 
 	function closeWikiEditor() {
@@ -372,7 +385,7 @@
 		creatingNewTag = false;
 		newTagDraft = emptyNewTagDraft();
 		newTagError = null;
-		activeSlug = entries[0]?.slug ?? null;
+		activeSlug = null;
 	}
 
 	async function openReviewQueue() {
@@ -733,6 +746,17 @@
 		return 'visual';
 	}
 
+	function visibleReferences(values: string[], listKey: string, limit: number) {
+		return expandedReferenceLists[listKey] ? values : values.slice(0, limit);
+	}
+
+	function toggleReferenceList(listKey: string) {
+		expandedReferenceLists = {
+			...expandedReferenceLists,
+			[listKey]: !expandedReferenceLists[listKey]
+		};
+	}
+
 	function parseMarkdown(markdown: string): MarkdownBlock[] {
 		const blocks: MarkdownBlock[] = [];
 		const lines = markdown.split(/\r?\n/);
@@ -799,45 +823,15 @@
 <section class="atlas-wiki" aria-label="Atlas wiki">
 	<aside class="wiki-nav" aria-label="Atlas wiki navigation">
 		<div class="nav-top">
-			<button type="button" class="back-link" onclick={openAtlasHome}>
-				<ArrowLeftIcon size={15} />
-				Back to Atlas home
-			</button>
 			<h1>Atlas Wiki</h1>
-			<details class="doc-group">
-				<summary>
-					<span>Documentation</span>
-					<CaretDownIcon class="chev" size={13} />
-				</summary>
-				<nav class="doc-links" aria-label="Atlas wiki documentation">
-					{#each DOC_LINKS as link}
-						<button
-							type="button"
-							class:active={activeDocSlug === link.slug}
-							onclick={() => loadDoc(link.slug)}
-						>
-							{link.label}
-						</button>
-					{/each}
-				</nav>
-			</details>
-			<div class="nav-actions">
-				<button type="button" class="new-tag-button" onclick={() => startNewTagDraft()}>
-					<PlusIcon size={15} /> New tag
-				</button>
-				<button type="button" class="new-tag-button" onclick={openReviewQueue}>
-					Review tags
-				</button>
-				<button type="button" class="new-tag-button" onclick={() => copyVocabularyExport('markdown')}>
-					<CopySimpleIcon size={15} /> Copy AI vocab
-				</button>
-				<button type="button" class="new-tag-button" onclick={() => copyVocabularyExport('json')}>
-					Copy JSON
-				</button>
-			</div>
-			{#if vocabularyExportStatus}
-				<p class="nav-status">{vocabularyExportStatus}</p>
-			{/if}
+			<button
+				type="button"
+				class="guide-link"
+				class:active={!activeEntry && !activeDocSlug && !creatingNewTag && !reviewMode}
+				onclick={openWikiGuide}
+			>
+				Wiki Guide
+			</button>
 		</div>
 
 		<div class="search-wrap">
@@ -1179,7 +1173,7 @@
 							</div>
 						{/if}
 					</div>
-					<button type="button" class="entry-link" onclick={() => selectEntry(activeEntry.slug)}>
+					<button type="button" class="entry-link" onclick={() => openAtlasSearch(activeEntry.slug)}>
 						Open tag in Atlas →
 					</button>
 					{#if wikiEditMode && wikiDraft}
@@ -1321,11 +1315,21 @@
 								placeholder="Search suggested tags..."
 							/>
 						{:else}
-							{@render ReferenceList(activeEntry.automaticImplications, 'None', 'relation')}
+							{@render ReferenceList(
+								activeEntry.automaticImplications,
+								'None',
+								'relation',
+								`${activeEntry.slug}:automatic`
+							)}
 						{/if}
 						{#if !wikiEditMode && activeEntry.suggestedImplications.length}
 							<p class="subhead">Suggested</p>
-							{@render ReferenceList(activeEntry.suggestedImplications, 'None', 'relation')}
+							{@render ReferenceList(
+								activeEntry.suggestedImplications,
+								'None',
+								'relation',
+								`${activeEntry.slug}:suggested`
+							)}
 						{/if}
 					</div>
 					<div class="info-block">
@@ -1338,7 +1342,12 @@
 								placeholder="Search confusable tags..."
 							/>
 						{:else}
-							{@render ReferenceList(activeEntry.confusable, 'None listed', 'relation')}
+							{@render ReferenceList(
+								activeEntry.confusable,
+								'None listed',
+								'relation',
+								`${activeEntry.slug}:confusable`
+							)}
 						{/if}
 					</div>
 					<div class="info-block">
@@ -1357,11 +1366,21 @@
 								placeholder="Search narrower tags..."
 							/>
 						{:else}
-							{@render ReferenceList(activeEntry.broader, 'None listed', 'relation')}
+							{@render ReferenceList(
+								activeEntry.broader,
+								'None listed',
+								'relation',
+								`${activeEntry.slug}:broader`
+							)}
 						{/if}
 						{#if !wikiEditMode && activeEntry.narrower.length}
 							<p class="subhead">Narrower / specific</p>
-							{@render ReferenceList(activeEntry.narrower, 'None', 'relation')}
+							{@render ReferenceList(
+								activeEntry.narrower,
+								'None',
+								'relation',
+								`${activeEntry.slug}:narrower`
+							)}
 						{/if}
 					</div>
 					<div class="info-block">
@@ -1379,7 +1398,8 @@
 							{@render ReferenceList(
 								activeEntry.allowedClassifiers,
 								'None listed',
-								activeEntry.kind === 'classifier' ? 'classifier-values' : 'classifier-links'
+								activeEntry.kind === 'classifier' ? 'classifier-values' : 'classifier-links',
+								`${activeEntry.slug}:allowed-classifiers`
 							)}
 						{/if}
 					</div>
@@ -1413,7 +1433,7 @@
 							{#if activeEntry.related.length}
 								<p>
 									<strong>Related:</strong>
-									{@render InlineReferenceList(activeEntry.related)}
+									{@render InlineReferenceList(activeEntry.related, `${activeEntry.slug}:related`)}
 								</p>
 							{/if}
 						{/if}
@@ -1537,15 +1557,127 @@
 				{/if}
 			</article>
 		{:else}
-			<div class="state">No wiki entry selected.</div>
+			<article class="entry guide-entry entry-animate" aria-label="Atlas wiki guide">
+				<nav class="breadcrumbs" aria-label="Wiki breadcrumbs">
+					<span>Atlas Wiki</span><span class="crumb-sep">›</span><span class="current">Guide</span>
+				</nav>
+				<header class="entry-header guide-header">
+					<div>
+						<h2>Wiki Guide</h2>
+						<p class="definition">
+							Atlas tags, classifiers, implications, examples, and documentation in one browsable map.
+						</p>
+					</div>
+					<div class="guide-actions" aria-label="Atlas wiki actions">
+						<button type="button" class="wiki-action primary" onclick={() => startNewTagDraft()}>
+							<PlusIcon size={15} /> New tag
+						</button>
+						<button type="button" class="wiki-action" onclick={openReviewQueue}>Review tags</button>
+						<button type="button" class="wiki-action" onclick={() => copyVocabularyExport('markdown')}>
+							<CopySimpleIcon size={15} /> Copy AI vocab
+						</button>
+						<button type="button" class="wiki-action" onclick={() => copyVocabularyExport('json')}>
+							Copy JSON
+						</button>
+					</div>
+					{#if vocabularyExportStatus}
+						<p class="nav-status guide-status">{vocabularyExportStatus}</p>
+					{/if}
+				</header>
+
+				<div class="guide-layout">
+					<aside class="toc" aria-label="Wiki guide table of contents">
+						<p>Contents</p>
+						<a href="#wiki-docs">Documentation</a>
+						<a href="#wiki-tree">Tag tree</a>
+						<a href="#wiki-classifiers">Classifiers</a>
+					</aside>
+
+					<div class="guide-main">
+						<section id="wiki-docs" class="guide-section">
+							<div class="guide-section-head">
+								<h3 class="section-title">Documentation</h3>
+								<p>Source-of-truth references for editing and applying Atlas metadata.</p>
+							</div>
+							<div class="doc-card-grid">
+								{#each DOC_LINKS as link}
+									<button type="button" onclick={() => loadDoc(link.slug)}>
+										<strong>{link.label}</strong>
+										<span>Open guide</span>
+									</button>
+								{/each}
+							</div>
+						</section>
+
+						<section id="wiki-tree" class="guide-section">
+							<div class="guide-section-head">
+								<h3 class="section-title">Tag Tree</h3>
+								<p>{entries.length.toLocaleString()} entries grouped by Atlas display structure.</p>
+							</div>
+							<div class="guide-tree">
+								{#each browseGroups as group (group.name)}
+									<details class="tree-group" open>
+										<summary>
+											<span>{group.name}</span>
+											<small>
+												{group.branches.reduce((sum, branch) => sum + branch.entries.length, 0)}
+											</small>
+										</summary>
+										<div class="tree-branches">
+											{#each group.branches as branch (branch.name)}
+												<section class="tree-branch">
+													<h4>{branch.name}</h4>
+													<div class="tree-tags">
+														{#each branch.entries as entry (entry.slug)}
+															<button
+																type="button"
+																class={referenceClass(entry.slug)}
+																title={entry.shortDefinition}
+																onclick={() => selectEntry(entry.slug)}
+															>
+																{entry.label}
+															</button>
+														{/each}
+													</div>
+												</section>
+											{/each}
+										</div>
+									</details>
+								{/each}
+							</div>
+						</section>
+
+						<section id="wiki-classifiers" class="guide-section">
+							<div class="guide-section-head">
+								<h3 class="section-title">Classifiers</h3>
+								<p>Classifier entries define scoped refinements like pose, visual role, position, and value lists.</p>
+							</div>
+							<div class="classifier-map">
+								{#each entries.filter((entry) => entry.kind === 'classifier') as entry (entry.slug)}
+									<button type="button" onclick={() => selectEntry(entry.slug)}>
+										<strong>{entry.label}</strong>
+										<span>{entry.allowedClassifiers.length} value{entry.allowedClassifiers.length === 1 ? '' : 's'}</span>
+									</button>
+								{/each}
+							</div>
+						</section>
+					</div>
+				</div>
+			</article>
 		{/if}
 	</main>
 </section>
 
-{#snippet ReferenceList(values: string[], empty: string, mode: 'relation' | 'classifier-links' | 'classifier-values')}
+{#snippet ReferenceList(
+	values: string[],
+	empty: string,
+	mode: 'relation' | 'classifier-links' | 'classifier-values',
+	listKey: string
+)}
 	{#if values.length}
+		{@const limit = mode === 'classifier-links' ? 4 : mode === 'classifier-values' ? 6 : 5}
 		<ul class="reference-list">
-			{#each values as value}
+			{#each visibleReferences(values, listKey, limit) as value}
 				<li>
 					{#if mode === 'classifier-values'}
 						<code>{displayLabel(value)}</code>
@@ -1563,14 +1695,31 @@
 					{/if}
 				</li>
 			{/each}
+			{#if values.length > limit}
+				<li class="reference-more-row">
+					<button
+						type="button"
+						class="reference-more"
+						aria-expanded={expandedReferenceLists[listKey] ? 'true' : 'false'}
+						aria-label={expandedReferenceLists[listKey]
+							? 'Show fewer references'
+							: `Show ${values.length - limit} more references`}
+						onclick={() => toggleReferenceList(listKey)}
+					>
+						{expandedReferenceLists[listKey] ? 'less' : `+${values.length - limit}`}
+					</button>
+				</li>
+			{/if}
 		</ul>
 	{:else}
 		<p class="empty-copy">{empty}</p>
 	{/if}
 {/snippet}
 
-{#snippet InlineReferenceList(values: string[])}
-	{#each values as value, index}
+{#snippet InlineReferenceList(values: string[], listKey: string)}
+	{@const limit = 5}
+	{@const inlineValues = visibleReferences(values, listKey, limit)}
+	{#each inlineValues as value, index}
 		{#if entryBySlug.has(value)}
 			<button
 				type="button"
@@ -1584,6 +1733,19 @@
 			<span class="inline-ref missing" title="No wiki entry yet">{displayLabel(value)}</span>{#if index < values.length - 1}, {/if}
 		{/if}
 	{/each}
+	{#if values.length > limit}
+		<button
+			type="button"
+			class="inline-more"
+			aria-expanded={expandedReferenceLists[listKey] ? 'true' : 'false'}
+			aria-label={expandedReferenceLists[listKey]
+				? 'Show fewer related tags'
+				: `Show ${values.length - limit} more related tags`}
+			onclick={() => toggleReferenceList(listKey)}
+		>
+			{expandedReferenceLists[listKey] ? 'less' : `+${values.length - limit}`}
+		</button>
+	{/if}
 {/snippet}
 
 <style>
@@ -1668,103 +1830,15 @@
 		line-height: 1;
 	}
 
-	.doc-group {
-		border-top: 1px solid var(--color-border-soft);
-		padding-top: 0.55rem;
-	}
-
-	.doc-group summary {
-		min-height: 1.85rem;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		border-radius: var(--radius-sm);
-		color: var(--wiki-heading-muted);
-		font-size: 0.72rem;
-		font-weight: 800;
-		letter-spacing: 0.11em;
-		text-transform: uppercase;
-		list-style: none;
-		cursor: pointer;
-		transition:
-			background var(--duration-fast) var(--ease-out),
-			color var(--duration-fast) var(--ease-out);
-	}
-
-	.doc-group summary::-webkit-details-marker {
-		display: none;
-	}
-
-	.doc-group summary:hover,
-	.doc-group summary:focus-visible {
-		background: oklch(100% 0 0 / 0.035);
-		color: var(--color-text);
-	}
-
-	.doc-group :global(.chev) {
-		color: var(--wiki-muted);
-		transition: transform var(--duration-fast) var(--ease-out);
-	}
-
-	.doc-group:not([open]) :global(.chev) {
-		transform: rotate(-90deg);
-	}
-
-	.doc-links {
-		display: grid;
-		gap: 0.12rem;
-		margin-top: 0.25rem;
-		padding: 0 0 0.2rem 0.45rem;
-	}
-
-	.doc-links button {
-		min-height: 1.55rem;
-		border: 0;
-		border-radius: var(--radius-sm);
-		background: transparent;
-		color: var(--wiki-soft);
-		font-size: 0.78rem;
-		text-align: left;
-		cursor: pointer;
-		transition:
-			color var(--duration-fast) var(--ease-out),
-			background var(--duration-fast) var(--ease-out),
-			transform var(--duration-fast) var(--ease-out);
-	}
-
-	.doc-links button:hover,
-	.doc-links button:focus-visible,
-	.doc-links button.active {
-		background: oklch(100% 0 0 / 0.04);
-		color: var(--color-text);
-		transform: translateX(0.1rem);
-	}
-
-	.nav-actions {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 0.45rem;
-		margin-top: 0.65rem;
-	}
-
-	.nav-status {
-		margin: 0.45rem 0 0;
-		color: var(--wiki-muted);
-		font-size: 0.72rem;
-		line-height: 1.35;
-	}
-
-	.new-tag-button {
+	.guide-link {
 		width: 100%;
-		min-height: 2rem;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.35rem;
+		min-height: 2.15rem;
 		border: 1px solid var(--color-border-soft);
 		border-radius: var(--radius-md);
-		background: oklch(100% 0 0 / 0.035);
+		background: oklch(100% 0 0 / 0.026);
 		color: var(--wiki-soft);
+		text-align: left;
+		padding: 0 0.7rem;
 		cursor: pointer;
 		transition:
 			border-color var(--duration-fast) var(--ease-out),
@@ -1772,11 +1846,19 @@
 			color var(--duration-fast) var(--ease-out);
 	}
 
-	.new-tag-button:hover,
-	.new-tag-button:focus-visible {
-		border-color: oklch(78% 0.08 78 / 0.45);
-		background: oklch(78% 0.08 78 / 0.08);
+	.guide-link:hover,
+	.guide-link:focus-visible,
+	.guide-link.active {
+		border-color: oklch(78% 0.08 78 / 0.42);
+		background: oklch(78% 0.08 78 / 0.075);
 		color: var(--color-text);
+	}
+
+	.nav-status {
+		margin: 0.45rem 0 0;
+		color: var(--wiki-muted);
+		font-size: 0.72rem;
+		line-height: 1.35;
 	}
 
 	.search-wrap {
@@ -2174,6 +2256,264 @@
 		display: grid;
 		justify-items: end;
 		gap: 0.35rem;
+	}
+
+	.guide-entry {
+		max-width: 90rem;
+	}
+
+	.guide-header {
+		max-width: none;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: 1.2rem;
+		align-items: start;
+	}
+
+	.guide-actions {
+		display: flex;
+		flex-wrap: nowrap;
+		justify-content: flex-end;
+		gap: 0.45rem;
+		max-width: 44rem;
+	}
+
+	.guide-status {
+		grid-column: 1 / -1;
+		margin-top: -0.45rem;
+	}
+
+	.guide-layout {
+		display: grid;
+		grid-template-columns: minmax(11rem, 0.22fr) minmax(0, 1fr);
+		gap: 2rem;
+		align-items: start;
+	}
+
+	.toc {
+		position: sticky;
+		top: 1.2rem;
+		display: grid;
+		gap: 0.25rem;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-lg);
+		background: oklch(100% 0 0 / 0.018);
+		padding: 0.85rem;
+	}
+
+	.toc p {
+		margin-bottom: 0.35rem;
+		color: var(--wiki-heading-muted);
+		font-size: 0.7rem;
+		font-weight: 800;
+		letter-spacing: 0.11em;
+		text-transform: uppercase;
+	}
+
+	.toc a {
+		border-radius: var(--radius-sm);
+		color: var(--wiki-soft);
+		padding: 0.32rem 0.42rem;
+		text-decoration: none;
+		transition:
+			background var(--duration-fast) var(--ease-out),
+			color var(--duration-fast) var(--ease-out);
+	}
+
+	.toc a:hover,
+	.toc a:focus-visible {
+		background: oklch(100% 0 0 / 0.045);
+		color: var(--color-text);
+	}
+
+	.guide-main {
+		min-width: 0;
+		display: grid;
+		gap: 1.75rem;
+	}
+
+	.guide-section {
+		border-top: 1px solid var(--color-border-soft);
+		padding-top: 1.2rem;
+		scroll-margin-top: 1.2rem;
+	}
+
+	.guide-section:first-child {
+		border-top: 0;
+		padding-top: 0;
+	}
+
+	.guide-section-head {
+		display: flex;
+		align-items: end;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-bottom: 0.85rem;
+	}
+
+	.guide-section-head p {
+		max-width: 32rem;
+		color: var(--wiki-muted);
+		font-size: 0.86rem;
+		line-height: 1.45;
+		text-align: right;
+	}
+
+	.doc-card-grid,
+	.classifier-map {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+		gap: 0.55rem;
+	}
+
+	.doc-card-grid button,
+	.classifier-map button {
+		min-width: 0;
+		display: grid;
+		gap: 0.25rem;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-md);
+		background: oklch(100% 0 0 / 0.02);
+		color: var(--wiki-soft);
+		padding: 0.72rem 0.8rem;
+		text-align: left;
+		cursor: pointer;
+		transition:
+			border-color var(--duration-fast) var(--ease-out),
+			background var(--duration-fast) var(--ease-out),
+			color var(--duration-fast) var(--ease-out),
+			transform var(--duration-fast) var(--ease-out);
+	}
+
+	.doc-card-grid button:hover,
+	.doc-card-grid button:focus-visible,
+	.classifier-map button:hover,
+	.classifier-map button:focus-visible {
+		border-color: var(--color-border-strong);
+		background: oklch(100% 0 0 / 0.045);
+		color: var(--color-text);
+		transform: translateY(-0.08rem);
+	}
+
+	.doc-card-grid strong,
+	.classifier-map strong {
+		overflow: hidden;
+		color: var(--color-text);
+		font-size: 0.9rem;
+		font-weight: 680;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.doc-card-grid span,
+	.classifier-map span {
+		color: var(--wiki-muted);
+		font-size: 0.76rem;
+	}
+
+	.guide-tree {
+		display: grid;
+		gap: 0.65rem;
+	}
+
+	.tree-group {
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-lg);
+		background: oklch(100% 0 0 / 0.018);
+		overflow: hidden;
+	}
+
+	.tree-group summary {
+		min-height: 2.75rem;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 0 0.95rem;
+		color: var(--color-text);
+		list-style: none;
+		cursor: pointer;
+	}
+
+	.tree-group summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.tree-group summary small {
+		color: var(--wiki-muted);
+		font-size: 0.74rem;
+	}
+
+	.tree-branches {
+		display: grid;
+		gap: 0.8rem;
+		border-top: 1px solid var(--color-border-soft);
+		padding: 0.9rem;
+	}
+
+	.tree-branch {
+		display: grid;
+		grid-template-columns: minmax(9rem, 0.22fr) minmax(0, 1fr);
+		gap: 0.8rem;
+		align-items: start;
+	}
+
+	.tree-branch h4 {
+		color: var(--wiki-heading-muted);
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0.08em;
+		line-height: 1.35;
+		text-transform: uppercase;
+	}
+
+	.tree-tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.35rem;
+	}
+
+	.tree-tags button {
+		min-height: 1.65rem;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-sm);
+		background: oklch(100% 0 0 / 0.02);
+		color: var(--wiki-link-visual);
+		padding: 0 0.5rem;
+		cursor: pointer;
+		transition:
+			border-color var(--duration-fast) var(--ease-out),
+			background var(--duration-fast) var(--ease-out),
+			color var(--duration-fast) var(--ease-out);
+	}
+
+	.tree-tags button:hover,
+	.tree-tags button:focus-visible {
+		border-color: var(--color-border-strong);
+		background: oklch(100% 0 0 / 0.05);
+		color: var(--color-text);
+	}
+
+	.tree-tags button.classifier {
+		color: var(--wiki-link-classifier);
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-size: 0.76rem;
+	}
+
+	.tree-tags button.artist {
+		color: var(--wiki-link-entity);
+	}
+
+	.tree-tags button.work {
+		color: var(--wiki-link-work);
+	}
+
+	.tree-tags button.source {
+		color: oklch(75% 0.035 235);
+	}
+
+	.tree-tags button.theme {
+		color: var(--wiki-link-theme);
 	}
 
 	.entry h2 {
@@ -2578,6 +2918,50 @@
 		margin-top: 0.38rem;
 	}
 
+	.reference-more-row {
+		list-style: none;
+		margin-left: -1rem;
+	}
+
+	.reference-more,
+	.inline-more {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-sm);
+		background: oklch(100% 0 0 / 0.025);
+		color: var(--wiki-muted);
+		font-size: 0.72rem;
+		line-height: 1.2;
+		cursor: pointer;
+		transition:
+			border-color var(--duration-fast) var(--ease-out),
+			background var(--duration-fast) var(--ease-out),
+			color var(--duration-fast) var(--ease-out);
+	}
+
+	.reference-more {
+		min-height: 1.35rem;
+		padding: 0 0.42rem;
+	}
+
+	.inline-more {
+		min-height: 1.25rem;
+		margin-left: 0.28rem;
+		padding: 0 0.38rem;
+		vertical-align: baseline;
+	}
+
+	.reference-more:hover,
+	.reference-more:focus-visible,
+	.inline-more:hover,
+	.inline-more:focus-visible {
+		border-color: var(--color-border-strong);
+		background: oklch(100% 0 0 / 0.055);
+		color: var(--color-text);
+	}
+
 	.tag-ref,
 	.inline-ref {
 		display: inline;
@@ -2829,6 +3213,30 @@
 			grid-template-columns: 18rem minmax(0, 1fr);
 		}
 
+		.guide-header,
+		.guide-layout,
+		.tree-branch {
+			grid-template-columns: 1fr;
+		}
+
+		.guide-actions {
+			flex-wrap: wrap;
+			justify-content: flex-start;
+			max-width: none;
+		}
+
+		.guide-section-head {
+			display: grid;
+		}
+
+		.guide-section-head p {
+			text-align: left;
+		}
+
+		.toc {
+			position: static;
+		}
+
 		.examples,
 		.info-grid {
 			grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2848,7 +3256,9 @@
 
 		.lower-grid,
 		.examples,
-		.info-grid {
+		.info-grid,
+		.doc-card-grid,
+		.classifier-map {
 			grid-template-columns: 1fr;
 		}
 

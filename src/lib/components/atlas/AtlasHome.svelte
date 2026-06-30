@@ -25,14 +25,6 @@
 </script>
 
 <section class="atlas-home" aria-label="Atlas home">
-	<header>
-		<div>
-			<p>Atlas</p>
-			<h1>Atlas</h1>
-			<span>All library assets, newest first.</span>
-		</div>
-	</header>
-
 	{#if loading}
 		<div class="empty">Loading library assets...</div>
 	{:else if error}
@@ -65,43 +57,11 @@
 <style>
 	.atlas-home {
 		height: 100%;
-		display: grid;
-		grid-template-rows: auto minmax(0, 1fr);
-		gap: var(--space-4);
 		padding: var(--space-5);
 		overflow: auto;
 		background: var(--color-bg);
 	}
 
-	header {
-		display: flex;
-		align-items: end;
-		justify-content: space-between;
-		gap: var(--space-4);
-		padding-bottom: var(--space-3);
-		border-bottom: 1px solid var(--color-border-soft);
-	}
-
-	p,
-	h1 {
-		margin: 0;
-	}
-
-	p {
-		color: var(--color-dim);
-		font-size: 0.72rem;
-		font-weight: 800;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	h1 {
-		font-family: var(--font-heading);
-		font-size: clamp(2rem, 4vw, 3rem);
-		line-height: 1;
-	}
-
-	header span,
 	.empty {
 		color: var(--color-muted);
 	}

@@ -7,6 +7,7 @@
 		addWikidataSubject,
 		appState,
 		commitExploreSearch,
+		openAtlasSearch,
 		removeWikimediaReferenceToken,
 		selectExploreSuggestion,
 		setWikidataEntityError,
@@ -138,6 +139,12 @@
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
+		if (mode === 'atlas' && event.key === 'Enter') {
+			event.preventDefault();
+			openAtlasSearch(appState.query);
+			focused = false;
+			return;
+		}
 		if (mode !== 'explore' || event.key !== 'Enter') return;
 		event.preventDefault();
 		if (isWikidataMode) {

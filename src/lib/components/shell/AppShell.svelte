@@ -28,13 +28,13 @@
 		libraryState.snapshot.assets.find((asset) => asset.id === appState.selectedAssetId) ?? null
 	);
 	let mobilePreviewAsset = $state<Asset | null>(null);
-	let atlasInspectActive = $derived(appState.mode === 'atlas' && appState.atlasView === 'asset');
+	let atlasImmersiveActive = $derived(appState.mode === 'atlas');
 </script>
 
 <div class="app-shell">
 	<ModeRail mode={appState.mode} onSelect={setMode} />
 	<div class="app-main">
-		{#if !atlasInspectActive}
+		{#if !atlasImmersiveActive}
 			<TopBar mode={appState.mode} />
 			<MobileHeader mode={appState.mode} compact={appState.shellScrolled} />
 		{/if}
