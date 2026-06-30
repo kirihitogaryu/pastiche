@@ -160,7 +160,7 @@ export type AtlasEntityProfile = {
 	historicalPeriod: string | null;
 	media: string[];
 	aiGuidance: string | null;
-	aliases: Array<{ alias: string; source: string; confidence: string }>;
+	aliases: Array<{ alias: string; normalizedAlias: string; source: string; confidence: string }>;
 	links: Array<{
 		url: string;
 		host: string;
