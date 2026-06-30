@@ -4,7 +4,7 @@
 	"description": "Capture references into the local Pastiche library.",
 	"version": "0.1.0",
 	"permissions": ["activeTab", "contextMenus", "scripting", "storage", "tabs"],
-	"host_permissions": ["http://localhost:*/*", "http://127.0.0.1:*/*", "<all_urls>"],
+	"host_permissions": ["<all_urls>"],
 	"background": {
 		"scripts": ["background/service-worker.js"],
 		"type": "module"
