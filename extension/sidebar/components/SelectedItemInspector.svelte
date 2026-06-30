@@ -24,8 +24,11 @@
 	});
 
 	const selectedCandidate = $derived(() =>
-		item?.candidates.find((candidate) => candidate.id === item.selectedCandidateId)
+		(item?.candidates ?? []).find((candidate) => candidate.id === item.selectedCandidateId)
 	);
+
+	const candidateCount = $derived(item?.candidates?.length ?? 0);
+	const scoreReasons = $derived(selectedCandidate()?.scoreReasons ?? []);
 </script>
 
 {#if item}
@@ -42,15 +45,15 @@
 			<div class="title-row">
 				<strong>{item.metadata.title}</strong>
 				<button type="button" onclick={() => (alternatesOpen = !alternatesOpen)}>
-					{item.candidates.length} choices
+					{candidateCount} choices
 				</button>
 			</div>
 			<span>{item.naturalWidth} × {item.naturalHeight}px · {item.source.sourceLabel}</span>
 			<a href={item.source.detailUrl ?? item.source.pageUrl} target="_blank" rel="noreferrer">
 				{item.source.detailUrl ?? item.source.pageUrl}
 			</a>
-			{#if selectedCandidate?.scoreReasons.length}
-				<small>{selectedCandidate.scoreReasons[0]}</small>
+			{#if scoreReasons.length}
+				<small>{scoreReasons[0]}</small>
 			{/if}
 		</div>
 

@@ -22,7 +22,7 @@
 		date = metadata.date ?? '';
 		sourceLabel = source.sourceLabel;
 		originalUrl = source.detailUrl ?? source.canonicalPageUrl ?? source.pageUrl;
-		tags = metadata.tags.join(', ');
+		tags = (metadata.tags ?? []).join(', ');
 	});
 
 	function commitMetadata() {
@@ -95,9 +95,9 @@
 		<textarea bind:value={tags} rows="2" onblur={commitMetadata}></textarea>
 	</label>
 
-	{#if metadata.suggestedTags.length > 0}
+	{#if (metadata.suggestedTags ?? []).length > 0}
 		<div class="suggested" aria-label="Suggested tags">
-			{#each metadata.suggestedTags as tag (tag)}
+			{#each metadata.suggestedTags ?? [] as tag (tag)}
 				<button type="button" onclick={() => addSuggestedTag(tag)}>{tag}</button>
 			{/each}
 		</div>

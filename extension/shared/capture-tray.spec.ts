@@ -94,4 +94,72 @@ describe('capture tray persistence helpers', () => {
 		expect(captureTrayItemsFromStorage(null)).toEqual([]);
 		expect(captureTrayItemsFromStorage({ nope: true })).toEqual([]);
 	});
+
+	it('hydrates older stored tray items with safe array defaults', () => {
+		expect.assertions(3);
+
+		const [stored] = captureTrayItemsFromStorage([
+			{
+				id: 'legacy-item',
+				url: 'https://cdn.example.com/legacy.jpg',
+				metadata: { title: 'Legacy' },
+				source: { pageUrl: 'https://example.com/post/1' }
+			}
+		]);
+
+		expect(stored.candidates).toEqual([]);
+		expect(stored.metadata.suggestedTags).toEqual([]);
+		expect(stored.metadata.tags).toEqual([]);
+	});
+
+	it('accepts Chrome storage array-like objects for fetched image captures', () => {
+		expect.assertions(1);
+
+		expect(
+			captureTrayItemsFromStorage({
+				0: item({ id: 'stored-direct-image' })
+			}).map((entry) => entry.id)
+		).toEqual(['stored-direct-image']);
+	});
+
+	it('hydrates nested Chrome storage array-like values for direct image captures', () => {
+		expect.assertions(4);
+
+		const [stored] = captureTrayItemsFromStorage({
+			0: {
+				...item({ id: 'stored-direct-image' }),
+				candidates: {
+					0: {
+						id: 'candidate-direct',
+						url: 'https://cdn.example.com/direct.png',
+						kind: 'network',
+						width: 1280,
+						height: 900,
+						visibleWidth: null,
+						visibleHeight: null,
+						mimeType: 'image/png',
+						byteSize: null,
+						altText: null,
+						sourceElementPath: null,
+						detailUrl: null,
+						inlineData: null,
+						score: 0,
+						confidence: 'medium',
+						rejectionReasons: {},
+						scoreReasons: { 0: 'direct image URL' }
+					}
+				},
+				metadata: {
+					...item({}).metadata,
+					tags: { 0: 'saved' },
+					suggestedTags: { 0: 'reference' }
+				}
+			}
+		});
+
+		expect(stored.candidates).toHaveLength(1);
+		expect(stored.candidates[0].scoreReasons).toEqual(['direct image URL']);
+		expect(stored.metadata.tags).toEqual(['saved']);
+		expect(stored.metadata.suggestedTags).toEqual(['reference']);
+	});
 });
