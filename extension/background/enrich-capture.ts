@@ -103,7 +103,7 @@ export function wireImportItemForEnrichedItem(item: EnrichedItem): WireImportIte
 		filename: item.metadata.title || item.suggestedName,
 		storage_mode: item.storageMode,
 		image_data: isDone ? done.base64 : null,
-		source_image_url: item.url,
+		source_image_url: item.url.startsWith('data:') ? null : item.url,
 		mime_type: isDone ? done.mimeType : item.mimeType,
 		natural_width: item.naturalWidth,
 		natural_height: item.naturalHeight,

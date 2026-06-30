@@ -13,6 +13,7 @@
 		MESSAGE_QUEUE_UPDATED,
 		MESSAGE_QUEUE_REPLAYED,
 		MESSAGE_CAPTURE_TAB_IMAGE,
+		MESSAGE_CAPTURE_VISIBLE_TAB,
 		MESSAGE_CONTENT_PING,
 		MESSAGE_CAPTURE_ACTIVATE,
 		MESSAGE_CAPTURE_ACTIVATE_LASSO,
@@ -316,6 +317,29 @@
 		}
 	}
 
+	async function captureVisibleTab() {
+		const tab = await activeTab();
+		if (!tab?.url) {
+			captureError = 'No active tab found.';
+			return;
+		}
+
+		try {
+			const result = (await api.runtime.sendMessage({
+				type: MESSAGE_CAPTURE_VISIBLE_TAB,
+				pageUrl: tab.url,
+				pageTitle: tab.title ?? null,
+				windowId: tab.windowId
+			})) as { ok?: boolean; error?: string };
+			if (!result?.ok) throw new Error(result?.error ?? 'Could not capture the visible viewport.');
+			captureError = null;
+		} catch (error) {
+			console.error(error);
+			captureError =
+				error instanceof Error ? error.message : 'Could not capture the visible viewport.';
+		}
+	}
+
 	async function activateLasso() {
 		await sendActiveTabMessage(
 			{ type: MESSAGE_CAPTURE_ACTIVATE_LASSO },
@@ -346,6 +370,9 @@
 				break;
 			case 'batch':
 				void runSweep();
+				break;
+			case 'visible':
+				void captureVisibleTab();
 				break;
 		}
 	}

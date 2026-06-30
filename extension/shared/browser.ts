@@ -53,6 +53,7 @@ type StorageArea = {
  */
 export type TabInfo = {
 	id?: number;
+	windowId?: number;
 	url?: string;
 	title?: string;
 };
@@ -72,6 +73,14 @@ type TabsApi = {
 	 * Resolves with the content script's sendResponse value.
 	 */
 	sendMessage(tabId: number, message: unknown): Promise<unknown>;
+
+	/**
+	 * Capture the visible area of a browser window as a data URL.
+	 */
+	captureVisibleTab(
+		windowId?: number,
+		options?: { format?: 'jpeg' | 'png'; quality?: number }
+	): Promise<string>;
 };
 
 type CommandsApi = {

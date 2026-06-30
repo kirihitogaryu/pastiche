@@ -113,4 +113,49 @@ describe('capture enrichment', () => {
 			suggestedTags: ['green']
 		});
 	});
+
+	it('does not send data URLs as source image URLs for inline captures', async () => {
+		expect.assertions(5);
+		const dataUrl = 'data:image/png;base64,abc123';
+		const item = await enrichCapturedItem(
+			{
+				url: dataUrl,
+				detailUrl: 'https://example.com/post/1',
+				naturalWidth: 800,
+				naturalHeight: 600,
+				mimeType: 'image/png',
+				inlineData: dataUrl,
+				altText: null,
+				sourceUrl: 'https://example.com/post/1',
+				pageTitle: 'Page Title',
+				capturedAt: '2026-06-30T12:00:00.000Z',
+				selectedCandidateId: 'candidate-inline',
+				candidates: [
+					candidate({
+						id: 'candidate-inline',
+						url: dataUrl,
+						kind: 'screenshot',
+						width: 800,
+						height: 600,
+						mimeType: 'image/png',
+						inlineData: dataUrl
+					})
+				]
+			} as CapturedItemPayload,
+			{
+				resolveCanonicalImage: vi.fn(),
+				policyForSource: () => ({ mode: 'url_reference', reason: 'Remote URL' }),
+				computeSourceHash: vi.fn(async () => 'hash-for-inline'),
+				checkDuplicate: async () => false
+			}
+		);
+
+		const wireItem = wireImportItemForEnrichedItem(item);
+
+		expect(item.storageMode).toBe('download');
+		expect(item.fetchStatus).toMatchObject({ state: 'done', mimeType: 'image/png' });
+		expect(wireItem.image_data).toBe('abc123');
+		expect(wireItem.source_image_url).toBeNull();
+		expect(wireItem.source_url).toBe('https://example.com/post/1');
+	});
 });

@@ -25,6 +25,7 @@ import { computeSourceHash, sourceKeyForUrls } from '../shared/source-hash';
 import { normalizeImageQualityUrl, resolveCanonicalImage } from './canonical-image';
 import { enrichCapturedItem, wireImportItemForEnrichedItem } from './enrich-capture';
 import { respondToExtensionMessage } from './message-handler';
+import { capturedPayloadForVisibleScreenshot } from './screenshot-capture';
 import {
 	CONTEXT_IMPORT_NOTIFICATION_KEY,
 	storedImportNotificationFromMessage
@@ -40,6 +41,7 @@ import {
 	MESSAGE_GET_STATUS,
 	MESSAGE_SMOKE_IMPORT,
 	MESSAGE_CAPTURE_TAB_IMAGE,
+	MESSAGE_CAPTURE_VISIBLE_TAB,
 	MESSAGE_ITEM_CAPTURED,
 	MESSAGE_SWEEP_RESULTS,
 	MESSAGE_LASSO_RESULTS,
@@ -189,6 +191,9 @@ async function handleMessage(message: ExtensionMessage): Promise<unknown> {
 
 		case MESSAGE_CAPTURE_TAB_IMAGE:
 			return handleTabImageCaptured(message.url, message.pageTitle);
+
+		case MESSAGE_CAPTURE_VISIBLE_TAB:
+			return handleVisibleTabCaptured(message.pageUrl, message.pageTitle, message.windowId);
 
 		case MESSAGE_ITEM_CAPTURED:
 			return handleItemCaptured(message.item);
@@ -368,6 +373,31 @@ async function handleTabImageCaptured(
 		return {
 			ok: false,
 			error: err instanceof Error ? err.message : 'Active tab is not a selectable image.'
+		};
+	}
+}
+
+async function handleVisibleTabCaptured(
+	pageUrl: string,
+	pageTitle: string | null,
+	windowId?: number
+): Promise<{ ok: boolean; error?: string }> {
+	try {
+		const dataUrl = await api.tabs.captureVisibleTab(windowId, { format: 'png' });
+		const dimensions = await dimensionsForDataUrl(dataUrl);
+		return handleItemCaptured(
+			capturedPayloadForVisibleScreenshot({
+				dataUrl,
+				pageUrl,
+				pageTitle,
+				width: dimensions.width,
+				height: dimensions.height
+			})
+		);
+	} catch (err) {
+		return {
+			ok: false,
+			error: err instanceof Error ? err.message : 'Could not capture the visible viewport.'
 		};
 	}
 }
@@ -735,6 +765,12 @@ async function dimensionsForImageBlob(blob: Blob): Promise<{ width: number; heig
 	} finally {
 		bitmap.close();
 	}
+}
+
+async function dimensionsForDataUrl(dataUrl: string): Promise<{ width: number; height: number }> {
+	const response = await fetch(dataUrl);
+	const blob = await response.blob();
+	return dimensionsForImageBlob(blob);
 }
 
 function mimeTypeFromUrl(url: string): string {

@@ -31,6 +31,9 @@ export const MESSAGE_LASSO_RESULTS = 'PASTICHE_LASSO_RESULTS';
 /** Sidebar → SW: capture the active tab URL as a direct image fallback. */
 export const MESSAGE_CAPTURE_TAB_IMAGE = 'PASTICHE_CAPTURE_TAB_IMAGE';
 
+/** Sidebar → SW: capture the active tab's visible viewport as rendered screenshot fallback. */
+export const MESSAGE_CAPTURE_VISIBLE_TAB = 'PASTICHE_CAPTURE_VISIBLE_TAB';
+
 // ---------------------------------------------------------------------------
 // Capture activation (SW / sidebar → content script)
 // ---------------------------------------------------------------------------

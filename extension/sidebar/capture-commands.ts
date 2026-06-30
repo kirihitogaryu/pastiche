@@ -47,7 +47,7 @@ export const captureCommands: CaptureCommand[] = [
 		label: 'Visible',
 		title: 'Capture the visible viewport',
 		shortcut: 'Alt 3',
-		enabled: false,
+		enabled: true,
 		icon: 'viewport'
 	},
 	{

@@ -7,10 +7,10 @@ describe('capture command model', () => {
 
 		expect(
 			captureCommands.filter((command) => command.enabled).map((command) => command.id)
-		).toEqual(['pick', 'tab', 'area', 'batch']);
+		).toEqual(['pick', 'tab', 'area', 'batch', 'visible']);
 		expect(
 			captureCommands.filter((command) => !command.enabled).map((command) => command.id)
-		).toEqual(['visible', 'page', 'drag']);
+		).toEqual(['page', 'drag']);
 		expect(captureCommands.every((command) => command.title.length > 0)).toBe(true);
 	});
 });
