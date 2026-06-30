@@ -4,12 +4,14 @@
 
 	type Props = {
 		item: EnrichedItem;
+		selected: boolean;
+		onselect: (id: string) => void;
 		onremove: (id: string) => void;
 		onrename: (id: string, name: string) => void;
 		onoverridemodetoggle: (id: string) => void;
 	};
 
-	let { item, onremove, onrename, onoverridemodetoggle }: Props = $props();
+	let { item, selected, onselect, onremove, onrename, onoverridemodetoggle }: Props = $props();
 
 	let editingName = $state(false);
 	let nameInput = $state('');
@@ -62,7 +64,7 @@
 	});
 </script>
 
-<li class="item" class:duplicate={item.alreadyInLibrary}>
+<li class="item" class:selected class:duplicate={item.alreadyInLibrary}>
 	<!-- Thumbnail -->
 	<div class="thumb-wrap">
 		{#if thumbSrc()}
@@ -118,6 +120,7 @@
 				type="button"
 				title="Click to rename"
 				onclick={() => {
+					onselect(item.id);
 					editingName = true;
 					nameInput = item.suggestedName;
 				}}>{item.suggestedName}</button
@@ -174,6 +177,12 @@
 			<line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
 		</svg>
 	</button>
+	<button
+		class="select-hit"
+		type="button"
+		aria-label="Select {item.suggestedName}"
+		onclick={() => onselect(item.id)}
+	></button>
 </li>
 
 <style>
@@ -192,6 +201,10 @@
 
 	.item.duplicate {
 		background: rgb(183 121 255 / 4%);
+	}
+
+	.item.selected {
+		background: rgb(182 122 255 / 9%);
 	}
 
 	/* Thumbnail */
@@ -360,5 +373,21 @@
 	.remove-btn:hover {
 		background: rgb(224 108 117 / 14%);
 		color: #e06c75;
+	}
+
+	.select-hit {
+		position: absolute;
+		inset: 0;
+		z-index: 0;
+		border: 0;
+		background: transparent;
+		cursor: pointer;
+	}
+
+	.thumb-wrap,
+	.meta,
+	.remove-btn {
+		position: relative;
+		z-index: 1;
 	}
 </style>

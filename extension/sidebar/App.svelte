@@ -21,11 +21,14 @@
 	} from '../shared/messages';
 	import type { ConnectionState, EnrichedItem, ImportResult } from '../shared/types';
 	import type { TabInfo } from '../shared/browser';
+	import type { CaptureMetadata, CaptureSource } from '../shared/candidates';
 	import StatusBar from './components/StatusBar.svelte';
 	import SelectionList from './components/SelectionList.svelte';
 	import FolderDropdown from './components/FolderDropdown.svelte';
 	import EmptyState from './components/EmptyState.svelte';
+	import SelectedItemInspector from './components/SelectedItemInspector.svelte';
 	import { importNotificationFromMessage, type ImportNotification } from './import-notification';
+	import { selectCandidateForItem, updateItemMetadata, updateSelectedItemId } from './item-state';
 
 	const api = getExtensionApi();
 
@@ -36,6 +39,7 @@
 	let status = $state<ConnectionState | null>(null);
 	let loading = $state(true);
 	let items = $state<EnrichedItem[]>([]);
+	let selectedItemId = $state<string | null>(null);
 	let importing = $state(false);
 	let importResult = $state<ImportResult | null>(null);
 	let importNotification = $state<ImportNotification | null>(null);
@@ -45,6 +49,7 @@
 	// Folder assignment
 	let selectedFolderId = $state<string | null>(null);
 	let createFolderName = $state('');
+	const selectedItem = $derived(items.find((item) => item.id === selectedItemId) ?? null);
 
 	// ---------------------------------------------------------------------------
 	// Boot: status check + incoming message listener
@@ -61,12 +66,18 @@
 		};
 	});
 
+	$effect(() => {
+		const next = updateSelectedItemId(selectedItemId, items);
+		if (next !== selectedItemId) selectedItemId = next;
+	});
+
 	function handleIncomingMessage(message: Record<string, unknown>) {
 		switch (message.type) {
 			case MESSAGE_ITEM_READY: {
 				const item = message.item as EnrichedItem;
 				// Newest at top; deduplicate by id.
 				items = [item, ...items.filter((i) => i.id !== item.id)];
+				selectedItemId = item.id;
 				break;
 			}
 
@@ -76,6 +87,7 @@
 				const existingIds = new Set(items.map((i) => i.id));
 				const fresh = incoming.filter((i) => !existingIds.has(i.id));
 				items = [...fresh, ...items];
+				if (fresh[0]) selectedItemId = fresh[0].id;
 				break;
 			}
 
@@ -287,6 +299,7 @@
 		if (!item) return;
 
 		items = items.filter((i) => i.id !== id);
+		selectedItemId = updateSelectedItemId(selectedItemId === id ? null : selectedItemId, items);
 
 		// Tell the content script to remove the badge from the page element.
 		await sendActiveTabMessage({ type: MESSAGE_DESELECT_ITEM, url: item.url });
@@ -294,11 +307,40 @@
 
 	async function clearAll() {
 		items = [];
+		selectedItemId = null;
 		await sendActiveTabMessage({ type: MESSAGE_CLEAR_SELECTION });
 	}
 
 	function renameItem(id: string, name: string) {
-		items = items.map((i) => (i.id === id ? { ...i, suggestedName: name } : i));
+		items = updateItemMetadata(items, id, { title: name });
+	}
+
+	function selectItem(id: string) {
+		selectedItemId = id;
+	}
+
+	function selectCandidate(itemId: string, candidateId: string) {
+		items = selectCandidateForItem(items, itemId, candidateId);
+		const changed = items.find((item) => item.id === itemId);
+		if (changed?.storageMode === 'download' && changed.fetchStatus.state === 'fetching') {
+			void api.runtime.sendMessage({ type: MESSAGE_FETCH_IMAGE, url: changed.url });
+		}
+	}
+
+	function updateMetadata(itemId: string, patch: Partial<CaptureMetadata>) {
+		items = updateItemMetadata(items, itemId, patch);
+	}
+
+	function updateSource(itemId: string, patch: Partial<CaptureSource>) {
+		items = items.map((item) => {
+			if (item.id !== itemId) return item;
+			const source = { ...item.source, ...patch };
+			return {
+				...item,
+				source,
+				sourceUrl: source.canonicalPageUrl ?? source.pageUrl
+			};
+		});
 	}
 
 	function toggleStorageMode(id: string) {
@@ -510,8 +552,16 @@
 
 	<!-- Selection list or empty state -->
 	{#if items.length > 0}
+		<SelectedItemInspector
+			item={selectedItem}
+			onselectcandidate={selectCandidate}
+			onmetadatachange={updateMetadata}
+			onsourcechange={updateSource}
+		/>
 		<SelectionList
 			{items}
+			{selectedItemId}
+			onselect={selectItem}
 			onremove={removeItem}
 			onrename={renameItem}
 			onoverridemodetoggle={toggleStorageMode}

@@ -4,17 +4,27 @@
 
 	type Props = {
 		items: EnrichedItem[];
+		selectedItemId: string | null;
+		onselect: (id: string) => void;
 		onremove: (id: string) => void;
 		onrename: (id: string, name: string) => void;
 		onoverridemodetoggle: (id: string) => void;
 	};
 
-	let { items, onremove, onrename, onoverridemodetoggle }: Props = $props();
+	let { items, selectedItemId, onselect, onremove, onrename, onoverridemodetoggle }: Props =
+		$props();
 </script>
 
 <ul class="list">
 	{#each items as item (item.id)}
-		<SelectionItem {item} {onremove} {onrename} {onoverridemodetoggle} />
+		<SelectionItem
+			{item}
+			selected={item.id === selectedItemId}
+			{onselect}
+			{onremove}
+			{onrename}
+			{onoverridemodetoggle}
+		/>
 	{/each}
 </ul>
 
