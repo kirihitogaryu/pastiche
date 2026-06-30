@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
 	buildDevCommands,
+	childEnvForCurrentNode,
 	devWorkingDirectory,
-	isExecutedScript
+	ensureNativeDependencies,
+	isExecutedScript,
+	needsNativeDependencyRebuild
 } from '../../../scripts/pastiche-dev.mjs';
 
 describe('pastiche dev command', () => {
@@ -50,6 +53,38 @@ describe('pastiche dev command', () => {
 
 		expect(devWorkingDirectory('/home/kristoph/Desktop/pastiche/scripts/pastiche-dev.mjs')).toBe(
 			'/home/kristoph/Desktop/pastiche'
+		);
+	});
+
+	it('rebuilds native SQLite bindings once when the active Node ABI changes', async () => {
+		expect.assertions(3);
+		const attempts: string[] = [];
+
+		await ensureNativeDependencies('/repo', {
+			checkBetterSqlite: async () => {
+				attempts.push('check');
+				if (attempts.length === 1) {
+					throw new Error(
+						'The module better_sqlite3.node was compiled using NODE_MODULE_VERSION 127. This version of Node.js requires NODE_MODULE_VERSION 147.'
+					);
+				}
+			},
+			rebuildBetterSqlite: async (cwd) => {
+				attempts.push(`rebuild:${cwd}`);
+			},
+			log: () => undefined
+		});
+
+		expect(needsNativeDependencyRebuild(new Error('Module did not self-register'))).toBe(true);
+		expect(needsNativeDependencyRebuild(new Error('Different failure'))).toBe(false);
+		expect(attempts).toEqual(['check', 'rebuild:/repo', 'check']);
+	});
+
+	it('puts the launcher Node directory first for child npm commands', () => {
+		expect.assertions(1);
+
+		expect(childEnvForCurrentNode('/usr/bin/node', { PATH: '/opt/codex/bin:/usr/bin' }).PATH).toBe(
+			'/usr/bin:/opt/codex/bin:/usr/bin'
 		);
 	});
 });
