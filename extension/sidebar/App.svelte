@@ -27,8 +27,10 @@
 	import FolderDropdown from './components/FolderDropdown.svelte';
 	import EmptyState from './components/EmptyState.svelte';
 	import SelectedItemInspector from './components/SelectedItemInspector.svelte';
+	import CaptureCommandStrip from './components/CaptureCommandStrip.svelte';
 	import { importNotificationFromMessage, type ImportNotification } from './import-notification';
 	import { selectCandidateForItem, updateItemMetadata, updateSelectedItemId } from './item-state';
+	import type { CaptureCommandId } from './capture-commands';
 
 	const api = getExtensionApi();
 
@@ -290,6 +292,23 @@
 		);
 	}
 
+	function runCaptureCommand(command: CaptureCommandId) {
+		switch (command) {
+			case 'pick':
+				void activateSingleCapture();
+				break;
+			case 'tab':
+				void captureCurrentTabImage();
+				break;
+			case 'area':
+				void activateLasso();
+				break;
+			case 'batch':
+				void runSweep();
+				break;
+		}
+	}
+
 	// ---------------------------------------------------------------------------
 	// Selection management
 	// ---------------------------------------------------------------------------
@@ -437,95 +456,11 @@
 
 	<!-- Capture toolbar -->
 	{#if status?.connected}
-		<div class="capture-bar">
-			<button
-				class="capture-btn"
-				type="button"
-				onclick={activateSingleCapture}
-				title="Single-click capture"
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="14"
-					height="14"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="1.75"
-					stroke-linecap="round"
-					aria-hidden="true"
-				>
-					<circle cx="12" cy="12" r="3" />
-					<path d="M3 12h2M19 12h2M12 3v2M12 19v2" />
-					<path d="M5.6 5.6l1.4 1.4M16.9 16.9l1.4 1.4M5.6 18.4l1.4-1.4M16.9 7.1l1.4-1.4" />
-				</svg>
-				Click
-			</button>
-			<button
-				class="capture-btn"
-				type="button"
-				onclick={captureCurrentTabImage}
-				title="Capture active tab image"
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="14"
-					height="14"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="1.75"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					aria-hidden="true"
-				>
-					<rect x="3" y="5" width="18" height="14" rx="2" />
-					<circle cx="8" cy="10" r="1.5" />
-					<path d="M21 16l-5-5L5 19" />
-				</svg>
-				Tab
-			</button>
-			<button class="capture-btn" type="button" onclick={activateLasso} title="Lasso selection">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="14"
-					height="14"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="1.75"
-					stroke-linecap="round"
-					aria-hidden="true"
-				>
-					<path d="M4 7c0-1.1 3.6-3 8-3s8 1.9 8 3-3.6 3-8 3-8-1.9-8-3z" />
-					<path d="M4 7v10c0 1.1 3.6 3 8 3 1.4 0 2.7-.2 3.8-.5" />
-					<path d="M12 17l4 4 6-6" />
-				</svg>
-				Lasso
-			</button>
-			<button class="capture-btn" type="button" onclick={runSweep} title="Sweep all images on page">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="14"
-					height="14"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="1.75"
-					stroke-linecap="round"
-					aria-hidden="true"
-				>
-					<rect x="3" y="3" width="7" height="7" rx="1" />
-					<rect x="14" y="3" width="7" height="7" rx="1" />
-					<rect x="3" y="14" width="7" height="7" rx="1" />
-					<rect x="14" y="14" width="7" height="7" rx="1" />
-				</svg>
-				Sweep
-			</button>
-			{#if items.length > 0}
-				<button class="clear-btn" type="button" onclick={clearAll}>Clear all</button>
-			{/if}
-		</div>
+		<CaptureCommandStrip
+			oncommand={runCaptureCommand}
+			onclear={() => void clearAll()}
+			showClear={items.length > 0}
+		/>
 	{/if}
 
 	{#if captureError}
@@ -623,52 +558,6 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-	}
-
-	/* Capture toolbar */
-	.capture-bar {
-		display: flex;
-		align-items: center;
-		gap: 4px;
-		padding: 7px 10px;
-		border-bottom: 1px solid rgb(255 255 255 / 8%);
-		flex-shrink: 0;
-	}
-
-	.capture-btn {
-		display: flex;
-		align-items: center;
-		gap: 5px;
-		background: #28231d;
-		border: 1px solid rgb(255 255 255 / 12%);
-		border-radius: 5px;
-		color: #aaa196;
-		font-size: 11px;
-		font-family: inherit;
-		padding: 5px 8px;
-		cursor: pointer;
-		flex-shrink: 0;
-	}
-
-	.capture-btn:hover {
-		background: #312b24;
-		color: #eee7dc;
-		border-color: rgb(255 255 255 / 20%);
-	}
-
-	.clear-btn {
-		margin-left: auto;
-		background: none;
-		border: none;
-		color: #6b6258;
-		font-size: 11px;
-		font-family: inherit;
-		cursor: pointer;
-		padding: 4px 6px;
-	}
-
-	.clear-btn:hover {
-		color: #e06c75;
 	}
 
 	.capture-error {
