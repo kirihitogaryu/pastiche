@@ -1,0 +1,116 @@
+import { describe, expect, it, vi } from 'vitest';
+import type { CapturedItemPayload } from '../shared/types';
+import type { ImageCandidate } from '../shared/candidates';
+import { enrichCapturedItem, wireImportItemForEnrichedItem } from './enrich-capture';
+
+function candidate(partial: Partial<ImageCandidate>): ImageCandidate {
+	return {
+		id: partial.id ?? crypto.randomUUID(),
+		url: partial.url ?? 'https://cdn.example.com/original/work.jpg',
+		kind: partial.kind ?? 'img',
+		width: partial.width ?? 1600,
+		height: partial.height ?? 1200,
+		visibleWidth: partial.visibleWidth ?? 640,
+		visibleHeight: partial.visibleHeight ?? 480,
+		mimeType: partial.mimeType ?? 'image/jpeg',
+		byteSize: partial.byteSize ?? null,
+		altText: partial.altText ?? null,
+		sourceElementPath: partial.sourceElementPath ?? null,
+		detailUrl: partial.detailUrl ?? null,
+		inlineData: partial.inlineData ?? null,
+		score: partial.score ?? 0,
+		confidence: partial.confidence ?? 'medium',
+		rejectionReasons: partial.rejectionReasons ?? [],
+		scoreReasons: partial.scoreReasons ?? []
+	};
+}
+
+describe('capture enrichment', () => {
+	it('uses the selected candidate as the import URL and preserves alternates', async () => {
+		expect.assertions(9);
+		const thumbnail = candidate({
+			id: 'candidate-thumb',
+			url: 'https://cdn.example.com/thumb/work.jpg',
+			width: 320,
+			height: 320
+		});
+		const original = candidate({
+			id: 'candidate-original',
+			url: 'https://cdn.example.com/original/work.jpg',
+			width: 2400,
+			height: 3200,
+			score: 80,
+			confidence: 'high'
+		});
+		const computeSourceHash = vi.fn(async () => 'hash-for-original');
+
+		const item = await enrichCapturedItem(
+			{
+				url: thumbnail.url,
+				detailUrl: 'https://example.com/post/1',
+				naturalWidth: thumbnail.width,
+				naturalHeight: thumbnail.height,
+				mimeType: 'image/jpeg',
+				inlineData: null,
+				altText: 'Alt title',
+				sourceUrl: 'https://example.com/post/1',
+				pageTitle: 'Page Title',
+				capturedAt: '2026-06-30T12:00:00.000Z',
+				selectedCandidateId: original.id,
+				candidates: [thumbnail, original],
+				source: {
+					pageUrl: 'https://example.com/post/1',
+					canonicalPageUrl: 'https://example.com/post/1',
+					detailUrl: 'https://example.com/post/1',
+					sourceLabel: 'Example Gallery',
+					sourceType: 'gallery',
+					pageHost: 'example.com',
+					imageHost: 'cdn.example.com'
+				},
+				metadata: {
+					title: 'Metadata Title',
+					artist: 'Example Artist',
+					date: '2026',
+					tags: ['illustration'],
+					suggestedTags: ['green'],
+					description: null,
+					rawPageTitle: 'Page Title',
+					rawAltText: 'Alt title'
+				}
+			} as CapturedItemPayload,
+			{
+				resolveCanonicalImage: vi.fn(),
+				policyForSource: () => ({ mode: 'url_reference', reason: 'Remote URL' }),
+				computeSourceHash,
+				checkDuplicate: async () => false
+			}
+		);
+
+		expect(item.id).toBe('hash-for-original');
+		expect(item.url).toBe(original.url);
+		expect(item.selectedCandidateId).toBe(original.id);
+		expect(item.candidates.map((entry) => entry.id)).toEqual([thumbnail.id, original.id]);
+		expect(item.suggestedName).toBe('Metadata Title');
+		expect(item.source.sourceLabel).toBe('Example Gallery');
+		expect(computeSourceHash).toHaveBeenCalledWith(original.url);
+		expect(wireImportItemForEnrichedItem(item)).toMatchObject({
+			filename: 'Metadata Title',
+			source_image_url: original.url,
+			source_url: 'https://example.com/post/1',
+			metadata: {
+				sourceName: 'Example Gallery',
+				sourceType: 'gallery',
+				detailUrl: 'https://example.com/post/1',
+				creator: 'Example Artist',
+				dateDisplay: '2026',
+				tags: ['illustration']
+			}
+		});
+		expect(wireImportItemForEnrichedItem(item).metadata?.rawMetadata).toMatchObject({
+			selectedCandidateId: original.id,
+			pageHost: 'example.com',
+			imageHost: 'cdn.example.com',
+			suggestedTags: ['green']
+		});
+	});
+});

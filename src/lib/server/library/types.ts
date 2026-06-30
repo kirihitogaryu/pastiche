@@ -38,7 +38,17 @@ export type ImportItem = {
 export type LibraryImportMetadata = {
 	sourceId?: string | null;
 	sourceName?: string | null;
-	sourceType?: 'local' | 'web' | 'museum' | 'collection' | null;
+	sourceType?:
+		| 'local'
+		| 'web'
+		| 'social'
+		| 'gallery'
+		| 'booru'
+		| 'museum'
+		| 'collection'
+		| 'cdn'
+		| 'unknown'
+		| null;
 	detailUrl?: string | null;
 	creator?: string | null;
 	dateDisplay?: string | null;

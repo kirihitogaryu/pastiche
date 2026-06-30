@@ -1,4 +1,5 @@
 import { chooseBestCandidate, scoreCandidate } from '../shared/candidate-scoring';
+import type { CaptureMetadata, CaptureSource, ImageCandidate } from '../shared/candidates';
 import { candidatesForElement } from './candidate-scanner';
 
 /**
@@ -20,6 +21,14 @@ import { candidatesForElement } from './candidate-scanner';
 export type ResolvedImage = {
 	/** The URL to store or fetch. Already upsized via resolveArtsyImage. */
 	url: string;
+	/** Candidate selected by the candidate scanner. */
+	selectedCandidateId: string;
+	/** Candidate set discovered from the selected element, including alternates. */
+	candidates: ImageCandidate[];
+	/** Page/source context for import metadata. */
+	source: CaptureSource;
+	/** Editable metadata inferred in the content script. */
+	metadata: CaptureMetadata;
 	/** Natural pixel width of the source image. */
 	naturalWidth: number;
 	/** Natural pixel height of the source image. */
@@ -72,14 +81,23 @@ export function resolveTargetAtPoint(
  * where we already have the element reference).
  */
 export function resolveElement(el: Element): ResolvedImage | null {
-	const candidate = chooseBestCandidate(
-		candidatesForElement(el, window.location.href).map((item) =>
-			scoreCandidate(item, { minDimension: 300, directSelection: true })
+	const candidates = candidatesForElement(el, window.location.href).map((item) =>
+		scoreCandidate(
+			{
+				...item,
+				url: applyArtsyUpsize(item.url)
+			},
+			{ minDimension: 300, directSelection: true }
 		)
 	);
+	const candidate = chooseBestCandidate(candidates);
 	if (candidate) {
 		return {
-			url: applyArtsyUpsize(candidate.url),
+			url: candidate.url,
+			selectedCandidateId: candidate.id,
+			candidates,
+			source: sourceForResolvedCandidate(candidate),
+			metadata: metadataForResolvedCandidate(candidate),
 			naturalWidth: candidate.width ?? measuredWidthFor(el),
 			naturalHeight: candidate.height ?? measuredHeightFor(el),
 			mimeType: candidate.mimeType,
@@ -182,6 +200,10 @@ function resolveImg(img: HTMLImageElement): ResolvedImage | null {
 	if (resolvedUrl && resolvedUrl !== window.location.href) {
 		return {
 			url: applyArtsyUpsize(resolvedUrl),
+			selectedCandidateId: `candidate-${hashish(resolvedUrl)}`,
+			candidates: [legacyCandidateForResolvedUrl(applyArtsyUpsize(resolvedUrl), 'img', img)],
+			source: sourceForUrl(applyArtsyUpsize(resolvedUrl), null),
+			metadata: metadataForText(img.alt || null, applyArtsyUpsize(resolvedUrl)),
 			naturalWidth: img.naturalWidth,
 			naturalHeight: img.naturalHeight,
 			mimeType: null,
@@ -198,6 +220,12 @@ function resolveVideo(video: HTMLVideoElement): ResolvedImage | null {
 	if (video.poster) {
 		return {
 			url: applyArtsyUpsize(video.poster),
+			selectedCandidateId: `candidate-${hashish(video.poster)}`,
+			candidates: [
+				legacyCandidateForResolvedUrl(applyArtsyUpsize(video.poster), 'video_poster', video)
+			],
+			source: sourceForUrl(applyArtsyUpsize(video.poster), null),
+			metadata: metadataForText(null, applyArtsyUpsize(video.poster)),
 			naturalWidth: video.videoWidth || video.offsetWidth,
 			naturalHeight: video.videoHeight || video.offsetHeight,
 			mimeType: null,
@@ -218,6 +246,10 @@ function resolveVideo(video: HTMLVideoElement): ResolvedImage | null {
 			const dataUrl = canvas.toDataURL('image/png');
 			return {
 				url: dataUrl,
+				selectedCandidateId: `candidate-${hashish(dataUrl)}`,
+				candidates: [legacyCandidateForResolvedUrl(dataUrl, 'video_frame', video)],
+				source: sourceForUrl(dataUrl, null),
+				metadata: metadataForText(null, dataUrl),
 				naturalWidth: video.videoWidth,
 				naturalHeight: video.videoHeight,
 				mimeType: 'image/png',
@@ -239,6 +271,10 @@ function resolveCanvas(canvas: HTMLCanvasElement): ResolvedImage | null {
 		const dataUrl = canvas.toDataURL('image/png');
 		return {
 			url: dataUrl,
+			selectedCandidateId: `candidate-${hashish(dataUrl)}`,
+			candidates: [legacyCandidateForResolvedUrl(dataUrl, 'canvas', canvas)],
+			source: sourceForUrl(dataUrl, null),
+			metadata: metadataForText(null, dataUrl),
 			naturalWidth: canvas.width,
 			naturalHeight: canvas.height,
 			mimeType: 'image/png',
@@ -264,6 +300,10 @@ function resolveCssBackground(el: Element): ResolvedImage | null {
 	// then let the import service store whatever the real dimensions are.
 	return {
 		url: applyArtsyUpsize(url),
+		selectedCandidateId: `candidate-${hashish(url)}`,
+		candidates: [legacyCandidateForResolvedUrl(applyArtsyUpsize(url), 'background', el)],
+		source: sourceForUrl(applyArtsyUpsize(url), null),
+		metadata: metadataForText(null, applyArtsyUpsize(url)),
 		naturalWidth: (el as HTMLElement).offsetWidth,
 		naturalHeight: (el as HTMLElement).offsetHeight,
 		mimeType: null,
@@ -323,4 +363,98 @@ function measuredHeightFor(el: Element): number {
 	if (el instanceof HTMLVideoElement) return el.videoHeight || el.offsetHeight;
 	if (el instanceof HTMLCanvasElement) return el.height;
 	return (el as HTMLElement).offsetHeight || 0;
+}
+
+function legacyCandidateForResolvedUrl(
+	url: string,
+	kind: ImageCandidate['kind'],
+	element: Element
+): ImageCandidate {
+	const rect = element.getBoundingClientRect();
+	const altText = element instanceof HTMLImageElement ? element.alt || null : null;
+	return {
+		id: `candidate-${hashish(url)}`,
+		url,
+		kind,
+		width: measuredWidthFor(element),
+		height: measuredHeightFor(element),
+		visibleWidth: rect.width || null,
+		visibleHeight: rect.height || null,
+		mimeType: null,
+		byteSize: null,
+		altText,
+		sourceElementPath: null,
+		detailUrl: null,
+		inlineData: url.startsWith('data:') ? url : null,
+		score: 0,
+		confidence: 'medium',
+		rejectionReasons: [],
+		scoreReasons: []
+	};
+}
+
+function sourceForResolvedCandidate(candidate: ImageCandidate): CaptureSource {
+	return sourceForUrl(candidate.url, candidate.detailUrl);
+}
+
+function sourceForUrl(url: string, detailUrl: string | null): CaptureSource {
+	const pageHost = hostnameFrom(window.location.href);
+	const imageHost = hostnameFrom(url);
+	return {
+		pageUrl: window.location.href,
+		canonicalPageUrl: window.location.href,
+		detailUrl,
+		sourceLabel: pageHost ?? imageHost ?? 'Unknown Source',
+		sourceType: pageHost ? 'web' : imageHost ? 'cdn' : 'unknown',
+		pageHost: pageHost ?? '',
+		imageHost
+	};
+}
+
+function metadataForResolvedCandidate(candidate: ImageCandidate): CaptureMetadata {
+	return metadataForText(candidate.altText, candidate.url);
+}
+
+function metadataForText(text: string | null, url: string): CaptureMetadata {
+	const title = text?.trim() || titleFromFilename(url) || document.title?.trim() || 'Untitled';
+	return {
+		title,
+		artist: null,
+		date: null,
+		tags: [],
+		suggestedTags: [],
+		description: null,
+		rawPageTitle: document.title || null,
+		rawAltText: text
+	};
+}
+
+function titleFromFilename(url: string): string | null {
+	try {
+		const file = new URL(url).pathname.split('/').filter(Boolean).at(-1);
+		if (!file) return null;
+		const title = decodeURIComponent(file)
+			.replace(/\.[a-z0-9]{2,5}$/i, '')
+			.replace(/[-_]+/g, ' ')
+			.trim();
+		return title || null;
+	} catch {
+		return null;
+	}
+}
+
+function hostnameFrom(url: string): string | null {
+	try {
+		return new URL(url).hostname;
+	} catch {
+		return null;
+	}
+}
+
+function hashish(value: string): string {
+	let hash = 0;
+	for (let index = 0; index < value.length; index += 1) {
+		hash = (hash * 31 + value.charCodeAt(index)) | 0;
+	}
+	return Math.abs(hash).toString(36);
 }

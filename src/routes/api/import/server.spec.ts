@@ -131,6 +131,89 @@ describe('POST /api/import', () => {
 			failed: []
 		});
 	});
+
+	it('accepts extension metadata for social source imports', async () => {
+		const { POST } = await import('./+server');
+
+		const response = await POST({
+			request: new Request('http://localhost/api/import', {
+				method: 'POST',
+				body: JSON.stringify({
+					destination_folder_id: null,
+					items: [
+						{
+							filename: 'full-resolution-work.jpg',
+							storage_mode: 'url_reference',
+							image_data: null,
+							source_image_url: 'https://pbs.twimg.com/media/work?format=jpg&name=orig',
+							mime_type: 'image/jpeg',
+							natural_width: 2400,
+							natural_height: 3200,
+							source_url: 'https://x.com/artist/status/1',
+							page_title: 'artist on X',
+							alt_text: 'A full-resolution work',
+							captured_at: '2026-06-30T12:00:00.000Z',
+							metadata: {
+								sourceName: 'X',
+								sourceType: 'social',
+								detailUrl: 'https://x.com/artist/status/1/photo/1',
+								creator: 'artist',
+								dateDisplay: '2026-06-30',
+								tags: ['illustration', 'reference'],
+								rawMetadata: {
+									selectedCandidateId: 'candidate-original',
+									pageHost: 'x.com',
+									imageHost: 'pbs.twimg.com'
+								}
+							}
+						}
+					]
+				})
+			})
+		});
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toMatchObject({
+			imported: [{ index: 0, duplicate: false }],
+			failed: []
+		});
+	});
+
+	it('rejects structurally invalid import metadata before importing', async () => {
+		const { POST } = await import('./+server');
+
+		const response = await POST({
+			request: new Request('http://localhost/api/import', {
+				method: 'POST',
+				body: JSON.stringify({
+					destination_folder_id: null,
+					items: [
+						{
+							filename: 'bad-tags.jpg',
+							storage_mode: 'url_reference',
+							image_data: null,
+							source_image_url: 'https://example.com/bad-tags.jpg',
+							mime_type: 'image/jpeg',
+							natural_width: 800,
+							natural_height: 600,
+							source_url: 'https://example.com/page',
+							page_title: 'Example',
+							alt_text: null,
+							captured_at: '2026-06-30T12:00:00.000Z',
+							metadata: {
+								sourceName: 'Example',
+								sourceType: 'social',
+								tags: 'illustration, reference'
+							}
+						}
+					]
+				})
+			})
+		});
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toEqual({ error: 'Invalid import request' });
+	});
 });
 
 async function tinyPngBase64() {

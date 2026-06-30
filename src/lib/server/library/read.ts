@@ -134,7 +134,9 @@ export function getLibrarySnapshot(): LibraryResponse {
 			 order by tag_facets.slug, lower(tags.value)`
 		)
 		.all() as TagRow[];
-	const projects = db.prepare('select * from projects order by updated_at desc').all() as ProjectRow[];
+	const projects = db
+		.prepare('select * from projects order by updated_at desc')
+		.all() as ProjectRow[];
 	const projectAssetRefs = db
 		.prepare('select project_id, asset_id from project_asset_refs')
 		.all() as ProjectAssetRefRow[];
@@ -162,7 +164,12 @@ export function getLibrarySnapshot(): LibraryResponse {
 		),
 		folders: folders.map(mapFolder),
 		projects: projects.map((project) =>
-			mapProject(project, projectAssetCounts.get(project.id) ?? 0, projectFolderRefs, assetPreviewById)
+			mapProject(
+				project,
+				projectAssetCounts.get(project.id) ?? 0,
+				projectFolderRefs,
+				assetPreviewById
+			)
 		),
 		tagFacets: mapTagFacets(tagFacets, allTags),
 		stats: {
@@ -288,7 +295,9 @@ function mapAssetRecord(
 
 function mapImage(asset: AssetRow): LibraryAssetRecord['image'] {
 	const originalAvailable = Boolean(asset.original_path && localFileAvailable(asset.original_path));
-	const thumbnailAvailable = Boolean(asset.thumbnail_path && localFileAvailable(asset.thumbnail_path));
+	const thumbnailAvailable = Boolean(
+		asset.thumbnail_path && localFileAvailable(asset.thumbnail_path)
+	);
 	const localThumbUrl = thumbnailAvailable ? imageApiUrl(asset.id, 'thumb') : null;
 	const localOriginalUrl = originalAvailable ? imageApiUrl(asset.id, 'original') : null;
 	const referenceUrl =
@@ -340,6 +349,9 @@ function sourceType(
 ): LibrarySourceType {
 	if (metadata?.sourceType === 'museum') return 'museum';
 	if (metadata?.sourceType === 'local') return 'local';
+	if (metadata?.sourceType === 'social') return 'social';
+	if (metadata?.sourceType === 'gallery') return 'gallery';
+	if (metadata?.sourceType === 'cdn') return 'cdn';
 	if (metadata?.sourceType === 'collection') return 'gallery';
 	if (knownType) return knownType;
 	if (!pageDomain && asset.storage_mode === 'download') return 'local';
@@ -410,7 +422,9 @@ function displayTitle(asset: AssetRow, metadata: LibraryImportMetadata | null) {
 	return pageTitle ?? rawTitle ?? objectName ?? asset.filename;
 }
 
-function importerFor(metadata: LibraryImportMetadata | null): LibraryAssetRecord['raw']['importer'] {
+function importerFor(
+	metadata: LibraryImportMetadata | null
+): LibraryAssetRecord['raw']['importer'] {
 	if (metadata?.sourceType === 'museum' || metadata?.sourceId === 'met') return 'explore';
 	if (metadata?.sourceId === 'artic' || metadata?.sourceId === 'wikidata') return 'explore';
 	return 'extension';
@@ -424,9 +438,9 @@ function imageApiUrl(id: string, variant: 'thumb' | 'original') {
 	return `/api/library/assets/${encodeURIComponent(id)}/image?variant=${variant}`;
 }
 
-function knownSource(domain: string | null):
-	| { label: string; type: LibrarySourceType; sourceId: string }
-	| null {
+function knownSource(
+	domain: string | null
+): { label: string; type: LibrarySourceType; sourceId: string } | null {
 	if (!domain) return null;
 	const normalized = domain.replace(/^www\./, '');
 	if (normalized.endsWith('deviantart.com')) {
@@ -435,7 +449,8 @@ function knownSource(domain: string | null):
 	if (normalized.endsWith('novelai.net')) {
 		return { label: 'NovelAI', type: 'ai_generator', sourceId: 'novelai' };
 	}
-	if (normalized.endsWith('metmuseum.org')) return { label: 'The Met', type: 'museum', sourceId: 'met' };
+	if (normalized.endsWith('metmuseum.org'))
+		return { label: 'The Met', type: 'museum', sourceId: 'met' };
 	if (normalized.endsWith('artic.edu')) {
 		return { label: 'Art Institute', type: 'museum', sourceId: 'artic' };
 	}
@@ -515,10 +530,7 @@ function projectMembershipByAssetId(
 			if (!assetFolder) continue;
 			if (assetFolder.id === folder.id) {
 				addMembership(membership, asset.id, ref.project_id);
-			} else if (
-				ref.include_subfolders &&
-				assetFolder.path.startsWith(`${folder.path}/`)
-			) {
+			} else if (ref.include_subfolders && assetFolder.path.startsWith(`${folder.path}/`)) {
 				addMembership(membership, asset.id, ref.project_id);
 			}
 		}

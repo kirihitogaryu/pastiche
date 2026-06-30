@@ -205,7 +205,9 @@ function atlasSourceForImport(
 ): 'explore' | 'extension' | 'manual' | 'import' {
 	if (metadata.sourceType === 'museum' || metadata.sourceType === 'collection') return 'explore';
 	if (metadata.sourceType === 'local') return 'manual';
-	if (metadata.sourceType === 'web') return 'extension';
+	if (metadata.sourceType === 'web' || metadata.sourceType === 'social') return 'extension';
+	if (metadata.sourceType === 'gallery' || metadata.sourceType === 'booru') return 'extension';
+	if (metadata.sourceType === 'cdn' || metadata.sourceType === 'unknown') return 'extension';
 	return metadata.sourceId ? 'explore' : 'import';
 }
 

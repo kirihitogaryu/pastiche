@@ -45,6 +45,7 @@ import {
 	type ResolvedImage,
 	type SweepCandidate
 } from './resolver';
+import type { CaptureMetadata, CaptureSource, ImageCandidate } from '../shared/candidates';
 
 // ---------------------------------------------------------------------------
 // Browser compatibility shim
@@ -308,6 +309,10 @@ function captureItem(resolved: ResolvedImage, element: Element): void {
 
 type CapturedItemPayload = {
 	url: string;
+	selectedCandidateId?: string;
+	candidates?: ImageCandidate[];
+	source?: CaptureSource;
+	metadata?: CaptureMetadata;
 	detailUrl: string | null;
 	naturalWidth: number;
 	naturalHeight: number;
@@ -322,6 +327,10 @@ type CapturedItemPayload = {
 function resolvedToPayload(resolved: ResolvedImage, element: Element): CapturedItemPayload {
 	return {
 		url: resolved.url,
+		selectedCandidateId: resolved.selectedCandidateId,
+		candidates: resolved.candidates,
+		source: resolved.source,
+		metadata: resolved.metadata,
 		detailUrl: detailUrlForElement(element),
 		naturalWidth: resolved.naturalWidth,
 		naturalHeight: resolved.naturalHeight,

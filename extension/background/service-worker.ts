@@ -23,6 +23,7 @@ import { getSettings } from '../shared/settings';
 import { getExtensionApi } from '../shared/browser';
 import { computeSourceHash, sourceKeyForUrls } from '../shared/source-hash';
 import { normalizeImageQualityUrl, resolveCanonicalImage } from './canonical-image';
+import { enrichCapturedItem, wireImportItemForEnrichedItem } from './enrich-capture';
 import {
 	CONTEXT_MENU_SAVE_IMAGE_ID,
 	imageContextCaptureSource,
@@ -59,7 +60,6 @@ import type {
 	ImportResult,
 	ImportItemResult,
 	QueuedJob,
-	FetchStatus,
 	StatusApiResponse
 } from '../shared/types';
 import type { TabInfo } from '../shared/browser';
@@ -403,64 +403,12 @@ async function capturedPayloadForImageSource(
  * EnrichedItem with storage policy applied and name inferred.
  */
 async function enrichItem(captured: CapturedItemPayload): Promise<EnrichedItem> {
-	const canonical = captured.inlineData
-		? { url: captured.url, detailUrl: captured.detailUrl, candidates: [captured.url] }
-		: await resolveCanonicalImage({
-				imageUrl: captured.url,
-				detailUrl: captured.detailUrl
-			});
-	const resolvedUrl = canonical.url;
-	const previewUrl = resolvedUrl === captured.url ? null : captured.url;
-	const policy = policyForSource(resolvedUrl);
-	const storageMode = captured.inlineData ? 'download' : policy.mode;
-	const storageModeReason = captured.inlineData ? 'Captured image bytes' : policy.reason;
-	const sourceHash = await computeSourceHash(sourceKeyForUrls(resolvedUrl, captured.sourceUrl));
-	const id = sourceHash;
-
-	// Check the library index for duplicates (best-effort — status cache only).
-	// A proper check happens server-side at import time.
-	const alreadyInLibrary = await checkDuplicate(sourceHash);
-
-	// Name inference: alt text → page title → fallback to domain
-	const suggestedName =
-		captured.altText?.trim() ||
-		captured.pageTitle?.trim() ||
-		hostnameFrom(captured.sourceUrl) ||
-		'Untitled';
-
-	// If inline data is already present (canvas/video frame) we don't need a
-	// fetch — treat it as a completed download.
-	let fetchStatus: FetchStatus;
-	if (captured.inlineData) {
-		const mimeType = captured.mimeType ?? 'image/png';
-		// Strip the data URL prefix to get raw base64.
-		const base64 = captured.inlineData.replace(/^data:[^;]+;base64,/, '');
-		fetchStatus = { state: 'done', base64, mimeType };
-	} else if (policy.mode === 'download') {
-		// Will be fetched — start as 'fetching' so sidebar shows spinner.
-		fetchStatus = { state: 'fetching' };
-	} else {
-		fetchStatus = { state: 'idle' };
-	}
-
-	return {
-		id,
-		url: resolvedUrl,
-		previewUrl,
-		naturalWidth: captured.naturalWidth,
-		naturalHeight: captured.naturalHeight,
-		mimeType: captured.mimeType,
-		altText: captured.altText,
-		suggestedName,
-		sourceUrl: captured.sourceUrl,
-		pageTitle: captured.pageTitle,
-		capturedAt: captured.capturedAt,
-		storageMode,
-		storageModeReason,
-		fetchStatus,
-		destinationFolderId: null,
-		alreadyInLibrary
-	};
+	return enrichCapturedItem(captured, {
+		resolveCanonicalImage,
+		policyForSource,
+		computeSourceHash,
+		checkDuplicate
+	});
 }
 
 // ---------------------------------------------------------------------------
@@ -610,27 +558,7 @@ async function handleRetryItem(
  * Throws on network error so the caller can decide to queue.
  */
 async function postImport(port: number, payload: ImportJobPayload): Promise<ImportResult> {
-	const wireItems = payload.items.map((item) => {
-		// For download items use the fetched base64; for others send the URL.
-		const isDone = item.fetchStatus.state === 'done';
-		return {
-			filename: item.suggestedName,
-			storage_mode: item.storageMode,
-			image_data: isDone
-				? (item.fetchStatus as { state: 'done'; base64: string; mimeType: string }).base64
-				: null,
-			source_image_url: item.url,
-			mime_type: isDone
-				? (item.fetchStatus as { state: 'done'; base64: string; mimeType: string }).mimeType
-				: item.mimeType,
-			natural_width: item.naturalWidth,
-			natural_height: item.naturalHeight,
-			source_url: item.sourceUrl,
-			page_title: item.pageTitle,
-			alt_text: item.altText,
-			captured_at: item.capturedAt
-		};
-	});
+	const wireItems = payload.items.map(wireImportItemForEnrichedItem);
 
 	const body = {
 		destination_folder_id: payload.destinationFolderId,

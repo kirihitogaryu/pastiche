@@ -14,6 +14,8 @@
 // If the main app adds a fourth mode, add it here too.
 // ---------------------------------------------------------------------------
 
+import type { CaptureMetadata, CaptureSource, ImageCandidate } from './candidates';
+
 export type StorageMode = 'url_reference' | 'download' | 'lazy_download';
 
 // ---------------------------------------------------------------------------
@@ -69,6 +71,14 @@ export type SmokeImportResponse = {
 export type CapturedItemPayload = {
 	/** Resolved image URL (already Artsy-upsized). */
 	url: string;
+	/** Candidate selected by the content scanner, when richer candidate data is available. */
+	selectedCandidateId?: string;
+	/** Candidate set discovered on the page, including alternates. */
+	candidates?: ImageCandidate[];
+	/** Human-readable source/provenance context. */
+	source?: CaptureSource;
+	/** Editable import metadata inferred from page and candidate context. */
+	metadata?: CaptureMetadata;
 	/** Linked detail/canonical page for gallery thumbnails, when one is available. */
 	detailUrl: string | null;
 	naturalWidth: number;
@@ -106,6 +116,14 @@ export type EnrichedItem = {
 	id: string;
 	/** Resolved image URL. For url_reference/lazy_download this is what gets stored. */
 	url: string;
+	/** Candidate selected for import. */
+	selectedCandidateId: string;
+	/** Candidate set discovered on the page, including alternates. */
+	candidates: ImageCandidate[];
+	/** Human-readable source/provenance context. */
+	source: CaptureSource;
+	/** Editable import metadata inferred from page and candidate context. */
+	metadata: CaptureMetadata;
 	/** Visible image captured on the page. Used as a sidebar preview when canonical URL differs. */
 	previewUrl: string | null;
 	naturalWidth: number;

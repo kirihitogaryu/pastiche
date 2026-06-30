@@ -58,7 +58,47 @@ function isImportItem(value: unknown): value is ImportRequest['items'][number] {
 		typeof value.source_url === 'string' &&
 		isNullableString(value.page_title) &&
 		isNullableString(value.alt_text) &&
-		typeof value.captured_at === 'string'
+		typeof value.captured_at === 'string' &&
+		(value.metadata === undefined || value.metadata === null || isImportMetadata(value.metadata))
+	);
+}
+
+function isImportMetadata(
+	value: unknown
+): value is NonNullable<ImportRequest['items'][number]['metadata']> {
+	if (!isRecord(value)) return false;
+	return (
+		isOptionalNullableString(value.sourceId) &&
+		isOptionalNullableString(value.sourceName) &&
+		(value.sourceType === undefined ||
+			value.sourceType === null ||
+			isImportSourceType(value.sourceType)) &&
+		isOptionalNullableString(value.detailUrl) &&
+		isOptionalNullableString(value.creator) &&
+		isOptionalNullableString(value.dateDisplay) &&
+		isOptionalNullableString(value.medium) &&
+		isOptionalNullableString(value.objectName) &&
+		isOptionalNullableString(value.department) &&
+		isOptionalNullableString(value.culture) &&
+		isOptionalNullableString(value.period) &&
+		isOptionalNullableString(value.rights) &&
+		(value.tags === undefined ||
+			(Array.isArray(value.tags) && value.tags.every((tag) => typeof tag === 'string'))) &&
+		(value.rawMetadata === undefined || isRecord(value.rawMetadata))
+	);
+}
+
+function isImportSourceType(value: unknown) {
+	return (
+		value === 'local' ||
+		value === 'web' ||
+		value === 'social' ||
+		value === 'gallery' ||
+		value === 'booru' ||
+		value === 'museum' ||
+		value === 'collection' ||
+		value === 'cdn' ||
+		value === 'unknown'
 	);
 }
 
@@ -68,6 +108,10 @@ function isStorageMode(value: unknown) {
 
 function isNullableString(value: unknown) {
 	return value === null || typeof value === 'string';
+}
+
+function isOptionalNullableString(value: unknown) {
+	return value === undefined || isNullableString(value);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
