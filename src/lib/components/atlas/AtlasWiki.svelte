@@ -144,6 +144,19 @@
 		maturity: AtlasWikiEntry['maturity'];
 	};
 
+	type EntityDraft = {
+		summary: string;
+		notes: string;
+		movements: string;
+		styles: string;
+		commonSubjects: string;
+		historicalPeriod: string;
+		media: string;
+		aiGuidance: string;
+		aliases: string;
+		links: string;
+	};
+
 	type BrowseBranch = {
 		name: string;
 		entries: AtlasWikiEntry[];
@@ -230,6 +243,9 @@
 	let wikiSaving = $state(false);
 	let wikiError = $state<string | null>(null);
 	let wikiDraft = $state<WikiDraft | null>(null);
+	let entityEditMode = $state(false);
+	let entitySaving = $state(false);
+	let entityDraft = $state<EntityDraft | null>(null);
 	let examplePickerOpen = $state(false);
 	let exampleQuery = $state('');
 	let exampleCandidates = $state<ExampleCandidate[]>([]);
@@ -271,6 +287,7 @@
 			activeEntity = null;
 			entityLoading = false;
 			entityError = null;
+			closeEntityEditor();
 			return;
 		}
 		void loadEntity(ref.kind, ref.slug);
@@ -312,6 +329,7 @@
 		activeEntity = null;
 		entityLoading = true;
 		entityError = null;
+		closeEntityEditor();
 		try {
 			const response = await fetch(`/api/atlas/entities/${kind}/${encodeURIComponent(slug)}`);
 			const body = (await response.json()) as EntityProfileResponse | { error?: string };
@@ -358,6 +376,7 @@
 		activeDocSlug = null;
 		activeDoc = null;
 		closeWikiEditor();
+		closeEntityEditor();
 		appState.activeAtlasWikiSlug = slug;
 	}
 
@@ -368,6 +387,7 @@
 		activeDocSlug = null;
 		activeDoc = null;
 		closeWikiEditor();
+		closeEntityEditor();
 		appState.activeAtlasWikiSlug = `${kind}:${slug}`;
 	}
 
@@ -381,6 +401,7 @@
 		activeDoc = null;
 		appState.activeAtlasWikiSlug = null;
 		closeWikiEditor();
+		closeEntityEditor();
 	}
 
 	function closeWikiEditor() {
@@ -391,6 +412,12 @@
 		examplePickerOpen = false;
 		exampleQuery = '';
 		exampleCandidates = [];
+	}
+
+	function closeEntityEditor() {
+		entityEditMode = false;
+		entitySaving = false;
+		entityDraft = null;
 	}
 
 	function emptyNewTagDraft(): NewWikiDraft {
@@ -556,6 +583,27 @@
 		wikiDraft = draftFromEntry(entry);
 	}
 
+	function startEntityEditor(entity: AtlasEntityProfile) {
+		entityEditMode = true;
+		entityError = null;
+		entityDraft = draftFromEntity(entity);
+	}
+
+	function draftFromEntity(entity: AtlasEntityProfile): EntityDraft {
+		return {
+			summary: entity.summary ?? '',
+			notes: entity.notes ?? '',
+			movements: entity.movements.join('\n'),
+			styles: entity.styles.join('\n'),
+			commonSubjects: entity.commonSubjects.join('\n'),
+			historicalPeriod: entity.historicalPeriod ?? '',
+			media: entity.media.join('\n'),
+			aiGuidance: entity.aiGuidance ?? '',
+			aliases: entity.aliases.map((alias) => alias.alias).join('\n'),
+			links: entity.links.map((link) => link.url).join('\n')
+		};
+	}
+
 	function draftFromEntry(entry: AtlasWikiEntry): WikiDraft {
 		return {
 			label: entry.label,
@@ -634,6 +682,41 @@
 			wikiError = saveError instanceof Error ? saveError.message : 'Wiki entry could not be saved.';
 		} finally {
 			wikiSaving = false;
+		}
+	}
+
+	async function saveEntityProfile(entity: AtlasEntityProfile) {
+		if (!entityDraft) return;
+		entitySaving = true;
+		entityError = null;
+		try {
+			const payload = {
+				summary: entityDraft.summary.trim(),
+				notes: entityDraft.notes.trim(),
+				movements: splitDraftList(entityDraft.movements),
+				styles: splitDraftList(entityDraft.styles),
+				commonSubjects: splitDraftList(entityDraft.commonSubjects),
+				historicalPeriod: entityDraft.historicalPeriod.trim(),
+				media: splitDraftList(entityDraft.media),
+				aiGuidance: entityDraft.aiGuidance.trim(),
+				aliases: splitDraftList(entityDraft.aliases),
+				links: splitDraftList(entityDraft.links)
+			};
+			const response = await fetch(`/api/atlas/entities/${entity.kind}/${encodeURIComponent(entity.slug)}`, {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+			const body = (await response.json()) as EntityProfileResponse | { error?: string };
+			if (!response.ok || !('entity' in body)) {
+				throw new Error('error' in body && body.error ? body.error : 'Artist profile could not be saved.');
+			}
+			activeEntity = body.entity;
+			closeEntityEditor();
+		} catch (saveError) {
+			entityError = saveError instanceof Error ? saveError.message : 'Artist profile could not be saved.';
+		} finally {
+			entitySaving = false;
 		}
 	}
 
@@ -1140,20 +1223,60 @@
 								<h2>{activeEntity.label}</h2>
 								<p class="entity-kind">{displayLabel(activeEntity.kind)} entity</p>
 							</div>
-							<button
-								type="button"
-								class="wiki-action primary"
-								onclick={() => activeEntity && openAtlasSearch(`artist:(${activeEntity.slug})`)}
-							>
-								Browse works
-							</button>
+							<div class="wiki-edit-actions">
+								{#if entityEditMode && entityDraft}
+									<button
+										type="button"
+										class="wiki-action primary"
+										disabled={entitySaving}
+										onclick={() => activeEntity && saveEntityProfile(activeEntity)}
+									>
+										<CheckIcon size={15} /> Save
+									</button>
+									<button type="button" class="wiki-action" disabled={entitySaving} onclick={closeEntityEditor}>
+										<XIcon size={15} /> Cancel
+									</button>
+								{:else}
+									<button
+										type="button"
+										class="wiki-action primary"
+										onclick={() => activeEntity && openAtlasSearch(`artist:(${activeEntity.slug})`)}
+									>
+										Browse works
+									</button>
+									<button
+										type="button"
+										class="wiki-action"
+										onclick={() => activeEntity && startEntityEditor(activeEntity)}
+									>
+										<PencilSimpleIcon size={15} /> Edit profile
+									</button>
+								{/if}
+							</div>
 						</div>
-						{#if activeEntity.aliases.length}
-							<p class="aliases">
-								Aliases: {activeEntity.aliases.map((alias) => alias.alias).join(', ')}
-							</p>
+						{#if entityEditMode && entityDraft}
+							<div class="entity-editor-grid">
+								<label class="wiki-field wide">
+									<span>Summary</span>
+									<textarea bind:value={entityDraft.summary} rows="3"></textarea>
+								</label>
+								<label class="wiki-field wide">
+									<span>Notes</span>
+									<textarea bind:value={entityDraft.notes} rows="3"></textarea>
+								</label>
+								<label class="wiki-field">
+									<span>Aliases</span>
+									<textarea bind:value={entityDraft.aliases} rows="4" placeholder="One alias per line"></textarea>
+								</label>
+							</div>
+						{:else}
+							{#if activeEntity.aliases.length}
+								<p class="aliases">
+									Aliases: {activeEntity.aliases.map((alias) => alias.alias).join(', ')}
+								</p>
+							{/if}
+							<p class="definition">{entityProfileSummary(activeEntity)}</p>
 						{/if}
-						<p class="definition">{entityProfileSummary(activeEntity)}</p>
 					</header>
 
 					<section class="entry-section" aria-labelledby="artist-works-title">
@@ -1190,7 +1313,12 @@
 					<section class="info-grid entity-info-grid" aria-label="Artist profile metadata">
 						<div class="info-block">
 							<h3 class="section-title small">Profile Links</h3>
-							{#if activeEntity.links.length}
+							{#if entityEditMode && entityDraft}
+								<label class="wiki-field compact">
+									<span>Profile URLs</span>
+									<textarea bind:value={entityDraft.links} rows="5"></textarea>
+								</label>
+							{:else if activeEntity.links.length}
 								<div class="entity-link-list">
 									{#each activeEntity.links as link}
 										<a class="reference-chip relation" href={link.url} target="_blank" rel="noreferrer">
@@ -1204,20 +1332,53 @@
 						</div>
 						<div class="info-block">
 							<h3 class="section-title small">Style / Movement</h3>
-							<p><strong>Styles:</strong> {entityDetailList(activeEntity.styles)}</p>
-							<p><strong>Movements:</strong> {entityDetailList(activeEntity.movements)}</p>
-							<p><strong>Period:</strong> {activeEntity.historicalPeriod ?? 'None recorded yet'}</p>
+							{#if entityEditMode && entityDraft}
+								<label class="wiki-field compact">
+									<span>Styles</span>
+									<textarea bind:value={entityDraft.styles} rows="4"></textarea>
+								</label>
+								<label class="wiki-field compact">
+									<span>Movements</span>
+									<textarea bind:value={entityDraft.movements} rows="4"></textarea>
+								</label>
+								<label class="wiki-field compact">
+									<span>Historical period</span>
+									<input bind:value={entityDraft.historicalPeriod} />
+								</label>
+							{:else}
+								<p><strong>Styles:</strong> {entityDetailList(activeEntity.styles)}</p>
+								<p><strong>Movements:</strong> {entityDetailList(activeEntity.movements)}</p>
+								<p><strong>Period:</strong> {activeEntity.historicalPeriod ?? 'None recorded yet'}</p>
+							{/if}
 						</div>
 						<div class="info-block">
 							<h3 class="section-title small">Subjects / Media</h3>
-							<p><strong>Subjects:</strong> {entityDetailList(activeEntity.commonSubjects)}</p>
-							<p><strong>Media:</strong> {entityDetailList(activeEntity.media)}</p>
+							{#if entityEditMode && entityDraft}
+								<label class="wiki-field compact">
+									<span>Common subjects</span>
+									<textarea bind:value={entityDraft.commonSubjects} rows="4"></textarea>
+								</label>
+								<label class="wiki-field compact">
+									<span>Media</span>
+									<textarea bind:value={entityDraft.media} rows="4"></textarea>
+								</label>
+							{:else}
+								<p><strong>Subjects:</strong> {entityDetailList(activeEntity.commonSubjects)}</p>
+								<p><strong>Media:</strong> {entityDetailList(activeEntity.media)}</p>
+							{/if}
 						</div>
 					</section>
 
 					<section class="ai-guidance">
 						<h3 class="section-title small">Artist Notes</h3>
-						<p>{activeEntity.aiGuidance ?? 'No artist-specific AI tagging guidance recorded yet.'}</p>
+						{#if entityEditMode && entityDraft}
+							<label class="wiki-field">
+								<span>AI guidance</span>
+								<textarea bind:value={entityDraft.aiGuidance} rows="4"></textarea>
+							</label>
+						{:else}
+							<p>{activeEntity.aiGuidance ?? 'No artist-specific AI tagging guidance recorded yet.'}</p>
+						{/if}
 					</section>
 				{/if}
 			</article>
@@ -2745,6 +2906,16 @@
 		font-weight: 700;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
+	}
+
+	.entity-editor-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.2rem 1rem;
+	}
+
+	.entity-editor-grid .wide {
+		grid-column: 1 / -1;
 	}
 
 	.entry-section {
