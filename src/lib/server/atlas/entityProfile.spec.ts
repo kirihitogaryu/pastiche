@@ -78,7 +78,9 @@ describe('Atlas entity profile reads', () => {
 				expect.objectContaining({
 					host: 'deviantart.com',
 					username: 'exampleartist',
-					url: 'https://deviantart.com/exampleartist'
+					url: 'https://deviantart.com/exampleartist',
+					firstSeenAssetId: expect.any(String),
+					lastSeenAt: expect.any(String)
 				})
 			]);
 			expect(profile?.aliases.map((alias) => alias.normalizedAlias)).toEqual([

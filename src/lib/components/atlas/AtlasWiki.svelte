@@ -896,6 +896,20 @@
 			.join(' ');
 	}
 
+	function entityLinkEvidence(link: AtlasEntityProfile['links'][number]) {
+		return [
+			link.confidence,
+			link.lastSeenAt ? `last seen ${new Date(link.lastSeenAt).toLocaleDateString()}` : null,
+			link.firstSeenAssetId ? `first asset ${shortId(link.firstSeenAssetId)}` : null
+		]
+			.filter(Boolean)
+			.join(' / ');
+	}
+
+	function shortId(value: string) {
+		return value.length > 14 ? `${value.slice(0, 12)}...` : value;
+	}
+
 	function referenceLabel(value: string) {
 		return entryBySlug.get(value)?.label ?? displayLabel(value);
 	}
@@ -1321,9 +1335,12 @@
 							{:else if activeEntity.links.length}
 								<div class="entity-link-list">
 									{#each activeEntity.links as link}
-										<a class="reference-chip relation" href={link.url} target="_blank" rel="noreferrer">
-											{entityLinkLabel(link)}
-										</a>
+										<div class="entity-link-card">
+											<a class="reference-chip relation" href={link.url} target="_blank" rel="noreferrer">
+												{entityLinkLabel(link)}
+											</a>
+											<small>{entityLinkEvidence(link)}</small>
+										</div>
 									{/each}
 								</div>
 							{:else}
@@ -3297,9 +3314,20 @@
 	}
 
 	.entity-link-list {
-		display: flex;
-		flex-wrap: wrap;
+		display: grid;
 		gap: 0.45rem;
+	}
+
+	.entity-link-card {
+		display: grid;
+		gap: 0.24rem;
+		justify-items: start;
+	}
+
+	.entity-link-card small {
+		color: var(--color-dim);
+		font-size: 0.72rem;
+		line-height: 1.35;
 	}
 
 	.reference-chip {

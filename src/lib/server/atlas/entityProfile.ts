@@ -33,6 +33,8 @@ type LinkRow = {
 	username: string | null;
 	source_label: string | null;
 	confidence: string;
+	first_seen_asset_id: string | null;
+	last_seen_at: string;
 };
 
 type WorkRow = {
@@ -86,7 +88,7 @@ export function readAtlasEntityProfile(
 		.all(entity.id) as AliasRow[];
 	const links = db
 		.prepare(
-			`select url, host, username, source_label, confidence
+			`select url, host, username, source_label, confidence, first_seen_asset_id, last_seen_at
 			 from atlas_entity_links
 			 where entity_id = ?
 			 order by host, username, url`
@@ -128,7 +130,9 @@ export function readAtlasEntityProfile(
 			host: link.host,
 			username: link.username,
 			sourceLabel: link.source_label,
-			confidence: link.confidence
+			confidence: link.confidence,
+			firstSeenAssetId: link.first_seen_asset_id,
+			lastSeenAt: link.last_seen_at
 		})),
 		works: works.map((work) => ({
 			id: work.id,

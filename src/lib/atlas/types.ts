@@ -167,6 +167,8 @@ export type AtlasEntityProfile = {
 		username: string | null;
 		sourceLabel: string | null;
 		confidence: string;
+		firstSeenAssetId: string | null;
+		lastSeenAt: string;
 	}>;
 	works: Array<{
 		id: string;
