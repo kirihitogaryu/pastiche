@@ -95,6 +95,29 @@ export type AiGenerationMetadata = {
 	cfgScale: number | null;
 	rawParameters: Record<string, unknown>;
 	promptTagSuggestions: string[];
+	promptTokens?: PromptToken[];
+	characterPrompts?: Array<{
+		label: string | null;
+		prompt: string;
+		negativePrompt: string | null;
+	}>;
+	settings?: Record<string, string | number | boolean | null>;
+};
+
+export type PromptTokenScope =
+	| 'positive'
+	| 'negative'
+	| 'character_positive'
+	| 'character_negative';
+
+export type PromptTokenRole = 'tag' | 'artist_style_reference';
+
+export type PromptToken = {
+	text: string;
+	normalized: string;
+	scope: PromptTokenScope;
+	role: PromptTokenRole;
+	weight: number | null;
 };
 
 export type LibraryAssetRecord = {
