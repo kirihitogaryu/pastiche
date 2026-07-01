@@ -77,6 +77,7 @@ const MSG_ITEM_CAPTURED = 'PASTICHE_ITEM_CAPTURED';
 const MSG_SWEEP_RESULTS = 'PASTICHE_SWEEP_RESULTS';
 const MSG_LASSO_RESULTS = 'PASTICHE_LASSO_RESULTS';
 const MSG_CAPTURE_FAILED = 'PASTICHE_CAPTURE_FAILED';
+const MSG_OPEN_SIDEBAR_FOR_DRAG = 'PASTICHE_OPEN_SIDEBAR_FOR_DRAG';
 
 // Default size threshold — overridden by PASTICHE_SWEEP message payload.
 const DEFAULT_MIN_DIMENSION = 300;
@@ -408,6 +409,22 @@ function onScrollOrResize(): void {
 
 globalThis.addEventListener('scroll', onScrollOrResize, { passive: true, capture: true });
 globalThis.addEventListener('resize', onScrollOrResize, { passive: true });
+
+globalThis.addEventListener(
+	'dragstart',
+	(event) => {
+		if (!isImageLikeDragTarget(event.target)) return;
+		void ext.runtime.sendMessage({ type: MSG_OPEN_SIDEBAR_FOR_DRAG }).catch(() => {
+			// Best effort. The sidebar also accepts manual drops when already open.
+		});
+	},
+	true
+);
+
+function isImageLikeDragTarget(target: EventTarget | null): boolean {
+	if (!(target instanceof Element)) return false;
+	return Boolean(target.closest('img, picture, video, canvas, [style*="background-image"]'));
+}
 
 // ---------------------------------------------------------------------------
 // Incoming message handler

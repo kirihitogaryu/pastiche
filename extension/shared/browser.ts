@@ -133,6 +133,7 @@ type ExtensionApi = {
 	scripting?: ScriptingApi;
 	sidePanel?: {
 		setPanelBehavior(options: { openPanelOnActionClick: boolean }): Promise<void>;
+		open?(options?: { windowId?: number }): Promise<void>;
 	};
 };
 

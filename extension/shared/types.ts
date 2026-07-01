@@ -220,6 +220,13 @@ export type ExtensionMessage =
 			windowId?: number;
 	  }
 	| { type: 'PASTICHE_ITEM_CAPTURED'; item: CapturedItemPayload }
+	| {
+			type: 'PASTICHE_STAGE_DROPPED_URL';
+			imageUrl: string;
+			sourceUrl: string;
+			pageTitle: string | null;
+	  }
+	| { type: 'PASTICHE_OPEN_SIDEBAR_FOR_DRAG' }
 	| { type: 'PASTICHE_SWEEP_RESULTS'; items: CapturedItemPayload[] }
 	| { type: 'PASTICHE_LASSO_RESULTS'; items: CapturedItemPayload[] }
 	| { type: 'PASTICHE_CAPTURE_FAILED'; error: string }

@@ -56,6 +56,8 @@ import {
 	MESSAGE_BATCH_READY,
 	MESSAGE_FETCH_COMPLETE,
 	MESSAGE_CAPTURE_FAILED,
+	MESSAGE_STAGE_DROPPED_URL,
+	MESSAGE_OPEN_SIDEBAR_FOR_DRAG,
 	MESSAGE_QUEUE_UPDATED,
 	MESSAGE_QUEUE_REPLAYED
 } from '../shared/messages';
@@ -154,13 +156,13 @@ api.commands.onCommand.addListener((command) => {
 
 api.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
 	const extensionMessage = message as ExtensionMessage;
-	void respondToExtensionMessage(extensionMessage, () => handleMessage(extensionMessage), {
+	void respondToExtensionMessage(extensionMessage, () => handleMessage(extensionMessage, _sender), {
 		onCaptureError: (error) => broadcastToSidebar({ type: MESSAGE_CAPTURE_FAILED, error })
 	}).then(sendResponse);
 	return true; // Keep channel open for async response.
 });
 
-async function handleMessage(message: ExtensionMessage): Promise<unknown> {
+async function handleMessage(message: ExtensionMessage, sender?: unknown): Promise<unknown> {
 	switch (message.type) {
 		case MESSAGE_GET_STATUS:
 			return getPasticheStatus();
@@ -186,6 +188,13 @@ async function handleMessage(message: ExtensionMessage): Promise<unknown> {
 
 		case MESSAGE_CAPTURE_FAILED:
 			broadcastToSidebar({ type: MESSAGE_CAPTURE_FAILED, error: message.error });
+			return { ok: true };
+
+		case MESSAGE_STAGE_DROPPED_URL:
+			return handleDroppedUrlCaptured(message.imageUrl, message.sourceUrl, message.pageTitle);
+
+		case MESSAGE_OPEN_SIDEBAR_FOR_DRAG:
+			await openSidePanel(sender);
 			return { ok: true };
 
 		case MESSAGE_DO_IMPORT:
@@ -391,6 +400,38 @@ async function handleVisibleTabCaptured(
 			ok: false,
 			error: err instanceof Error ? err.message : 'Could not capture the visible viewport.'
 		};
+	}
+}
+
+async function handleDroppedUrlCaptured(
+	imageUrl: string,
+	sourceUrl: string,
+	pageTitle: string | null
+): Promise<{ ok: boolean; error?: string }> {
+	try {
+		await stageCapturedItem(
+			await capturedPayloadForImageSource({
+				imageUrl,
+				sourceUrl,
+				detailUrl: null,
+				pageTitle: pageTitle ?? sourceUrl
+			})
+		);
+		return { ok: true };
+	} catch (err) {
+		return {
+			ok: false,
+			error: err instanceof Error ? err.message : 'Dropped URL is not a selectable image.'
+		};
+	}
+}
+
+async function openSidePanel(sender?: unknown): Promise<void> {
+	const windowId = (sender as { tab?: { windowId?: number } } | undefined)?.tab?.windowId;
+	try {
+		await api.sidePanel?.open?.(typeof windowId === 'number' ? { windowId } : undefined);
+	} catch {
+		// Best effort. Firefox and some Chromium contexts cannot open side panels from here.
 	}
 }
 

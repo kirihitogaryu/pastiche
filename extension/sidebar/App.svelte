@@ -20,7 +20,9 @@
 		MESSAGE_CAPTURE_ACTIVATE_LASSO,
 		MESSAGE_SWEEP,
 		MESSAGE_DESELECT_ITEM,
-		MESSAGE_CLEAR_SELECTION
+		MESSAGE_CLEAR_SELECTION,
+		MESSAGE_STAGE_DROPPED_URL,
+		MESSAGE_ITEM_CAPTURED
 	} from '../shared/messages';
 	import type {
 		CaptureTrayResponse,
@@ -65,6 +67,11 @@
 		type CaptureNotice
 	} from './capture-status';
 	import { shouldSurfaceContentScriptError } from './capture-maintenance';
+	import {
+		capturedPayloadForDroppedImageFile,
+		droppedImageFileFromDataTransfer,
+		droppedImageUrlFromDataTransfer
+	} from './drop-import';
 
 	const api = getExtensionApi();
 
@@ -84,6 +91,7 @@
 	let importNotificationTimer: ReturnType<typeof setTimeout> | null = null;
 	let captureNoticeTimer: ReturnType<typeof setTimeout> | null = null;
 	let trayPollTimer: ReturnType<typeof setInterval> | null = null;
+	let dropActive = $state(false);
 	const shownStoredImportNotificationIds = new Set<string>();
 
 	// Folder assignment
@@ -703,9 +711,79 @@
 	function openSettings() {
 		api.runtime.openOptionsPage?.();
 	}
+
+	function handleDragOver(event: DragEvent) {
+		event.preventDefault();
+		dropActive = true;
+		if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+	}
+
+	function handleDragLeave(event: DragEvent) {
+		if (event.currentTarget === event.target) dropActive = false;
+	}
+
+	async function handleDrop(event: DragEvent) {
+		event.preventDefault();
+		dropActive = false;
+		const transfer = event.dataTransfer;
+		if (!transfer) return;
+
+		const tab = await activeTab();
+		const sourceUrl = tab?.url ?? 'pastiche://dropped-image';
+		const pageTitle = tab?.title ?? 'Dropped image';
+
+		try {
+			const file = droppedImageFileFromDataTransfer(transfer);
+			if (file) {
+				const item = await capturedPayloadForDroppedImageFile(file, { sourceUrl, pageTitle });
+				const response = (await api.runtime.sendMessage({
+					type: MESSAGE_ITEM_CAPTURED,
+					item
+				})) as { ok?: boolean; error?: string };
+				if (!response?.ok) throw new Error(response?.error ?? 'Dropped image could not be staged.');
+				captureError = null;
+				showCaptureNotice(
+					{ tone: 'success', title: 'Image added', detail: file.name },
+					{ autoDismiss: true }
+				);
+				await refreshCaptureTray();
+				return;
+			}
+
+			const imageUrl = droppedImageUrlFromDataTransfer(transfer);
+			if (!imageUrl) throw new Error('Drop an image file or image URL.');
+
+			const response = (await api.runtime.sendMessage({
+				type: MESSAGE_STAGE_DROPPED_URL,
+				imageUrl,
+				sourceUrl,
+				pageTitle
+			})) as { ok?: boolean; error?: string };
+			if (!response?.ok) throw new Error(response?.error ?? 'Dropped URL could not be staged.');
+			captureError = null;
+			showCaptureNotice(
+				{ tone: 'success', title: 'Image added', detail: imageUrl },
+				{ autoDismiss: true }
+			);
+			await refreshCaptureTray();
+		} catch (error) {
+			console.error(error);
+			captureError = error instanceof Error ? error.message : 'Dropped image could not be staged.';
+			showCaptureNotice(captureNoticeFromError(captureError));
+		}
+	}
 </script>
 
-<main>
+<main
+	class:drop-active={dropActive}
+	ondragover={handleDragOver}
+	ondragleave={handleDragLeave}
+	ondrop={handleDrop}
+>
+	{#if dropActive}
+		<div class="drop-overlay" aria-hidden="true">Drop image to stage</div>
+	{/if}
+
 	<!-- Status bar — always visible at top -->
 	<StatusBar {status} {loading} onreconnect={reconnect} onsettings={openSettings} />
 
@@ -854,10 +932,32 @@
 
 	main {
 		height: 100vh;
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
 		background: var(--ext-bg);
+	}
+
+	main.drop-active {
+		outline: 1px solid var(--ext-accent);
+		outline-offset: -1px;
+	}
+
+	.drop-overlay {
+		position: absolute;
+		inset: 8px;
+		z-index: 30;
+		display: grid;
+		place-items: center;
+		border: 1px dashed oklch(78% 0.08 78 / 0.62);
+		border-radius: var(--ext-radius-lg);
+		background: oklch(10% 0.008 70 / 0.82);
+		color: var(--ext-accent-strong);
+		font-size: 12px;
+		font-weight: 650;
+		letter-spacing: 0;
+		pointer-events: none;
 	}
 
 	.scroll-region {

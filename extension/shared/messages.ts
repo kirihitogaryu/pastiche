@@ -103,6 +103,12 @@ export const MESSAGE_CONTEXT_IMPORT_FINISHED = 'PASTICHE_CONTEXT_IMPORT_FINISHED
 /** SW → sidebar: capture selection failed before an item could be added to the tray. */
 export const MESSAGE_CAPTURE_FAILED = 'PASTICHE_CAPTURE_FAILED';
 
+/** Sidebar → SW: stage an image URL dropped onto the sidebar. */
+export const MESSAGE_STAGE_DROPPED_URL = 'PASTICHE_STAGE_DROPPED_URL';
+
+/** Content → SW: best-effort request to open the side panel during an image drag. */
+export const MESSAGE_OPEN_SIDEBAR_FOR_DRAG = 'PASTICHE_OPEN_SIDEBAR_FOR_DRAG';
+
 // ---------------------------------------------------------------------------
 // Import (sidebar → SW)
 // ---------------------------------------------------------------------------
