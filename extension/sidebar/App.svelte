@@ -64,6 +64,7 @@
 		captureNoticeFromError,
 		type CaptureNotice
 	} from './capture-status';
+	import { shouldSurfaceContentScriptError } from './capture-maintenance';
 
 	const api = getExtensionApi();
 
@@ -381,11 +382,12 @@
 
 	async function sendActiveTabMessage(
 		message: Record<string, unknown>,
-		options: { directImageFallback?: boolean } = {}
+		options: { directImageFallback?: boolean; surfaceErrors?: boolean } = {}
 	): Promise<Record<string, unknown> | null> {
 		const tab = await activeTab();
+		const surfaceErrors = options.surfaceErrors !== false;
 		if (!tab?.id) {
-			captureError = 'No active tab found.';
+			if (surfaceErrors) captureError = 'No active tab found.';
 			return null;
 		}
 
@@ -413,6 +415,16 @@
 				}
 			}
 			console.error(error);
+			const messageType = typeof message.type === 'string' ? message.type : '';
+			if (
+				!surfaceErrors ||
+				!shouldSurfaceContentScriptError({
+					messageType,
+					error
+				})
+			) {
+				return null;
+			}
 			captureError =
 				error instanceof Error
 					? error.message
@@ -541,7 +553,10 @@
 		await persistCaptureTray(items);
 
 		// Tell the content script to remove the badge from the page element.
-		await sendActiveTabMessage({ type: MESSAGE_DESELECT_ITEM, url: item.url });
+		await sendActiveTabMessage(
+			{ type: MESSAGE_DESELECT_ITEM, url: item.url },
+			{ surfaceErrors: false }
+		);
 	}
 
 	async function clearAll() {
@@ -549,7 +564,7 @@
 		selectedItemId = null;
 		captureNotice = null;
 		await persistCaptureTray([]);
-		await sendActiveTabMessage({ type: MESSAGE_CLEAR_SELECTION });
+		await sendActiveTabMessage({ type: MESSAGE_CLEAR_SELECTION }, { surfaceErrors: false });
 	}
 
 	function renameItem(id: string, name: string) {
@@ -673,7 +688,7 @@
 			// Clear badges for removed items.
 			const [tab] = await api.tabs.query({ active: true, currentWindow: true });
 			if (tab?.id && items.length === 0) {
-				await sendActiveTabMessage({ type: MESSAGE_CLEAR_SELECTION });
+				await sendActiveTabMessage({ type: MESSAGE_CLEAR_SELECTION }, { surfaceErrors: false });
 			}
 
 			// Refresh status so unassigned count updates.
