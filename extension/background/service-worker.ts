@@ -31,6 +31,7 @@ import {
 import { normalizeImageQualityUrl, resolveCanonicalImage } from './canonical-image';
 import { enrichCapturedItem, wireImportItemForEnrichedItem } from './enrich-capture';
 import { respondToExtensionMessage } from './message-handler';
+import { openExtensionSidebar } from './sidebar-panel';
 import { capturedPayloadForVisibleScreenshot } from './screenshot-capture';
 import {
 	CONTEXT_MENU_SAVE_IMAGE_ID,
@@ -194,7 +195,7 @@ async function handleMessage(message: ExtensionMessage, sender?: unknown): Promi
 			return handleDroppedUrlCaptured(message.imageUrl, message.sourceUrl, message.pageTitle);
 
 		case MESSAGE_OPEN_SIDEBAR_FOR_DRAG:
-			await openSidePanel(sender);
+			await openExtensionSidebar(api, sender as { tab?: { windowId?: number } } | undefined);
 			return { ok: true };
 
 		case MESSAGE_DO_IMPORT:
@@ -423,15 +424,6 @@ async function handleDroppedUrlCaptured(
 			ok: false,
 			error: err instanceof Error ? err.message : 'Dropped URL is not a selectable image.'
 		};
-	}
-}
-
-async function openSidePanel(sender?: unknown): Promise<void> {
-	const windowId = (sender as { tab?: { windowId?: number } } | undefined)?.tab?.windowId;
-	try {
-		await api.sidePanel?.open?.(typeof windowId === 'number' ? { windowId } : undefined);
-	} catch {
-		// Best effort. Firefox and some Chromium contexts cannot open side panels from here.
 	}
 }
 

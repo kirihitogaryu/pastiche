@@ -135,6 +135,9 @@ type ExtensionApi = {
 		setPanelBehavior(options: { openPanelOnActionClick: boolean }): Promise<void>;
 		open?(options?: { windowId?: number }): Promise<void>;
 	};
+	sidebarAction?: {
+		open(): Promise<void>;
+	};
 };
 
 // ---------------------------------------------------------------------------

@@ -17,9 +17,10 @@ export type DroppedFilePayloadInput = {
 
 export function droppedImageUrlFromDataTransfer(dataTransfer: TransferLike): string | null {
 	return (
+		urlFromDownloadUrl(dataTransfer.getData('DownloadURL')) ??
 		firstUrlFromUriList(dataTransfer.getData('text/uri-list')) ??
-		validDroppedUrl(dataTransfer.getData('text/plain')) ??
-		firstImageUrlFromHtml(dataTransfer.getData('text/html'))
+		firstImageUrlFromHtml(dataTransfer.getData('text/html')) ??
+		validDroppedUrl(dataTransfer.getData('text/plain'))
 	);
 }
 
@@ -119,6 +120,12 @@ function firstUrlFromUriList(value: string): string | null {
 	return null;
 }
 
+function urlFromDownloadUrl(value: string): string | null {
+	const parts = value.split(':');
+	if (parts.length < 3) return null;
+	return validDroppedUrl(parts.slice(2).join(':'));
+}
+
 function firstImageUrlFromHtml(value: string): string | null {
 	const match = value.match(/<img\b[^>]*\bsrc=(["']?)([^"'\s>]+)\1/i);
 	return match ? validDroppedUrl(match[2]) : null;
@@ -128,7 +135,7 @@ function validDroppedUrl(value: string): string | null {
 	const trimmed = value.trim();
 	if (!trimmed) return null;
 	try {
-		const url = new URL(trimmed);
+		const url = new URL(trimmed.startsWith('//') ? `https:${trimmed}` : trimmed);
 		return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : null;
 	} catch {
 		return null;

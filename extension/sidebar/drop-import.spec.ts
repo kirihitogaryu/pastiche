@@ -25,6 +25,30 @@ describe('sidebar drop import helpers', () => {
 		expect(url).toBe('https://cdn.example.com/work.jpg');
 	});
 
+	it('extracts image URLs from Chromium DownloadURL drops', () => {
+		const url = droppedImageUrlFromDataTransfer({
+			getData(type) {
+				if (type === 'DownloadURL') {
+					return 'image/png:work.png:https://cdn.example.com/original/work.png?token=1';
+				}
+				return '';
+			}
+		});
+
+		expect(url).toBe('https://cdn.example.com/original/work.png?token=1');
+	});
+
+	it('extracts protocol-relative image URLs from html drops', () => {
+		const url = droppedImageUrlFromDataTransfer({
+			getData(type) {
+				if (type === 'text/html') return '<img src="//cdn.example.com/work.webp">';
+				return '';
+			}
+		});
+
+		expect(url).toBe('https://cdn.example.com/work.webp');
+	});
+
 	it('builds captured payloads for dropped image files', () => {
 		const payload = buildDroppedFilePayload({
 			dataUrl: 'data:image/png;base64,aaaa',
