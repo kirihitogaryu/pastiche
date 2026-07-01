@@ -1,5 +1,10 @@
 <script lang="ts">
 	import type { CaptureMetadata, CaptureSource } from '../../shared/candidates';
+	import { getSettings } from '../../shared/settings';
+	import {
+		metadataPatchForArtistSuggestion,
+		type ArtistEntitySuggestion
+	} from '../artist-suggestions';
 	import TagPicker from './TagPicker.svelte';
 
 	type Props = {
@@ -15,6 +20,9 @@
 	let date = $state('');
 	let sourceLabel = $state('');
 	let originalUrl = $state('');
+	let artistSuggestions = $state<ArtistEntitySuggestion[]>([]);
+	let artistLoading = $state(false);
+	let artistMessage = $state<string | null>(null);
 
 	$effect(() => {
 		title = metadata.title;
@@ -24,11 +32,52 @@
 		originalUrl = source.detailUrl ?? source.canonicalPageUrl ?? source.pageUrl;
 	});
 
+	$effect(() => {
+		const clean = artist.trim();
+		if (clean.length < 2 || clean === metadata.artist) {
+			artistSuggestions = [];
+			artistMessage = null;
+			artistLoading = false;
+			return;
+		}
+
+		let cancelled = false;
+		const controller = new AbortController();
+		artistLoading = true;
+		artistMessage = null;
+		const timer = setTimeout(() => {
+			void fetchArtistSuggestions(clean, controller.signal)
+				.then((next) => {
+					if (cancelled) return;
+					artistSuggestions = next;
+					artistMessage = next.length ? null : 'No known artist';
+				})
+				.catch(() => {
+					if (cancelled) return;
+					artistSuggestions = [];
+					artistMessage = 'Artist lookup unavailable';
+				})
+				.finally(() => {
+					if (!cancelled) artistLoading = false;
+				});
+		}, 180);
+
+		return () => {
+			cancelled = true;
+			clearTimeout(timer);
+			controller.abort();
+		};
+	});
+
 	function commitMetadata() {
+		const cleanArtist = artist.trim() || null;
 		onmetadatachange({
 			title: title.trim() || metadata.title,
-			artist: artist.trim() || null,
-			date: date.trim() || null
+			artist: cleanArtist,
+			date: date.trim() || null,
+			...(cleanArtist !== metadata.artist
+				? { artistProfileUrl: null, artistUsername: null }
+				: {})
 		});
 		onsourcechange({
 			sourceLabel: sourceLabel.trim() || source.sourceLabel,
@@ -36,6 +85,39 @@
 			canonicalPageUrl: originalUrl.trim() || source.canonicalPageUrl,
 			detailUrl: originalUrl.trim() || source.detailUrl
 		});
+	}
+
+	async function fetchArtistSuggestions(
+		value: string,
+		signal: AbortSignal
+	): Promise<ArtistEntitySuggestion[]> {
+		const settings = await getSettings();
+		const url = new URL(`http://localhost:${settings.pastichePort}/api/atlas/entities/suggest`);
+		url.searchParams.set('kind', 'artist');
+		url.searchParams.set('q', value);
+		url.searchParams.set('limit', '5');
+		const response = await fetch(url, { signal });
+		if (!response.ok) return [];
+		const body = (await response.json()) as { suggestions?: ArtistEntitySuggestion[] };
+		return body.suggestions ?? [];
+	}
+
+	function selectArtist(suggestion: ArtistEntitySuggestion) {
+		artist = suggestion.label;
+		onmetadatachange(metadataPatchForArtistSuggestion(suggestion));
+		artistSuggestions = [];
+		artistMessage = null;
+	}
+
+	function handleArtistKeydown(event: KeyboardEvent) {
+		if (event.key !== 'Enter') return;
+		event.preventDefault();
+		const first = artistSuggestions[0];
+		if (first) {
+			selectArtist(first);
+			return;
+		}
+		commitMetadata();
 	}
 
 	const groupedSourceTags = $derived(groupSourceTags(metadata.sourceTags ?? []));
@@ -61,9 +143,41 @@
 	</label>
 
 	<div class="grid">
-		<label>
+		<label class="artist-field">
 			<span>Artist</span>
-			<input bind:value={artist} onblur={commitMetadata} />
+			<div class="input-wrap">
+				<input
+					bind:value={artist}
+					autocomplete="off"
+					onblur={commitMetadata}
+					onkeydown={handleArtistKeydown}
+				/>
+				{#if artistLoading}
+					<span class="status">Searching</span>
+				{/if}
+			</div>
+			{#if artistSuggestions.length}
+				<div class="artist-suggestions" aria-label="Artist suggestions">
+					{#each artistSuggestions as suggestion (suggestion.slug)}
+						<button type="button" onclick={() => selectArtist(suggestion)}>
+							<strong>{suggestion.label}</strong>
+							<small>
+								{suggestion.workCount} works
+								{#if suggestion.matchReason !== 'recent'}
+									· {suggestion.matchReason}: {suggestion.match}
+								{/if}
+							</small>
+						</button>
+					{/each}
+				</div>
+			{:else if artistMessage}
+				<div class="message">{artistMessage}</div>
+			{/if}
+			{#if metadata.artistProfileUrl}
+				<a class="artist-link" href={metadata.artistProfileUrl} target="_blank" rel="noreferrer">
+					Known artist{metadata.artistUsername ? ` · @${metadata.artistUsername}` : ''}
+				</a>
+			{/if}
 		</label>
 		<label>
 			<span>Date</span>
@@ -146,6 +260,75 @@
 	input:focus {
 		border-color: var(--ext-accent);
 		box-shadow: 0 0 0 1px var(--ext-accent-soft);
+	}
+
+	.artist-field {
+		position: relative;
+	}
+
+	.input-wrap {
+		position: relative;
+	}
+
+	.status {
+		position: absolute;
+		right: 8px;
+		top: 50%;
+		transform: translateY(-50%);
+		color: var(--ext-dim);
+		font-size: 10px;
+		text-transform: none;
+	}
+
+	.artist-suggestions {
+		display: grid;
+		gap: 4px;
+	}
+
+	.artist-suggestions button {
+		display: grid;
+		gap: 2px;
+		width: 100%;
+		border: 1px solid var(--ext-border-soft);
+		border-radius: var(--ext-radius-sm);
+		background: var(--ext-control);
+		color: var(--ext-text);
+		font: inherit;
+		padding: 6px 7px;
+		text-align: left;
+		cursor: pointer;
+	}
+
+	.artist-suggestions button:hover {
+		border-color: var(--ext-accent);
+		background: var(--ext-control-hover);
+	}
+
+	.artist-suggestions strong {
+		font-size: 11px;
+		line-height: 1.2;
+		overflow-wrap: anywhere;
+	}
+
+	.artist-suggestions small,
+	.message,
+	.artist-link {
+		color: var(--ext-dim);
+		font-size: 10px;
+		line-height: 1.3;
+	}
+
+	.message {
+		padding-left: 1px;
+	}
+
+	.artist-link {
+		text-decoration: none;
+		overflow-wrap: anywhere;
+	}
+
+	.artist-link:hover {
+		color: var(--ext-text);
 	}
 
 	.source-tags {
