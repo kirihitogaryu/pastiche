@@ -12,7 +12,8 @@
 		normalizeDisplayTag,
 		type AtlasDisplayRow
 	} from '$lib/atlas/display';
-	import type { AtlasAssetSummary } from '$lib/atlas/types';
+	import { atlasEntityPatchForSuggestion } from '$lib/atlas/entitySuggestionPatch';
+	import type { AtlasAssetSummary, AtlasEntitySuggestion } from '$lib/atlas/types';
 	import { openAtlasWiki } from '$lib/state/app-state.svelte';
 	import type { Asset } from '$lib/types';
 	import type { AtlasClaimKind, AtlasEntityKind } from '$lib/atlas/types';
@@ -52,6 +53,8 @@
 	let annotationRoleDrafts = $state<Record<string, string>>({});
 	let entityKind = $state<AtlasEntityKind>('artist');
 	let entityLabel = $state('');
+	let entitySuggestions = $state<AtlasEntitySuggestion[]>([]);
+	let entitySuggestionLoading = $state(false);
 	let claimKind = $state<AtlasClaimKind>('medium');
 	let claimValue = $state('');
 
@@ -120,6 +123,36 @@
 			if (!controller.signal.aborted) annotationFormConceptSuggestions = suggestions;
 		});
 		return () => controller.abort();
+	});
+
+	$effect(() => {
+		const query = entityLabel.trim();
+		if (!editMode || entityKind !== 'artist' || query.length < 2) {
+			entitySuggestions = [];
+			entitySuggestionLoading = false;
+			return;
+		}
+		const controller = new AbortController();
+		entitySuggestionLoading = true;
+		const timer = setTimeout(() => {
+			fetch(`/api/atlas/entities/suggest?kind=artist&q=${encodeURIComponent(query)}&limit=5`, {
+				signal: controller.signal
+			})
+				.then(async (response) => {
+					const body = (await response.json()) as { suggestions?: AtlasEntitySuggestion[] };
+					entitySuggestions = body.suggestions ?? [];
+				})
+				.catch(() => {
+					if (!controller.signal.aborted) entitySuggestions = [];
+				})
+				.finally(() => {
+					if (!controller.signal.aborted) entitySuggestionLoading = false;
+				});
+		}, 180);
+		return () => {
+			clearTimeout(timer);
+			controller.abort();
+		};
 	});
 
 	async function fetchConceptSuggestions(query: string, controller: AbortController) {
@@ -315,6 +348,20 @@
 		if (!label) return;
 		await onPatch?.({ entities: [{ kind: entityKind, label }] });
 		entityLabel = '';
+		entitySuggestions = [];
+	}
+
+	async function addSuggestedArtistEntity(suggestion: AtlasEntitySuggestion) {
+		entityLabel = suggestion.label;
+		await onPatch?.(atlasEntityPatchForSuggestion(suggestion));
+		entityLabel = '';
+		entitySuggestions = [];
+	}
+
+	function handleEntityKeydown(event: KeyboardEvent) {
+		if (event.key !== 'Enter' || entityKind !== 'artist' || !entitySuggestions[0]) return;
+		event.preventDefault();
+		void addSuggestedArtistEntity(entitySuggestions[0]);
 	}
 
 	async function removeEntity(kind: string, label: string) {
@@ -865,11 +912,32 @@
 					</label>
 					<label>
 						<span>Label</span>
-						<input bind:value={entityLabel} placeholder="Hendrick Goltzius" />
+						<input
+							bind:value={entityLabel}
+							placeholder="Hendrick Goltzius"
+							onkeydown={handleEntityKeydown}
+						/>
 					</label>
 					<button type="submit" disabled={saving || !entityLabel.trim()}>
 						<PlusIcon size={14} /> Add entity
 					</button>
+					{#if entitySuggestionLoading}
+						<p class="lookup-message">Searching artists...</p>
+					{:else if entityKind === 'artist' && entitySuggestions.length}
+						<div class="suggestions">
+							{#each entitySuggestions as suggestion (suggestion.slug)}
+								<button type="button" onclick={() => addSuggestedArtistEntity(suggestion)}>
+									<strong>{suggestion.label}</strong>
+									<small>
+										{suggestion.workCount} works
+										{#if suggestion.links[0]}
+											/ {suggestion.links[0].host}
+										{/if}
+									</small>
+								</button>
+							{/each}
+						</div>
+					{/if}
 				</form>
 			{:else if editMode && group.name === 'Source Claims'}
 				<form class="add-metadata-row" onsubmit={(event) => (event.preventDefault(), addClaim())}>
@@ -918,11 +986,32 @@
 				</label>
 				<label>
 					<span>Label</span>
-					<input bind:value={entityLabel} placeholder="Hendrick Goltzius" />
+					<input
+						bind:value={entityLabel}
+						placeholder="Hendrick Goltzius"
+						onkeydown={handleEntityKeydown}
+					/>
 				</label>
 				<button type="submit" disabled={saving || !entityLabel.trim()}>
 					<PlusIcon size={14} /> Add entity
 				</button>
+				{#if entitySuggestionLoading}
+					<p class="lookup-message">Searching artists...</p>
+				{:else if entityKind === 'artist' && entitySuggestions.length}
+					<div class="suggestions">
+						{#each entitySuggestions as suggestion (suggestion.slug)}
+							<button type="button" onclick={() => addSuggestedArtistEntity(suggestion)}>
+								<strong>{suggestion.label}</strong>
+								<small>
+									{suggestion.workCount} works
+									{#if suggestion.links[0]}
+										/ {suggestion.links[0].host}
+									{/if}
+								</small>
+							</button>
+						{/each}
+					</div>
+				{/if}
 			</form>
 		</details>
 	{/if}
@@ -1449,6 +1538,13 @@
 
 	.suggestions small {
 		grid-column: auto;
+	}
+
+	.lookup-message {
+		grid-column: 1 / -1;
+		margin: 0;
+		color: var(--color-dim);
+		font-size: 0.72rem;
 	}
 
 	.tone-artist .value,
