@@ -17,8 +17,15 @@
 	import { countAtlasEditOperations, mergeAtlasEditPatches } from '$lib/atlas/editSession';
 	import { previewAtlasEditSession } from '$lib/atlas/editPreview';
 	import type { AtlasAssetSummary } from '$lib/atlas/types';
+	import type { AiGenerationMetadata } from '$lib/library/types';
 	import { openAtlasWiki } from '$lib/state/app-state.svelte';
 	import type { Asset } from '$lib/types';
+
+	type AssetWithGeneration = Asset & {
+		record?: {
+			generation: AiGenerationMetadata | null;
+		};
+	};
 
 	type Props = {
 		asset: Asset;
@@ -43,6 +50,7 @@
 	);
 	let visibleAsset = $derived(stagedPreview.asset);
 	let visibleAtlas = $derived(stagedPreview.atlas);
+	let generation = $derived((visibleAsset as AssetWithGeneration).record?.generation ?? null);
 	let subtitle = $derived(
 		[visibleAsset.creator, visibleAsset.year, visibleAsset.medium].filter(Boolean).join(' · ')
 	);
@@ -262,7 +270,7 @@
 				{saving}
 				onSave={(description) => queueAtlasPatch({ identity: { description } })}
 			/>
-			<AtlasAiMetadataSection />
+			<AtlasAiMetadataSection {generation} />
 			<AtlasSimilarImages assetId={visibleAsset.id} />
 		</div>
 	</div>
