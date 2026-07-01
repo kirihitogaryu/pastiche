@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { importLibraryItems } from './import';
 import { addProjectAssetRef, createProject, createTag } from './organization';
+import { openLibraryDatabase } from './schema';
 import { getLibrarySnapshot } from './read';
 
 describe('library read service', () => {
@@ -257,6 +258,91 @@ describe('library read service', () => {
 		expect(asset.imageUrl).toBe(asset.record!.image.previewUrl);
 	});
 
+	it('persists embedded NovelAI metadata and exposes generation records', async () => {
+		await importLibraryItems({
+			destination_folder_id: null,
+			items: [
+				{
+					filename: 'novelai-dragon.png',
+					storage_mode: 'download',
+					image_data: novelAiPngBase64(),
+					source_image_url: null,
+					mime_type: 'image/png',
+					natural_width: 1,
+					natural_height: 1,
+					source_url: 'https://novelai.net/image',
+					page_title: 'NovelAI dragon',
+					alt_text: null,
+					captured_at: '2026-05-27T12:00:00.000Z'
+				}
+			]
+		});
+
+		const asset = getLibrarySnapshot().assets[0];
+
+		expect(asset.record?.raw.sourceMetadata).toMatchObject({
+			embeddedImageMetadata: {
+				kind: 'png',
+				pngText: {
+					Software: 'NovelAI'
+				}
+			}
+		});
+		expect(asset.record?.generation).toMatchObject({
+			provider: 'novelai',
+			prompt: 'artist:nightcrow, western dragon, opal scales',
+			negativePrompt: 'lowres, blurry',
+			seed: 3468250285,
+			promptTagSuggestions: ['western dragon', 'opal scales']
+		});
+		expect(asset.record?.generation?.promptTokens).toContainEqual(
+			expect.objectContaining({
+				text: 'artist:nightcrow',
+				normalized: 'nightcrow',
+				role: 'artist_style_reference'
+			})
+		);
+	});
+
+	it('falls back to local originals for generation metadata on older imports', async () => {
+		const imported = await importLibraryItems({
+			destination_folder_id: null,
+			items: [
+				{
+					filename: 'legacy-novelai.png',
+					storage_mode: 'download',
+					image_data: novelAiPngBase64(),
+					source_image_url: null,
+					mime_type: 'image/png',
+					natural_width: 1,
+					natural_height: 1,
+					source_url: 'https://novelai.net/image',
+					page_title: 'Legacy NovelAI',
+					alt_text: null,
+					captured_at: '2026-05-27T12:00:00.000Z',
+					metadata: {
+						rawMetadata: {}
+					}
+				}
+			]
+		});
+		const db = openLibraryDatabase();
+		db.prepare('update assets set metadata_json = ? where id = ?').run(
+			JSON.stringify({ rawMetadata: {} }),
+			imported.imported[0].asset_id
+		);
+		db.close();
+
+		const asset = getLibrarySnapshot().assets[0];
+
+		expect(asset.record?.raw.sourceMetadata).toEqual({});
+		expect(asset.record?.generation).toMatchObject({
+			provider: 'novelai',
+			prompt: 'artist:nightcrow, western dragon, opal scales',
+			negativePrompt: 'lowres, blurry'
+		});
+	});
+
 	it('returns General tags before grouped tags with tag values', () => {
 		createTag({ value: 'favorite' });
 		createTag({ facet: 'Subject', value: 'hands' });
@@ -377,4 +463,61 @@ describe('library read service', () => {
 
 function tinyPngBase64() {
 	return 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
+}
+
+function novelAiPngBase64() {
+	return pngWithTextChunks({
+		Software: 'NovelAI',
+		Source: 'NovelAI Diffusion V4.5 4BDE2A90',
+		Description: 'artist:nightcrow, western dragon, opal scales',
+		Comment: JSON.stringify({
+			prompt: 'artist:nightcrow, western dragon, opal scales',
+			uc: 'lowres, blurry',
+			steps: 25,
+			width: 1216,
+			height: 832,
+			scale: 6,
+			seed: 3468250285,
+			sampler: 'k_euler_ancestral',
+			v4_prompt: {
+				caption: {
+					base_caption: 'artist:nightcrow, western dragon, opal scales'
+				}
+			},
+			v4_negative_prompt: {
+				caption: {
+					base_caption: 'lowres, blurry'
+				}
+			}
+		})
+	}).toString('base64');
+}
+
+function pngWithTextChunks(text: Record<string, string>) {
+	const base = Buffer.from(tinyPngBase64(), 'base64');
+	const endIndex = base.length - 12;
+	const chunks = Object.entries(text).map(([keyword, value]) =>
+		pngChunk('tEXt', Buffer.from(`${keyword}\0${value}`, 'latin1'))
+	);
+	return Buffer.concat([base.subarray(0, endIndex), ...chunks, base.subarray(endIndex)]);
+}
+
+function pngChunk(type: string, data: Buffer) {
+	const typeBuffer = Buffer.from(type, 'ascii');
+	const length = Buffer.alloc(4);
+	length.writeUInt32BE(data.length, 0);
+	const crc = Buffer.alloc(4);
+	crc.writeUInt32BE(crc32(Buffer.concat([typeBuffer, data])), 0);
+	return Buffer.concat([length, typeBuffer, data, crc]);
+}
+
+function crc32(buffer: Buffer) {
+	let crc = 0xffffffff;
+	for (const byte of buffer) {
+		crc ^= byte;
+		for (let bit = 0; bit < 8; bit += 1) {
+			crc = crc & 1 ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1;
+		}
+	}
+	return (crc ^ 0xffffffff) >>> 0;
 }

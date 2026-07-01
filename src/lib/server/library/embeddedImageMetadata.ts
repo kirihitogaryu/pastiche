@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { inflateSync } from 'node:zlib';
 
 export type EmbeddedImageMetadata = {
@@ -12,19 +13,24 @@ export async function extractEmbeddedImageMetadata(
 ): Promise<EmbeddedImageMetadata> {
 	try {
 		const buffer = typeof input === 'string' ? await readFile(input) : Buffer.from(input);
-		if (!isPng(buffer)) {
-			return {
-				kind: 'unknown',
-				pngText: {},
-				warnings: ['Image is not a PNG file.']
-			};
-		}
-
+		return extractEmbeddedImageMetadataFromBuffer(buffer);
+	} catch (error) {
 		return {
-			kind: 'png',
-			pngText: extractPngTextChunks(buffer),
-			warnings: []
+			kind: 'unknown',
+			pngText: {},
+			warnings: [
+				error instanceof Error ? error.message : 'Could not read embedded image metadata.'
+			]
 		};
+	}
+}
+
+export function extractEmbeddedImageMetadataSync(
+	input: Buffer | Uint8Array | string
+): EmbeddedImageMetadata {
+	try {
+		const buffer = typeof input === 'string' ? readFileSync(input) : Buffer.from(input);
+		return extractEmbeddedImageMetadataFromBuffer(buffer);
 	} catch (error) {
 		return {
 			kind: 'unknown',
@@ -40,6 +46,22 @@ const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0
 
 function isPng(buffer: Buffer): boolean {
 	return buffer.length >= PNG_SIGNATURE.length && buffer.subarray(0, 8).equals(PNG_SIGNATURE);
+}
+
+function extractEmbeddedImageMetadataFromBuffer(buffer: Buffer): EmbeddedImageMetadata {
+	if (!isPng(buffer)) {
+		return {
+			kind: 'unknown',
+			pngText: {},
+			warnings: ['Image is not a PNG file.']
+		};
+	}
+
+	return {
+		kind: 'png',
+		pngText: extractPngTextChunks(buffer),
+		warnings: []
+	};
 }
 
 function extractPngTextChunks(buffer: Buffer): Record<string, string> {

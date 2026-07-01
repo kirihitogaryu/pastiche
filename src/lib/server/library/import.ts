@@ -13,6 +13,7 @@ import {
 } from '$lib/server/atlas/apolloSeed';
 import { ensureLibraryArchive, resolveLibraryPaths } from './paths';
 import { resolveDestinationFolder } from './folders';
+import { extractEmbeddedImageMetadata } from './embeddedImageMetadata';
 import { openLibraryDatabase } from './schema';
 import { sourceDomain, sourceHash } from './source';
 import type { ImportItem, ImportRequest, ImportResponse } from './types';
@@ -41,10 +42,14 @@ export async function importLibraryItems(request: ImportRequest): Promise<Import
 				db.prepare('select 1 from assets where source_hash = ? limit 1').get(hash)
 			);
 			const assetId = `asset-${crypto.randomUUID()}`;
-			const originalPath =
-				item.storage_mode === 'download' ? writeOriginal(paths.root, assetId, item) : null;
+			const originalImage =
+				item.storage_mode === 'download' ? decodeBase64(item.image_data ?? '') : null;
+			const metadata = originalImage
+				? await metadataWithEmbeddedImage(item.metadata, originalImage)
+				: item.metadata;
+			const originalPath = originalImage ? writeOriginal(paths.root, assetId, item, originalImage) : null;
 			const thumbnailPath =
-				item.storage_mode === 'download' ? await writeThumbnail(paths.root, assetId, item) : null;
+				originalImage ? await writeThumbnail(paths.root, assetId, originalImage) : null;
 
 			db.prepare(
 				`insert into assets (
@@ -72,7 +77,7 @@ export async function importLibraryItems(request: ImportRequest): Promise<Import
 				now,
 				item.captured_at,
 				now,
-				serializeMetadata(item.metadata)
+				serializeMetadata(metadata)
 			);
 
 			if (item.storage_mode === 'lazy_download' && item.source_image_url) {
@@ -83,31 +88,31 @@ export async function importLibraryItems(request: ImportRequest): Promise<Import
 				).run(`lazy-${crypto.randomUUID()}`, assetId, item.source_image_url, now, now);
 			}
 
-			if (item.metadata) {
+			if (metadata) {
 				const proposal = createAtlasIngestionProposal({
 					assetId,
-					source: atlasSourceForImport(item.metadata),
-					sourceId: item.metadata.sourceId ?? null,
-					sourceName: item.metadata.sourceName ?? null,
-					detailUrl: item.metadata.detailUrl ?? null,
-					creator: item.metadata.creator ?? null,
-					artistProfileUrl: item.metadata.artistProfileUrl ?? null,
-					artistUsername: item.metadata.artistUsername ?? null,
-					dateDisplay: item.metadata.dateDisplay ?? null,
-					medium: item.metadata.medium ?? null,
-					objectName: item.metadata.objectName ?? null,
-					department: item.metadata.department ?? null,
-					culture: item.metadata.culture ?? null,
-					period: item.metadata.period ?? null,
-					rights: item.metadata.rights ?? null,
-					tags: item.metadata.tags ?? [],
-					rawMetadata: item.metadata.rawMetadata ?? {},
+					source: atlasSourceForImport(metadata),
+					sourceId: metadata.sourceId ?? null,
+					sourceName: metadata.sourceName ?? null,
+					detailUrl: metadata.detailUrl ?? null,
+					creator: metadata.creator ?? null,
+					artistProfileUrl: metadata.artistProfileUrl ?? null,
+					artistUsername: metadata.artistUsername ?? null,
+					dateDisplay: metadata.dateDisplay ?? null,
+					medium: metadata.medium ?? null,
+					objectName: metadata.objectName ?? null,
+					department: metadata.department ?? null,
+					culture: metadata.culture ?? null,
+					period: metadata.period ?? null,
+					rights: metadata.rights ?? null,
+					tags: metadata.tags ?? [],
+					rawMetadata: metadata.rawMetadata ?? {},
 					now
 				});
 				applyAtlasIngestionProposal(db, proposal);
 
 				const acceptedConceptSlugs = normalizeAcceptedConceptSlugs(
-					item.metadata.acceptedConceptSlugs
+					metadata.acceptedConceptSlugs
 				);
 				if (acceptedConceptSlugs.length) {
 					applyAtlasAssetPatch(
@@ -181,16 +186,16 @@ function validateImportItem(item: ImportItem) {
 	return null;
 }
 
-function writeOriginal(archiveRoot: string, assetId: string, item: ImportItem) {
+function writeOriginal(archiveRoot: string, assetId: string, item: ImportItem, image: Buffer) {
 	const extension = extensionForMimeType(item.mime_type);
 	const relativePath = `originals/${assetId}.${extension}`;
-	writeFileSync(join(archiveRoot, relativePath), decodeBase64(item.image_data ?? ''));
+	writeFileSync(join(archiveRoot, relativePath), image);
 	return relativePath;
 }
 
-async function writeThumbnail(archiveRoot: string, assetId: string, item: ImportItem) {
+async function writeThumbnail(archiveRoot: string, assetId: string, image: Buffer) {
 	const relativePath = `thumbnails/${assetId}.webp`;
-	await sharp(decodeBase64(item.image_data ?? ''))
+	await sharp(image)
 		.resize({ width: 512, height: 512, fit: 'inside', withoutEnlargement: true })
 		.webp({ quality: 82 })
 		.toFile(join(archiveRoot, relativePath));
@@ -220,6 +225,23 @@ function extensionForMimeType(mimeType: string | null) {
 function serializeMetadata(metadata: ImportItem['metadata']) {
 	if (!metadata) return null;
 	return JSON.stringify(metadata);
+}
+
+async function metadataWithEmbeddedImage(
+	metadata: ImportItem['metadata'],
+	image: Buffer
+): Promise<ImportItem['metadata']> {
+	const embedded = await extractEmbeddedImageMetadata(image);
+	if (embedded.kind === 'unknown' && Object.keys(embedded.pngText).length === 0) {
+		return metadata;
+	}
+	return {
+		...(metadata ?? {}),
+		rawMetadata: {
+			...(metadata?.rawMetadata ?? {}),
+			embeddedImageMetadata: embedded
+		}
+	};
 }
 
 function normalizeAcceptedConceptSlugs(value: string[] | undefined) {

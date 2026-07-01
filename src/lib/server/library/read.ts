@@ -1,6 +1,11 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveLibraryPaths } from './paths';
+import {
+	extractEmbeddedImageMetadataSync,
+	type EmbeddedImageMetadata
+} from './embeddedImageMetadata';
+import { parseNovelAiGeneration } from './novelAiGeneration';
 import { openLibraryDatabase } from './schema';
 import type {
 	LibraryAsset,
@@ -258,6 +263,7 @@ function mapAssetRecord(
 	const source = mapSource(asset, metadata);
 	const facts = mapFacts(metadata);
 	const acceptedTagSlugs = new Set(tags.map((tag) => tag.slug));
+	const embeddedMetadata = embeddedImageMetadataFor(asset, metadata);
 
 	return {
 		id: asset.id,
@@ -285,7 +291,7 @@ function mapAssetRecord(
 			projects,
 			favorite: Boolean(asset.favorite)
 		},
-		generation: null,
+		generation: embeddedMetadata ? parseNovelAiGeneration(embeddedMetadata) : null,
 		raw: {
 			importer: importerFor(metadata),
 			sourceMetadata: metadata?.rawMetadata ?? {}
@@ -431,7 +437,36 @@ function importerFor(
 }
 
 function localFileAvailable(relativePath: string) {
-	return existsSync(join(resolveLibraryPaths().root, relativePath));
+	return existsSync(localFilePath(relativePath));
+}
+
+function localFilePath(relativePath: string) {
+	return join(resolveLibraryPaths().root, relativePath);
+}
+
+function embeddedImageMetadataFor(
+	asset: AssetRow,
+	metadata: LibraryImportMetadata | null
+): EmbeddedImageMetadata | null {
+	const stored = metadata?.rawMetadata?.embeddedImageMetadata;
+	if (isEmbeddedImageMetadata(stored)) return stored;
+	if (!asset.original_path || !localFileAvailable(asset.original_path)) return null;
+
+	const embedded = extractEmbeddedImageMetadataSync(localFilePath(asset.original_path));
+	if (embedded.kind === 'unknown' && Object.keys(embedded.pngText).length === 0) return null;
+	return embedded;
+}
+
+function isEmbeddedImageMetadata(value: unknown): value is EmbeddedImageMetadata {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+	const candidate = value as Partial<EmbeddedImageMetadata>;
+	return (
+		(candidate.kind === 'png' || candidate.kind === 'unknown') &&
+		Boolean(candidate.pngText) &&
+		typeof candidate.pngText === 'object' &&
+		!Array.isArray(candidate.pngText) &&
+		Array.isArray(candidate.warnings)
+	);
 }
 
 function imageApiUrl(id: string, variant: 'thumb' | 'original') {
