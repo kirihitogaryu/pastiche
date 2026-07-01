@@ -177,6 +177,23 @@ export type AtlasEntityProfile = {
 	}>;
 };
 
+export type AtlasEntitySuggestion = {
+	kind: AtlasEntityKind;
+	slug: string;
+	label: string;
+	match: string;
+	matchReason: 'label' | 'slug' | 'alias' | 'username' | 'link' | 'recent';
+	workCount: number;
+	aliases: Array<{ alias: string; normalizedAlias: string; source: string; confidence: string }>;
+	links: Array<{
+		url: string;
+		host: string;
+		username: string | null;
+		sourceLabel: string | null;
+		confidence: string;
+	}>;
+};
+
 export type AtlasIngestionProposal = {
 	assetId: string;
 	source: AtlasSourceKind;
