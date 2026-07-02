@@ -51,6 +51,9 @@
 	let visibleAsset = $derived(stagedPreview.asset);
 	let visibleAtlas = $derived(stagedPreview.atlas);
 	let generation = $derived((visibleAsset as AssetWithGeneration).record?.generation ?? null);
+	let acceptedConceptSlugs = $derived(
+		visibleAtlas?.approvedConcepts.map((concept) => concept.slug) ?? []
+	);
 	let subtitle = $derived(
 		[visibleAsset.creator, visibleAsset.year, visibleAsset.medium].filter(Boolean).join(' · ')
 	);
@@ -270,7 +273,11 @@
 				{saving}
 				onSave={(description) => queueAtlasPatch({ identity: { description } })}
 			/>
-			<AtlasAiMetadataSection {generation} />
+			<AtlasAiMetadataSection
+				{generation}
+				{acceptedConceptSlugs}
+				onPatch={queueAtlasPatch}
+			/>
 			<AtlasSimilarImages assetId={visibleAsset.id} />
 		</div>
 	</div>

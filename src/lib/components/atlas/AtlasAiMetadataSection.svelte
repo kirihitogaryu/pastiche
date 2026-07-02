@@ -1,12 +1,24 @@
 <script lang="ts">
+	import type { AtlasBatchInput } from '$lib/atlas/batch';
+	import {
+		aiPromptTagSuggestions,
+		artistStyleReferenceSuggestions,
+		artistStyleSlug
+	} from '$lib/atlas/aiPromptSuggestions';
 	import type { AiGenerationMetadata, PromptToken } from '$lib/library/types';
 
 	type Props = {
 		generation?: AiGenerationMetadata | null;
+		acceptedConceptSlugs?: string[];
+		onPatch?: (input: AtlasBatchInput) => void | Promise<void>;
 	};
 
-	let { generation = null }: Props = $props();
+	let { generation = null, acceptedConceptSlugs = [], onPatch }: Props = $props();
 	let open = $state(false);
+	let artistStyleInput = $state('');
+	let acceptedSlugSet = $derived(new Set(acceptedConceptSlugs));
+	let suggestedPromptTags = $derived(aiPromptTagSuggestions(generation, acceptedSlugSet));
+	let suggestedArtistStyles = $derived(artistStyleReferenceSuggestions(generation, acceptedSlugSet));
 	let promptTags = $derived(
 		(generation?.promptTokens ?? []).filter(
 			(token) =>
@@ -16,6 +28,9 @@
 	);
 	let styleReferences = $derived(
 		(generation?.promptTokens ?? []).filter((token) => token.role === 'artist_style_reference')
+	);
+	let acceptedStyleReferences = $derived(
+		styleReferences.filter((token) => acceptedSlugSet.has(artistStyleSlug(token.normalized)))
 	);
 	let settings = $derived(Object.entries(generation?.settings ?? {}));
 	let rawJson = $derived(
@@ -32,6 +47,32 @@
 
 	function tokenLabel(token: PromptToken) {
 		return token.weight ? `${token.normalized} x${token.weight}` : token.normalized;
+	}
+
+	async function addPromptSuggestion(slug: string) {
+		await onPatch?.({ concepts: [{ slug, evidence: 'prompted', status: 'approved' }] });
+	}
+
+	async function addAllPromptSuggestions() {
+		if (!suggestedPromptTags.length) return;
+		await onPatch?.({
+			concepts: suggestedPromptTags.map((suggestion) => ({
+				slug: suggestion.slug,
+				evidence: 'prompted',
+				status: 'approved'
+			}))
+		});
+	}
+
+	async function addArtistStyleSuggestion(slug: string) {
+		await onPatch?.({ concepts: [{ slug, evidence: 'prompted', status: 'approved' }] });
+	}
+
+	async function addManualArtistStyle() {
+		const slug = artistStyleSlug(artistStyleInput);
+		if (!slug) return;
+		await addArtistStyleSuggestion(slug);
+		artistStyleInput = '';
 	}
 </script>
 
@@ -95,22 +136,66 @@
 			{#if styleReferences.length}
 				<section class="prompt-section">
 					<h3>Artist Style References</h3>
-					<div class="chips">
-						{#each styleReferences as token}
-							<span>{tokenLabel(token)}</span>
+					<div class="chips action-chips">
+						{#each suggestedArtistStyles as suggestion}
+							<button
+								type="button"
+								onclick={() => addArtistStyleSuggestion(suggestion.slug)}
+								title="Add artist style reference"
+							>
+								{suggestion.label}
+							</button>
+						{/each}
+						{#each acceptedStyleReferences as token}
+							<span class="accepted">{tokenLabel(token)}</span>
 						{/each}
 					</div>
 				</section>
 			{/if}
 
+			<section class="prompt-section">
+				<h3>Assign Artist Style</h3>
+				<div class="style-form">
+					<input
+						type="text"
+						bind:value={artistStyleInput}
+						placeholder="Artist style name"
+						onkeydown={(event) => {
+							if (event.key === 'Enter') {
+								event.preventDefault();
+								void addManualArtistStyle();
+							}
+						}}
+					/>
+					<button type="button" disabled={!artistStyleInput.trim()} onclick={addManualArtistStyle}>
+						Add
+					</button>
+				</div>
+			</section>
+
 			{#if promptTags.length}
 				<section class="prompt-section">
-					<h3>Prompt Tags</h3>
-					<div class="chips">
-						{#each promptTags as token}
-							<span>{tokenLabel(token)}</span>
-						{/each}
+					<div class="section-heading">
+						<h3>AI Suggested Tags</h3>
+						{#if suggestedPromptTags.length}
+							<button type="button" onclick={addAllPromptSuggestions}>Add all</button>
+						{/if}
 					</div>
+					{#if suggestedPromptTags.length}
+						<div class="chips action-chips">
+							{#each suggestedPromptTags as suggestion}
+								<button
+									type="button"
+									onclick={() => addPromptSuggestion(suggestion.slug)}
+									title="Add suggested Atlas tag"
+								>
+									{suggestion.label}
+								</button>
+							{/each}
+						</div>
+					{:else}
+						<p class="muted">All positive prompt tags have been added.</p>
+					{/if}
 				</section>
 			{/if}
 
@@ -214,7 +299,8 @@
 	}
 
 	.meta-grid span,
-	.chips span {
+	.chips span,
+	.chips button {
 		border: 1px solid var(--color-border);
 		border-radius: 999px;
 		background: oklch(16% 0.01 70);
@@ -224,8 +310,37 @@
 		padding: 0.38rem 0.55rem;
 	}
 
+	.chips button,
+	.section-heading button,
+	.style-form button {
+		cursor: pointer;
+		font: inherit;
+	}
+
+	.action-chips button {
+		background: oklch(20% 0.012 70);
+	}
+
+	.action-chips button:hover {
+		border-color: oklch(78% 0.08 78 / 0.42);
+		background: oklch(24% 0.016 74);
+	}
+
+	.chips .accepted {
+		color: var(--color-muted);
+		text-decoration: line-through;
+	}
+
 	.prompt-section {
 		margin-top: var(--space-4);
+	}
+
+	.section-heading {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+		margin-bottom: var(--space-2);
 	}
 
 	.prompt-section h3 {
@@ -235,12 +350,57 @@
 		text-transform: uppercase;
 	}
 
+	.section-heading h3 {
+		margin-bottom: 0;
+	}
+
+	.section-heading button,
+	.style-form button {
+		border: 1px solid oklch(78% 0.08 78 / 0.35);
+		border-radius: var(--radius-sm);
+		background: oklch(78% 0.08 78 / 0.12);
+		color: var(--color-text);
+		font-size: 0.76rem;
+		padding: 0.35rem 0.55rem;
+	}
+
+	.section-heading button:hover,
+	.style-form button:hover:not(:disabled) {
+		background: oklch(78% 0.08 78 / 0.18);
+	}
+
+	.style-form {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: var(--space-2);
+	}
+
+	.style-form input {
+		min-width: 0;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		background: oklch(9% 0.006 70);
+		color: var(--color-text);
+		font: inherit;
+		padding: 0.42rem 0.55rem;
+	}
+
+	.style-form button:disabled {
+		cursor: not-allowed;
+		opacity: 0.48;
+	}
+
 	.prompt-section p,
 	.character-prompt p,
-	.empty p {
+	.empty p,
+	.muted {
 		margin: 0;
 		color: var(--color-text);
 		white-space: pre-wrap;
+	}
+
+	.muted {
+		color: var(--color-muted);
 	}
 
 	.negative p,
