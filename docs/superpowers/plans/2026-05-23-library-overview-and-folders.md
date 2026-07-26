@@ -60,6 +60,7 @@ Modify these files:
 ## Task 1: Add Library IA Types And Mock Organization Data
 
 **Files:**
+
 - Modify: `src/lib/types.ts`
 - Create: `src/lib/data/library-organization.ts`
 - Test: `src/lib/data/mock-assets.spec.ts`
@@ -110,10 +111,34 @@ export const libraryOverviewStats = {
 
 export const libraryTopFolders: LibraryFolder[] = [
 	{ id: 'refs', name: 'refs', path: ['library', 'refs'], assetCount: 8731, childFolderCount: 9 },
-	{ id: 'imports', name: 'imports', path: ['library', 'imports'], assetCount: 842, childFolderCount: 3 },
-	{ id: 'resources', name: 'resources', path: ['library', 'resources'], assetCount: 216, childFolderCount: 5 },
-	{ id: 'inspiration', name: 'inspiration', path: ['library', 'inspiration'], assetCount: 142, childFolderCount: 2 },
-	{ id: 'personal', name: 'personal', path: ['library', 'personal'], assetCount: 93, childFolderCount: 1 }
+	{
+		id: 'imports',
+		name: 'imports',
+		path: ['library', 'imports'],
+		assetCount: 842,
+		childFolderCount: 3
+	},
+	{
+		id: 'resources',
+		name: 'resources',
+		path: ['library', 'resources'],
+		assetCount: 216,
+		childFolderCount: 5
+	},
+	{
+		id: 'inspiration',
+		name: 'inspiration',
+		path: ['library', 'inspiration'],
+		assetCount: 142,
+		childFolderCount: 2
+	},
+	{
+		id: 'personal',
+		name: 'personal',
+		path: ['library', 'personal'],
+		assetCount: 93,
+		childFolderCount: 1
+	}
 ];
 
 export const libraryFolders: LibraryFolder[] = [
@@ -169,14 +194,18 @@ export const librarySmartFolders: SmartFolder[] = [
 
 export const librarySectionChips = ['Overview', 'Projects', 'Folders', 'Smart', 'Tags'];
 
-export const libraryPinnedProjects: LibraryProjectSummary[] = pinnedProjects.map((project, index) => ({
-	...project,
-	noteCount: index === 0 ? 5 : 3,
-	coverAssetIds: project.assetIds.slice(0, 4)
-}));
+export const libraryPinnedProjects: LibraryProjectSummary[] = pinnedProjects.map(
+	(project, index) => ({
+		...project,
+		noteCount: index === 0 ? 5 : 3,
+		coverAssetIds: project.assetIds.slice(0, 4)
+	})
+);
 
 export function findFolderByPath(path: string[]) {
-	return libraryFolders.find((folder) => folder.path.join('/') === path.join('/')) ?? libraryFolders[0];
+	return (
+		libraryFolders.find((folder) => folder.path.join('/') === path.join('/')) ?? libraryFolders[0]
+	);
 }
 
 export function getChildFolders(parentId: string) {
@@ -215,7 +244,9 @@ describe('library organization helpers', () => {
 	it('treats folders as direct containers by default', () => {
 		const folder = findFolderByPath(['library', 'refs', 'artworks']);
 		const assets = getDirectFolderAssets(folder.path);
-		expect(assets.every((asset) => asset.folderPath.join('/') === folder.path.join('/'))).toBe(true);
+		expect(assets.every((asset) => asset.folderPath.join('/') === folder.path.join('/'))).toBe(
+			true
+		);
 	});
 
 	it('returns only direct child folders for folder navigation', () => {
@@ -251,6 +282,7 @@ git commit -m "Add library organization data model"
 ## Task 2: Add Library View State And Navigation Helpers
 
 **Files:**
+
 - Modify: `src/lib/state/app-state.svelte.ts`
 - Test: `tests/pastiche.e2e.ts`
 
@@ -371,6 +403,7 @@ git commit -m "Add library view navigation state"
 ## Task 3: Build Library Overview Components
 
 **Files:**
+
 - Create: `src/lib/components/library/LibrarySearch.svelte`
 - Create: `src/lib/components/library/ProjectCarousel.svelte`
 - Create: `src/lib/components/library/GroupedNavList.svelte`
@@ -590,8 +623,11 @@ Create `src/lib/components/library/ProjectCarousel.svelte`:
 				</span>
 			</button>
 			<div class="project-actions">
-				<button type="button" aria-label={`Unpin ${project.name}`}><PushPinIcon size={17} /></button>
-				<button type="button" aria-label={`${project.name} actions`}><DotsThreeIcon size={18} /></button>
+				<button type="button" aria-label={`Unpin ${project.name}`}><PushPinIcon size={17} /></button
+				>
+				<button type="button" aria-label={`${project.name} actions`}
+					><DotsThreeIcon size={18} /></button
+				>
 			</div>
 		</article>
 	{/each}
@@ -927,6 +963,7 @@ git commit -m "Add library overview shell"
 ## Task 4: Build Folder Contents And Full Library Views
 
 **Files:**
+
 - Create: `src/lib/components/library/FolderCards.svelte`
 - Create: `src/lib/components/library/FolderContents.svelte`
 - Create: `src/lib/components/library/LibraryWorkspace.svelte`
@@ -1025,7 +1062,9 @@ Create `src/lib/components/library/FolderContents.svelte`:
 
 	let folder = $derived(findFolderByPath(appState.activeLibraryFolderPath));
 	let childFolders = $derived(scope === 'folder' ? getChildFolders(folder.id) : []);
-	let assets = $derived(scope === 'all' ? getFullLibraryAssets() : getDirectFolderAssets(folder.path));
+	let assets = $derived(
+		scope === 'all' ? getFullLibraryAssets() : getDirectFolderAssets(folder.path)
+	);
 	let title = $derived(scope === 'all' ? 'All Library' : folder.name);
 	let stats = $derived(
 		scope === 'all'
@@ -1049,7 +1088,9 @@ Create `src/lib/components/library/FolderContents.svelte`:
 					class:current={index === folder.path.length - 1}
 					type="button"
 					onclick={() =>
-						index === 0 ? openLibraryOverview() : openLibraryFolder(folder.path.slice(0, index + 1))}
+						index === 0
+							? openLibraryOverview()
+							: openLibraryFolder(folder.path.slice(0, index + 1))}
 				>
 					{segment}
 				</button>
@@ -1078,7 +1119,9 @@ Create `src/lib/components/library/FolderContents.svelte`:
 		<header>
 			<h2 id="assets-title">Assets</h2>
 			<div class="view-toggle" aria-label="View options">
-				<button type="button" aria-label="Grid view"><SquaresFourIcon size={18} weight="fill" /></button>
+				<button type="button" aria-label="Grid view"
+					><SquaresFourIcon size={18} weight="fill" /></button
+				>
 				<button type="button" aria-label="List view"><ListBulletsIcon size={18} /></button>
 			</div>
 		</header>
@@ -1252,7 +1295,10 @@ await expect(page.getByRole('button', { name: 'Inspect Crimson Horizon' })).toBe
 
 await mobilePrimary.getByRole('button', { name: 'Library', exact: true }).click();
 await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
-await page.getByRole('navigation', { name: 'Top-level folders' }).getByRole('button', { name: /refs/ }).click();
+await page
+	.getByRole('navigation', { name: 'Top-level folders' })
+	.getByRole('button', { name: /refs/ })
+	.click();
 await expect(page.getByRole('heading', { name: 'refs' })).toBeVisible();
 
 await page.getByRole('button', { name: /artworks/ }).click();
@@ -1283,6 +1329,7 @@ git commit -m "Add library folder contents views"
 ## Task 5: Adjust Mobile And Desktop Shell Chrome
 
 **Files:**
+
 - Modify: `src/lib/components/shell/MobileHeader.svelte`
 - Modify: `src/lib/components/shell/TopBar.svelte`
 - Modify: `src/lib/components/browse/BrowseWorkspace.svelte`
@@ -1380,6 +1427,7 @@ git commit -m "Align shell chrome with library overview"
 ## Task 6: Add Static Filter Drawer And Desktop Filter Panel
 
 **Files:**
+
 - Create: `src/lib/components/filters/FilterDrawer.svelte`
 - Create: `src/lib/components/filters/FilterPanel.svelte`
 - Modify: `src/lib/components/shell/AppShell.svelte`
@@ -1398,18 +1446,41 @@ Create `src/lib/components/filters/FilterDrawer.svelte`:
 	const sortOptions = ['Recently added', 'Recently modified', 'Oldest', 'Artwork date'];
 	const tags = ['abstract', 'geometric', 'lighting', 'figure', 'architecture'];
 	const sources = ['All sources', 'Uploaded', 'ArtStation', 'The Met', 'MoMA'];
-	const colors = ['#e13a3a', '#f28a2e', '#f1cc43', '#68b84c', '#55beb4', '#3c8ed8', '#7545d8', '#d7799c', '#e8ddc8', '#a7a7a3', '#11100e'];
-	const mediums = ['Painting', 'Drawing', 'Print', 'Photography', 'Digital', 'Sculpture / 3D', 'Mixed media'];
+	const colors = [
+		'#e13a3a',
+		'#f28a2e',
+		'#f1cc43',
+		'#68b84c',
+		'#55beb4',
+		'#3c8ed8',
+		'#7545d8',
+		'#d7799c',
+		'#e8ddc8',
+		'#a7a7a3',
+		'#11100e'
+	];
+	const mediums = [
+		'Painting',
+		'Drawing',
+		'Print',
+		'Photography',
+		'Digital',
+		'Sculpture / 3D',
+		'Mixed media'
+	];
 </script>
 
-<button class="filter-scrim" type="button" aria-label="Close filters" onclick={closeFilter}></button>
+<button class="filter-scrim" type="button" aria-label="Close filters" onclick={closeFilter}
+></button>
 <section class="filter-drawer" aria-labelledby="filters-title" aria-modal="true" role="dialog">
 	<header>
 		<div>
 			<h2 id="filters-title">Filters</h2>
 			<p>Refine visible results</p>
 		</div>
-		<button type="button" onclick={closeFilter} aria-label="Close filters"><XIcon size={22} /></button>
+		<button type="button" onclick={closeFilter} aria-label="Close filters"
+			><XIcon size={22} /></button
+		>
 	</header>
 
 	<section>
@@ -1423,7 +1494,9 @@ Create `src/lib/components/filters/FilterDrawer.svelte`:
 
 	<section>
 		<h3>Tags</h3>
-		<label class="field"><MagnifyingGlassIcon size={18} /><input placeholder="Search tags..." /></label>
+		<label class="field"
+			><MagnifyingGlassIcon size={18} /><input placeholder="Search tags..." /></label
+		>
 		<div class="chips">
 			{#each tags as tag}
 				<button type="button">{tag}</button>
@@ -1442,7 +1515,9 @@ Create `src/lib/components/filters/FilterDrawer.svelte`:
 
 	<section>
 		<h3>Artist / Creator</h3>
-		<label class="field"><MagnifyingGlassIcon size={18} /><input placeholder="Search artists..." /></label>
+		<label class="field"
+			><MagnifyingGlassIcon size={18} /><input placeholder="Search artists..." /></label
+		>
 	</section>
 
 	<section>
@@ -1675,8 +1750,8 @@ Reuse the same text labels from the desktop mockup:
 In `src/lib/components/shell/AppShell.svelte`, import:
 
 ```svelte
-import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
-import FilterPanel from '$lib/components/filters/FilterPanel.svelte';
+import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte'; import FilterPanel from
+'$lib/components/filters/FilterPanel.svelte';
 ```
 
 Mount near existing sheets:
@@ -1727,6 +1802,7 @@ git commit -m "Add static filter surfaces"
 ## Task 7: Update Documentation And Visual References
 
 **Files:**
+
 - Modify: `docs/design/mobile-interface-plan.md`
 - Modify: `docs/design/tablet-desktop-interface-plan.md`
 - Verify: mockup files exist
@@ -1774,6 +1850,7 @@ git commit -m "Document library overview IA"
 ## Task 8: Final Verification Pass
 
 **Files:**
+
 - Verify all touched files
 - Test all relevant commands
 
@@ -1845,4 +1922,3 @@ git commit -m "Verify library overview shell"
 - Filter controls are static shell UI in this plan. They should update filter state later, after the data/query layer exists.
 - Desktop Library can keep a sidebar accelerator temporarily, but the primary IA should move toward Overview and Folder Contents on all breakpoints.
 - Avoid relying on hover-only controls on touch surfaces. Hover reveal is acceptable on desktop only when the same action exists through tap or menu on mobile.
-

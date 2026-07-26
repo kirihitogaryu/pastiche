@@ -113,4 +113,14 @@ describe('Explore client cache keys', () => {
 		expect(fetchMock).not.toHaveBeenCalled();
 		expect(shouldSkipThumbBlobCache(url)).toBe(true);
 	});
+
+	it('uses the browser image cache without eagerly fetching every uncached result card', async () => {
+		const fetchMock = vi.fn();
+		vi.stubGlobal('fetch', fetchMock);
+		const url = 'https://images.example.com/artwork.jpg';
+
+		await expect(getCachedThumbUrl('met-1', url, { populate: false })).resolves.toBe(url);
+
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
 });

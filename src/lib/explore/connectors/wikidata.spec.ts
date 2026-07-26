@@ -482,10 +482,16 @@ describe('Wikidata connector', () => {
 			if (url.hostname === 'query.wikidata.org') {
 				throw new Error('Reference mode should not use artwork SPARQL for Commons-only results.');
 			}
-			if (url.searchParams.get('list') === 'search' && url.searchParams.get('srnamespace') === '14') {
+			if (
+				url.searchParams.get('list') === 'search' &&
+				url.searchParams.get('srnamespace') === '14'
+			) {
 				return Response.json({ query: { search: [] } });
 			}
-			if (url.searchParams.get('list') === 'search' && url.searchParams.get('srnamespace') === '6') {
+			if (
+				url.searchParams.get('list') === 'search' &&
+				url.searchParams.get('srnamespace') === '6'
+			) {
 				return Response.json({ query: { search: [{ title: 'File:Female lion.jpg' }] } });
 			}
 			if (url.searchParams.get('prop') === 'imageinfo') {

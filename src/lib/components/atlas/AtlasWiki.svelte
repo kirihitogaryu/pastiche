@@ -7,219 +7,69 @@
 	import MagnifyingGlassIcon from 'phosphor-svelte/lib/MagnifyingGlassIcon';
 	import PencilSimpleIcon from 'phosphor-svelte/lib/PencilSimpleIcon';
 	import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
+	import SparkleIcon from 'phosphor-svelte/lib/SparkleIcon';
 	import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
 	import XIcon from 'phosphor-svelte/lib/XIcon';
-	import type { AtlasWikiEntrySummary } from '$lib/atlas/types';
+	import type {
+		AtlasConceptDeletionImpact,
+		AtlasEntityKind,
+		AtlasEntityProfile
+	} from '$lib/atlas/types';
+	import { ATLAS_ONTOLOGY, defaultDisplayGroupFor } from '$lib/atlas/ontology';
+	import type { AtlasAgentRun, AtlasAgentWikiResult } from '$lib/atlas/agentTypes';
+	import type { AtlasWikiDraftInput } from '$lib/atlas/batch';
 	import { rankAtlasWikiEntries } from '$lib/atlas/wikiSearch';
-	import { appState, openAtlasAsset, openAtlasHome } from '$lib/state/app-state.svelte';
-
-	type AtlasWikiEntry = AtlasWikiEntrySummary & {
-		longDescription: string | null;
-		useWhen: string[];
-		doNotUseWhen: string[];
-		narrower: string[];
-		automaticImplications: string[];
-		suggestedImplications: string[];
-		examples: string[];
-		counterexamples: string[];
-		exampleAssetIds: string[];
-		counterexampleAssetIds: string[];
-		exampleAssets: WikiExampleAsset[];
-		counterexampleAssets: WikiExampleAsset[];
-		missingExampleAssetIds: string[];
-		missingCounterexampleAssetIds: string[];
-		citations: string[];
-	};
-
-	type WikiExampleAsset = {
-		id: string;
-		title: string;
-		thumbnailUrl: string | null;
-		width: number;
-		height: number;
-		sourceUrl: string;
-		visualRole: string | null;
-	};
-
-	type WikiDoc = {
-		slug: string;
-		title: string;
-		description: string;
-		markdown: string;
-	};
-
-	type WikiResponse = {
-		entries: AtlasWikiEntry[];
-	};
-
-	type WikiDocResponse = {
-		doc: WikiDoc;
-	};
-
-	type WikiPatchResponse = {
-		entry: AtlasWikiEntry;
-	};
-
-	type NewWikiDraft = {
-		slug: string;
-		label: string;
-		kind: string;
-		category: string;
-		displayGroup: string;
-		shortDefinition: string;
-		longDescription: string;
-		useWhen: string;
-		doNotUseWhen: string;
-		aliases: string;
-		broader: string;
-		narrower: string;
-		related: string;
-		confusable: string;
-		automaticImplications: string;
-		suggestedImplications: string;
-		allowedClassifiers: string;
-		aiGuidance: string;
-		citations: string;
-	};
-
-	type ExampleCandidate = {
-		id: string;
-		title: string;
-		thumbnailUrl: string | null;
-		width: number;
-		height: number;
-		sourceUrl: string | null;
-		visualRole: string | null;
-		role: string | null;
-		subtitle: string;
-	};
-
-	type ExampleCandidatesResponse = {
-		candidates: ExampleCandidate[];
-	};
-
-	type ReviewItem = {
-		slug: string;
-		label: string;
-		kind: string;
-		category: string;
-		displayGroup: string;
-		status: string;
-		maturity: string;
-		shortDefinition: string;
-		usageCount: number;
-		reason: 'missing_wiki' | 'needs_review';
-	};
-
-	type ReviewResponse = {
-		items: ReviewItem[];
-	};
-
-	type WikiDraft = {
-		label: string;
-		shortDefinition: string;
-		longDescription: string;
-		aliases: string;
-		useWhen: string;
-		doNotUseWhen: string;
-		automaticImplications: string;
-		suggestedImplications: string;
-		broader: string;
-		narrower: string;
-		related: string;
-		confusable: string;
-		allowedClassifiers: string;
-		exampleAssetIds: string[];
-		counterexampleAssetIds: string[];
-		aiGuidance: string;
-		citations: string;
-		status: AtlasWikiEntry['status'];
-		maturity: AtlasWikiEntry['maturity'];
-	};
-
-	type BrowseBranch = {
-		name: string;
-		entries: AtlasWikiEntry[];
-	};
-
-	type BrowseGroup = {
-		name: string;
-		branches: BrowseBranch[];
-	};
-
-	type MarkdownBlock =
-		| { kind: 'heading'; depth: number; text: string }
-		| { kind: 'paragraph'; text: string }
-		| { kind: 'list'; items: string[] }
-		| { kind: 'code'; text: string };
-
-	const DOC_LINKS = [
-		{ slug: 'contribution-guidelines', label: 'Contribution Guidelines' },
-		{ slug: 'tagging-rules', label: 'Tagging Rules' },
-		{ slug: 'style-guide', label: 'Wiki Style Guide' },
-		{ slug: 'artist-entity-style-guide', label: 'Artist Entity Style Guide' },
-		{ slug: 'implication-rules', label: 'Implication Rules' },
-		{ slug: 'ai-agent-tagging-rules', label: 'AI Agent Tagging Rules' },
-		{ slug: 'batch-editor-guide', label: 'Batch Editor Guide' }
-	];
-
-	const CATEGORY_OPTIONS = [
-		'object',
-		'subject',
-		'animal',
-		'plant',
-		'architecture',
-		'action',
-		'pose',
-		'composition',
-		'color_light_value',
-		'medium_technique',
-		'style_movement',
-		'theme',
-		'mood',
-		'artist',
-		'work',
-		'character',
-		'ip',
-		'institution',
-		'source',
-		'rights',
-		'classifier',
-		'system'
-	];
-
-	const DISPLAY_GROUP_OPTIONS = [
-		'Objects',
-		'Subjects',
-		'Animals',
-		'Actions and Poses',
-		'Composition',
-		'Color, Light, and Value',
-		'Medium and Technique',
-		'Style and Movement',
-		'Theme and Mood',
-		'Artists and Makers',
-		'Characters',
-		'Mythology and Iconography',
-		'Identity and Source',
-		'Setting and Architecture',
-		'Text and Inscriptions',
-		'Classifiers'
-	];
+	import { isGifMedia } from '$lib/library/media';
+	import {
+		appState,
+		openAtlasAsset,
+		openAtlasHome,
+		openAtlasSearch,
+		updateMobileNavFromScroll
+	} from '$lib/state/app-state.svelte';
+	import { DISPLAY_GROUP_OPTIONS, DOC_LINKS } from './atlasWikiModel';
+	import type {
+		AtlasWikiEntry,
+		BrowseGroup,
+		EntityDraft,
+		EntityProfileResponse,
+		ExampleCandidate,
+		ExampleCandidatesResponse,
+		MarkdownBlock,
+		NewWikiDraft,
+		ReviewItem,
+		ReviewResponse,
+		DeletedConceptResponse,
+		WikiDoc,
+		WikiDocResponse,
+		WikiDraft,
+		WikiPatchResponse,
+		WikiResponse
+	} from './atlasWikiModel';
 
 	let entries = $state<AtlasWikiEntry[]>([]);
 	let activeSlug = $state<string | null>(null);
 	let activeDocSlug = $state<string | null>(null);
 	let activeDoc = $state<WikiDoc | null>(null);
+	let activeEntity = $state<AtlasEntityProfile | null>(null);
 	let loading = $state(true);
+	let entityLoading = $state(false);
 	let docLoading = $state(false);
 	let error = $state<string | null>(null);
+	let entityError = $state<string | null>(null);
 	let docError = $state<string | null>(null);
 	let query = $state('');
 	let wikiEditMode = $state(false);
 	let wikiSaving = $state(false);
 	let wikiError = $state<string | null>(null);
 	let wikiDraft = $state<WikiDraft | null>(null);
+	let wikiAgentRun = $state<AtlasAgentRun | null>(null);
+	let wikiAgentLoading = $state(false);
+	let wikiAgentError = $state<string | null>(null);
+	let adoptedWikiRunId = $state<string | null>(null);
+	let entityEditMode = $state(false);
+	let entitySaving = $state(false);
+	let entityDraft = $state<EntityDraft | null>(null);
 	let examplePickerOpen = $state(false);
 	let exampleQuery = $state('');
 	let exampleCandidates = $state<ExampleCandidate[]>([]);
@@ -232,26 +82,96 @@
 	let reviewItems = $state<ReviewItem[]>([]);
 	let reviewLoading = $state(false);
 	let reviewError = $state<string | null>(null);
+	let reviewFilter = $state<'all' | 'needs_classification' | 'needs_review' | 'unused' | 'deleted'>(
+		'all'
+	);
+	let deletedItems = $state<DeletedConceptResponse['items']>([]);
+	let governanceBusy = $state(false);
+	let governanceError = $state<string | null>(null);
+	let governanceAction = $state<'delete' | 'merge' | 'deprecate' | null>(null);
+	let governanceSlug = $state<string | null>(null);
+	let governanceTarget = $state('');
+	let deletionImpact = $state<AtlasConceptDeletionImpact | null>(null);
+	let deletionConfirmation = $state('');
 	let vocabularyExportStatus = $state<string | null>(null);
+	let expandedReferenceLists = $state<Record<string, boolean>>({});
+	let mobileArticleOpen = $state(Boolean(appState.activeAtlasWikiSlug));
+	let entryScroll: HTMLElement | null = null;
+	let animatedWikiAssetId = $state<string | null>(null);
 
 	let entryBySlug = $derived(new Map(entries.map((entry) => [entry.slug, entry])));
-	let filteredEntries = $derived(
-		query.trim() ? rankAtlasWikiEntries(entries, query) : entries
-	);
+	let filteredEntries = $derived(query.trim() ? rankAtlasWikiEntries(entries, query) : entries);
 	let browseGroups = $derived(
 		query.trim()
 			? [{ name: 'Search Results', branches: [{ name: 'Matches', entries: filteredEntries }] }]
 			: buildBrowseGroups(filteredEntries)
 	);
 	let activeEntry = $derived(
-		activeDocSlug || creatingNewTag || reviewMode
+		activeDocSlug || activeEntity || creatingNewTag || reviewMode
 			? null
-			: (entries.find((entry) => entry.slug === activeSlug) ?? filteredEntries[0] ?? null)
+			: (entries.find((entry) => entry.slug === activeSlug) ?? null)
 	);
 	let markdownBlocks = $derived(activeDoc ? parseMarkdown(activeDoc.markdown) : []);
 
+	type WikiMediaAsset = {
+		id: string;
+		title: string;
+		thumbnailUrl: string | null;
+		mimeType: string | null;
+	};
+
+	function wikiAssetIsGif(asset: WikiMediaAsset) {
+		return isGifMedia(asset.mimeType, asset.title, asset.thumbnailUrl);
+	}
+
+	function wikiAssetOriginalUrl(asset: Pick<WikiMediaAsset, 'id'>) {
+		return `/api/library/assets/${encodeURIComponent(asset.id)}/image?variant=original`;
+	}
+
+	function startWikiAssetPreview(asset: WikiMediaAsset) {
+		if (!wikiAssetIsGif(asset) || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+			return;
+		}
+		animatedWikiAssetId = asset.id;
+	}
+
+	function stopWikiAssetPreview(asset: Pick<WikiMediaAsset, 'id'>) {
+		if (animatedWikiAssetId === asset.id) animatedWikiAssetId = null;
+	}
+
 	$effect(() => {
 		void loadEntries();
+	});
+
+	$effect(() => {
+		const ref = entityRefFromWikiSlug(appState.activeAtlasWikiSlug);
+		if (!ref) {
+			activeEntity = null;
+			entityLoading = false;
+			entityError = null;
+			closeEntityEditor();
+			return;
+		}
+		showWikiArticle();
+		void loadEntity(ref.kind, ref.slug);
+	});
+
+	$effect(() => {
+		const slug = activeEntry?.slug;
+		wikiAgentRun = null;
+		wikiAgentError = null;
+		adoptedWikiRunId = null;
+		if (slug) void loadLatestWikiRun(slug);
+	});
+
+	$effect(() => {
+		if (
+			!wikiAgentRun?.id ||
+			(wikiAgentRun.status !== 'queued' && wikiAgentRun.status !== 'running')
+		)
+			return;
+		const timer = window.setTimeout(() => void refreshWikiRun(wikiAgentRun?.id ?? '', true), 1_100);
+		return () => window.clearTimeout(timer);
 	});
 
 	async function loadEntries() {
@@ -266,12 +186,14 @@
 				);
 			}
 			entries = body.entries;
+			const requested = appState.activeAtlasWikiSlug;
 			activeSlug =
-				(appState.activeAtlasWikiSlug &&
-					body.entries.some((entry) => entry.slug === appState.activeAtlasWikiSlug) &&
-					appState.activeAtlasWikiSlug) ||
-				body.entries[0]?.slug ||
-				null;
+				requested &&
+				!entityRefFromWikiSlug(requested) &&
+				body.entries.some((entry) => entry.slug === appState.activeAtlasWikiSlug)
+					? appState.activeAtlasWikiSlug
+					: null;
+			if (activeSlug) showWikiArticle();
 		} catch (loadError) {
 			error = loadError instanceof Error ? loadError.message : 'Atlas wiki could not be loaded.';
 		} finally {
@@ -279,7 +201,33 @@
 		}
 	}
 
+	async function loadEntity(kind: AtlasEntityKind, slug: string) {
+		creatingNewTag = false;
+		reviewMode = false;
+		closeWikiEditor();
+		activeSlug = null;
+		activeDocSlug = null;
+		activeDoc = null;
+		activeEntity = null;
+		entityLoading = true;
+		entityError = null;
+		closeEntityEditor();
+		try {
+			const response = await fetch(`/api/atlas/entities/${kind}/${encodeURIComponent(slug)}`);
+			const body = (await response.json()) as EntityProfileResponse | { error?: string };
+			if (!response.ok || !('entity' in body)) {
+				throw new Error('error' in body && body.error ? body.error : 'Artist profile not found.');
+			}
+			activeEntity = body.entity;
+		} catch (loadError) {
+			entityError = loadError instanceof Error ? loadError.message : 'Artist profile not found.';
+		} finally {
+			entityLoading = false;
+		}
+	}
+
 	async function loadDoc(slug: string) {
+		showWikiArticle();
 		creatingNewTag = false;
 		reviewMode = false;
 		closeWikiEditor();
@@ -303,13 +251,43 @@
 	}
 
 	function selectEntry(slug: string) {
+		showWikiArticle();
 		creatingNewTag = false;
 		reviewMode = false;
 		activeSlug = slug;
+		activeEntity = null;
+		entityError = null;
 		activeDocSlug = null;
 		activeDoc = null;
 		closeWikiEditor();
+		closeEntityEditor();
 		appState.activeAtlasWikiSlug = slug;
+	}
+
+	function selectEntity(kind: AtlasEntityKind, slug: string) {
+		showWikiArticle();
+		creatingNewTag = false;
+		reviewMode = false;
+		activeSlug = null;
+		activeDocSlug = null;
+		activeDoc = null;
+		closeWikiEditor();
+		closeEntityEditor();
+		appState.activeAtlasWikiSlug = `${kind}:${slug}`;
+	}
+
+	function openWikiGuide() {
+		showWikiArticle();
+		creatingNewTag = false;
+		reviewMode = false;
+		activeSlug = null;
+		activeEntity = null;
+		entityError = null;
+		activeDocSlug = null;
+		activeDoc = null;
+		appState.activeAtlasWikiSlug = null;
+		closeWikiEditor();
+		closeEntityEditor();
 	}
 
 	function closeWikiEditor() {
@@ -322,13 +300,19 @@
 		exampleCandidates = [];
 	}
 
+	function closeEntityEditor() {
+		entityEditMode = false;
+		entitySaving = false;
+		entityDraft = null;
+	}
+
 	function emptyNewTagDraft(): NewWikiDraft {
 		return {
 			slug: '',
 			label: '',
-			kind: 'visual_tag',
-			category: 'object',
-			displayGroup: 'Objects',
+			kind: '',
+			category: '',
+			displayGroup: '',
 			shortDefinition: '',
 			longDescription: '',
 			useWhen: '',
@@ -347,6 +331,7 @@
 	}
 
 	function startNewTagDraft(item?: ReviewItem) {
+		showWikiArticle();
 		closeWikiEditor();
 		activeSlug = null;
 		activeDocSlug = null;
@@ -361,59 +346,229 @@
 					kind: item.kind,
 					category: item.category,
 					displayGroup: item.displayGroup,
-					shortDefinition:
-						item.shortDefinition.startsWith('Needs wiki entry.') ? '' : item.shortDefinition
+					shortDefinition: item.shortDefinition.startsWith('Needs wiki entry.')
+						? ''
+						: item.shortDefinition
 				}
 			: emptyNewTagDraft();
 		newTagError = null;
+	}
+
+	function startMissingTagDraft(slug: string) {
+		startNewTagDraft();
+		newTagDraft = {
+			...newTagDraft,
+			slug,
+			label: displayLabel(slug)
+		};
+	}
+
+	function categoriesForKind(kind: string) {
+		return ATLAS_ONTOLOGY.kinds.find((entry) => entry.id === kind)?.categories ?? [];
+	}
+
+	function chooseNewTagCategory(category: string) {
+		newTagDraft.category = category;
+		if (newTagDraft.kind) {
+			newTagDraft.displayGroup =
+				defaultDisplayGroupFor(newTagDraft.kind as AtlasWikiEntry['kind'], newTagDraft.category) ??
+				'';
+		}
 	}
 
 	function cancelNewTagDraft() {
 		creatingNewTag = false;
 		newTagDraft = emptyNewTagDraft();
 		newTagError = null;
-		activeSlug = entries[0]?.slug ?? null;
+		activeSlug = null;
 	}
 
-	async function openReviewQueue() {
+	async function openReviewQueue(
+		filter: 'all' | 'needs_classification' | 'needs_review' | 'unused' | 'deleted' = reviewFilter
+	) {
+		showWikiArticle();
 		closeWikiEditor();
 		creatingNewTag = false;
 		activeDocSlug = null;
 		activeDoc = null;
 		activeSlug = null;
 		reviewMode = true;
+		reviewFilter = filter;
 		reviewLoading = true;
 		reviewError = null;
 		try {
-			const response = await fetch('/api/atlas/wiki/review');
+			if (filter === 'deleted') {
+				const response = await fetch('/api/atlas/concepts/deleted');
+				const body = (await response.json()) as DeletedConceptResponse | { error?: string };
+				if (!response.ok || !('items' in body)) {
+					throw new Error(
+						'error' in body && body.error ? body.error : 'Deleted tags could not be loaded.'
+					);
+				}
+				deletedItems = body.items;
+				reviewItems = [];
+				return;
+			}
+			const response = await fetch(`/api/atlas/wiki/review?filter=${filter}`);
 			const body = (await response.json()) as ReviewResponse | { error?: string };
 			if (!response.ok || !('items' in body)) {
-				throw new Error('error' in body && body.error ? body.error : 'Review queue could not be loaded.');
+				throw new Error(
+					'error' in body && body.error ? body.error : 'Review queue could not be loaded.'
+				);
 			}
 			reviewItems = body.items;
 		} catch (loadError) {
-			reviewError = loadError instanceof Error ? loadError.message : 'Review queue could not be loaded.';
+			reviewError =
+				loadError instanceof Error ? loadError.message : 'Review queue could not be loaded.';
 		} finally {
 			reviewLoading = false;
 		}
 	}
 
+	function returnToWikiIndex() {
+		mobileArticleOpen = false;
+	}
+
+	function showWikiArticle() {
+		mobileArticleOpen = true;
+		requestAnimationFrame(() => {
+			if (entryScroll) entryScroll.scrollTop = 0;
+		});
+	}
+
 	async function deleteReviewItem(item: ReviewItem) {
-		if (!confirm(`Delete review tag "${item.slug}"? This removes its Atlas assignments too.`)) return;
+		await beginGovernanceAction('delete', item.slug);
+	}
+
+	async function beginGovernanceAction(action: 'delete' | 'merge' | 'deprecate', slug: string) {
+		governanceError = null;
+		governanceAction = action;
+		governanceSlug = slug;
+		governanceTarget = '';
+		deletionConfirmation = '';
+		deletionImpact = null;
+		if (action !== 'delete') return;
+		try {
+			const response = await fetch(
+				`/api/atlas/concepts/${encodeURIComponent(slug)}/deletion-impact`
+			);
+			const body = (await response.json()) as {
+				impact?: AtlasConceptDeletionImpact;
+				error?: string;
+			};
+			if (!response.ok || !body.impact) {
+				throw new Error(body.error ?? 'Deletion impact could not be loaded.');
+			}
+			deletionImpact = body.impact;
+		} catch (loadError) {
+			governanceError =
+				loadError instanceof Error ? loadError.message : 'Deletion impact could not be loaded.';
+		}
+	}
+
+	function closeGovernanceAction() {
+		governanceAction = null;
+		governanceSlug = null;
+		governanceTarget = '';
+		deletionImpact = null;
+		deletionConfirmation = '';
+		governanceError = null;
+	}
+
+	async function approveConcept(entry: AtlasWikiEntry) {
+		governanceBusy = true;
+		governanceError = null;
+		try {
+			const response = await fetch(
+				`/api/atlas/concepts/${encodeURIComponent(entry.slug)}/approve`,
+				{ method: 'POST' }
+			);
+			const body = (await response.json()) as { error?: string };
+			if (!response.ok) throw new Error(body.error ?? 'Concept could not be approved.');
+			await loadEntries();
+			activeSlug = entry.slug;
+		} catch (actionError) {
+			governanceError =
+				actionError instanceof Error ? actionError.message : 'Concept could not be approved.';
+		} finally {
+			governanceBusy = false;
+		}
+	}
+
+	async function submitGovernanceAction() {
+		if (!governanceAction || !governanceSlug) return;
+		const returnToReview = reviewMode;
+		governanceBusy = true;
+		governanceError = null;
+		try {
+			let response: Response;
+			if (governanceAction === 'delete') {
+				if (!deletionImpact) throw new Error('Deletion impact is still loading.');
+				response = await fetch(`/api/atlas/concepts/${encodeURIComponent(governanceSlug)}`, {
+					method: 'DELETE',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						confirmed: deletionImpact.tier === 'simple',
+						confirmation:
+							deletionImpact.tier === 'guarded' ? deletionConfirmation.trim() : undefined,
+						expectedUpdatedAt: deletionImpact.updatedAt
+					})
+				});
+			} else {
+				if (governanceAction === 'merge' && !governanceTarget.trim()) {
+					throw new Error('Choose the concept that should receive this tag.');
+				}
+				response = await fetch(
+					`/api/atlas/concepts/${encodeURIComponent(governanceSlug)}/${governanceAction}`,
+					{
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify(
+							governanceAction === 'merge'
+								? { targetSlug: governanceTarget.trim() }
+								: { replacementSlug: governanceTarget.trim() || null }
+						)
+					}
+				);
+			}
+			const body = (await response.json()) as { error?: string; concept?: { slug: string } };
+			if (!response.ok) throw new Error(body.error ?? 'Concept action failed.');
+			const nextSlug = body.concept?.slug ?? null;
+			closeGovernanceAction();
+			await loadEntries();
+			if (returnToReview) {
+				await openReviewQueue(reviewFilter);
+			} else if (nextSlug) {
+				selectEntry(nextSlug);
+			} else {
+				openWikiGuide();
+			}
+		} catch (actionError) {
+			governanceError =
+				actionError instanceof Error ? actionError.message : 'Concept action failed.';
+		} finally {
+			governanceBusy = false;
+		}
+	}
+
+	async function restoreDeletedConcept(slug: string) {
+		governanceBusy = true;
 		reviewError = null;
 		try {
-			const response = await fetch(`/api/atlas/wiki/review?slug=${encodeURIComponent(item.slug)}`, {
-				method: 'DELETE'
+			const response = await fetch(`/api/atlas/concepts/${encodeURIComponent(slug)}/restore`, {
+				method: 'POST'
 			});
-			const body = (await response.json()) as { deleted?: boolean; error?: string };
-			if (!response.ok || !body.deleted) {
-				throw new Error(body.error ?? 'Review tag could not be deleted.');
+			const body = (await response.json()) as { concept?: { slug: string }; error?: string };
+			if (!response.ok || !body.concept) {
+				throw new Error(body.error ?? 'Deleted tag could not be restored.');
 			}
-			reviewItems = reviewItems.filter((entry) => entry.slug !== item.slug);
-			entries = entries.filter((entry) => entry.slug !== item.slug);
-		} catch (deleteError) {
+			await loadEntries();
+			selectEntry(body.concept.slug);
+		} catch (restoreError) {
 			reviewError =
-				deleteError instanceof Error ? deleteError.message : 'Review tag could not be deleted.';
+				restoreError instanceof Error ? restoreError.message : 'Deleted tag could not be restored.';
+		} finally {
+			governanceBusy = false;
 		}
 	}
 
@@ -425,10 +580,13 @@
 			const text =
 				format === 'json' ? JSON.stringify(await response.json(), null, 2) : await response.text();
 			await navigator.clipboard.writeText(text);
-			vocabularyExportStatus = format === 'json' ? 'Copied JSON vocabulary.' : 'Copied AI vocabulary.';
+			vocabularyExportStatus =
+				format === 'json' ? 'Copied JSON vocabulary.' : 'Copied AI vocabulary.';
 		} catch (exportError) {
 			vocabularyExportStatus =
-				exportError instanceof Error ? exportError.message : 'Vocabulary export could not be copied.';
+				exportError instanceof Error
+					? exportError.message
+					: 'Vocabulary export could not be copied.';
 		}
 	}
 
@@ -466,14 +624,19 @@
 			});
 			const body = (await response.json()) as WikiPatchResponse | { error?: string };
 			if (!response.ok || !('entry' in body)) {
-				throw new Error('error' in body && body.error ? body.error : 'Wiki tag could not be created.');
+				throw new Error(
+					'error' in body && body.error ? body.error : 'Wiki tag could not be created.'
+				);
 			}
-			entries = [...entries, body.entry].sort((left, right) => left.label.localeCompare(right.label));
+			entries = [...entries, body.entry].sort((left, right) =>
+				left.label.localeCompare(right.label)
+			);
 			creatingNewTag = false;
 			newTagDraft = emptyNewTagDraft();
 			selectEntry(body.entry.slug);
 		} catch (createError) {
-			newTagError = createError instanceof Error ? createError.message : 'Wiki tag could not be created.';
+			newTagError =
+				createError instanceof Error ? createError.message : 'Wiki tag could not be created.';
 		} finally {
 			newTagSaving = false;
 		}
@@ -485,9 +648,161 @@
 		wikiDraft = draftFromEntry(entry);
 	}
 
+	async function loadLatestWikiRun(slug: string) {
+		try {
+			const response = await fetch(
+				`/api/atlas/agent-runs?job=wiki_draft&targetId=${encodeURIComponent(slug)}`
+			);
+			const body = (await response.json()) as { run?: AtlasAgentRun | null };
+			if (response.ok) wikiAgentRun = body.run ?? null;
+		} catch {
+			// The ordinary wiki remains usable if run history cannot be loaded.
+		}
+	}
+
+	async function generateWikiEntry(entry: AtlasWikiEntry, retryOf?: string) {
+		if (wikiEditMode || wikiEntryComplete(entry)) return;
+		wikiAgentLoading = true;
+		wikiAgentError = null;
+		adoptedWikiRunId = null;
+		try {
+			const response = await fetch('/api/atlas/agent-runs', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ job: 'wiki_draft', slug: entry.slug, retryOf })
+			});
+			const body = (await response.json()) as { run?: AtlasAgentRun; error?: string };
+			if (!response.ok || !body.run)
+				throw new Error(body.error ?? 'Wiki generation could not start.');
+			wikiAgentRun = body.run;
+		} catch (generateError) {
+			wikiAgentError =
+				generateError instanceof Error ? generateError.message : 'Wiki generation could not start.';
+		} finally {
+			wikiAgentLoading = false;
+		}
+	}
+
+	async function refreshWikiRun(id: string, autoOpen: boolean) {
+		if (!id) return;
+		try {
+			const response = await fetch(`/api/atlas/agent-runs/${encodeURIComponent(id)}`);
+			const body = (await response.json()) as { run?: AtlasAgentRun };
+			if (!response.ok || !body.run) return;
+			wikiAgentRun = body.run;
+			if (autoOpen && body.run.status === 'succeeded') adoptWikiDraft(body.run);
+		} catch {
+			// A retry remains available from the persisted failed state.
+		}
+	}
+
+	async function cancelWikiGeneration() {
+		if (!wikiAgentRun?.id) return;
+		const response = await fetch(`/api/atlas/agent-runs/${encodeURIComponent(wikiAgentRun.id)}`, {
+			method: 'DELETE'
+		});
+		const body = (await response.json()) as { run?: AtlasAgentRun };
+		if (body.run) wikiAgentRun = body.run;
+	}
+
+	function adoptWikiDraft(run: AtlasAgentRun) {
+		if (
+			run.id === adoptedWikiRunId ||
+			run.job !== 'wiki_draft' ||
+			run.status !== 'succeeded' ||
+			!run.result ||
+			!activeEntry ||
+			activeEntry.slug !== run.targetId
+		)
+			return;
+		const generated = (run.result as AtlasAgentWikiResult).draft;
+		const base = draftFromEntry(activeEntry);
+		wikiDraft = mergeWikiDraft(base, generated);
+		wikiEditMode = true;
+		wikiError = null;
+		adoptedWikiRunId = run.id;
+	}
+
+	function mergeWikiDraft(base: WikiDraft, generated: Partial<AtlasWikiDraftInput>): WikiDraft {
+		return {
+			...base,
+			label: base.label || generated.label || '',
+			shortDefinition: base.shortDefinition || generated.shortDefinition || '',
+			longDescription: base.longDescription || generated.longDescription || '',
+			aliases: base.aliases || (generated.aliases ?? []).join('\n'),
+			useWhen: base.useWhen || (generated.useWhen ?? []).join('\n'),
+			doNotUseWhen: base.doNotUseWhen || (generated.doNotUseWhen ?? []).join('\n'),
+			automaticImplications:
+				base.automaticImplications || (generated.automaticImplications ?? []).join('\n'),
+			suggestedImplications:
+				base.suggestedImplications || (generated.suggestedImplications ?? []).join('\n'),
+			broader: base.broader || (generated.broader ?? []).join('\n'),
+			narrower: base.narrower || (generated.narrower ?? []).join('\n'),
+			related: base.related || (generated.related ?? []).join('\n'),
+			confusable: base.confusable || (generated.confusable ?? []).join('\n'),
+			allowedClassifiers:
+				base.allowedClassifiers || (generated.allowedClassifiers ?? []).join('\n'),
+			aiGuidance: base.aiGuidance || generated.aiGuidance || '',
+			citations: base.citations || (generated.citations ?? []).join('\n')
+		};
+	}
+
+	function wikiEntryComplete(entry: AtlasWikiEntry) {
+		return Boolean(
+			meaningfulWikiText(entry.label) &&
+			meaningfulWikiText(entry.shortDefinition) &&
+			meaningfulWikiText(entry.longDescription) &&
+			entry.useWhen.length &&
+			entry.doNotUseWhen.length &&
+			entry.aliases.length &&
+			entry.broader.length &&
+			entry.narrower.length &&
+			entry.related.length &&
+			entry.confusable.length &&
+			entry.automaticImplications.length &&
+			entry.suggestedImplications.length &&
+			entry.allowedClassifiers.length &&
+			meaningfulWikiText(entry.aiGuidance)
+		);
+	}
+
+	function meaningfulWikiText(value: string | null | undefined) {
+		return Boolean(value?.trim() && !/needs wiki|user-created tag|no .* added yet/i.test(value));
+	}
+
+	function wikiGenerationCopy() {
+		if (wikiAgentRun?.status !== 'running' && wikiAgentRun?.status !== 'queued')
+			return 'Generate entry';
+		return wikiAgentRun.stage === 'drafting' ? 'Drafting entry…' : 'Preparing entry…';
+	}
+
+	function startEntityEditor(entity: AtlasEntityProfile) {
+		entityEditMode = true;
+		entityError = null;
+		entityDraft = draftFromEntity(entity);
+	}
+
+	function draftFromEntity(entity: AtlasEntityProfile): EntityDraft {
+		return {
+			summary: entity.summary ?? '',
+			notes: entity.notes ?? '',
+			movements: entity.movements.join('\n'),
+			styles: entity.styles.join('\n'),
+			commonSubjects: entity.commonSubjects.join('\n'),
+			historicalPeriod: entity.historicalPeriod ?? '',
+			media: entity.media.join('\n'),
+			aiGuidance: entity.aiGuidance ?? '',
+			aliases: entity.aliases.map((alias) => alias.alias).join('\n'),
+			links: entity.links.map((link) => link.url).join('\n')
+		};
+	}
+
 	function draftFromEntry(entry: AtlasWikiEntry): WikiDraft {
 		return {
 			label: entry.label,
+			kind: entry.kind,
+			category: entry.category,
+			displayGroup: entry.displayGroup,
 			shortDefinition: entry.shortDefinition,
 			longDescription: entry.longDescription ?? '',
 			aliases: entry.aliases.join('\n'),
@@ -528,6 +843,9 @@
 		try {
 			const payload = {
 				label: wikiDraft.label.trim(),
+				kind: wikiDraft.kind,
+				category: wikiDraft.category,
+				displayGroup: wikiDraft.displayGroup,
 				shortDefinition: wikiDraft.shortDefinition.trim(),
 				longDescription: wikiDraft.longDescription.trim(),
 				aliases: splitDraftList(wikiDraft.aliases),
@@ -554,7 +872,9 @@
 			});
 			const body = (await response.json()) as WikiPatchResponse | { error?: string };
 			if (!response.ok || !('entry' in body)) {
-				throw new Error('error' in body && body.error ? body.error : 'Wiki entry could not be saved.');
+				throw new Error(
+					'error' in body && body.error ? body.error : 'Wiki entry could not be saved.'
+				);
 			}
 			entries = entries.map((item) => (item.slug === body.entry.slug ? body.entry : item));
 			activeSlug = body.entry.slug;
@@ -563,6 +883,47 @@
 			wikiError = saveError instanceof Error ? saveError.message : 'Wiki entry could not be saved.';
 		} finally {
 			wikiSaving = false;
+		}
+	}
+
+	async function saveEntityProfile(entity: AtlasEntityProfile) {
+		if (!entityDraft) return;
+		entitySaving = true;
+		entityError = null;
+		try {
+			const payload = {
+				summary: entityDraft.summary.trim(),
+				notes: entityDraft.notes.trim(),
+				movements: splitDraftList(entityDraft.movements),
+				styles: splitDraftList(entityDraft.styles),
+				commonSubjects: splitDraftList(entityDraft.commonSubjects),
+				historicalPeriod: entityDraft.historicalPeriod.trim(),
+				media: splitDraftList(entityDraft.media),
+				aiGuidance: entityDraft.aiGuidance.trim(),
+				aliases: splitDraftList(entityDraft.aliases),
+				links: splitDraftList(entityDraft.links)
+			};
+			const response = await fetch(
+				`/api/atlas/entities/${entity.kind}/${encodeURIComponent(entity.slug)}`,
+				{
+					method: 'PATCH',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify(payload)
+				}
+			);
+			const body = (await response.json()) as EntityProfileResponse | { error?: string };
+			if (!response.ok || !('entity' in body)) {
+				throw new Error(
+					'error' in body && body.error ? body.error : 'Artist profile could not be saved.'
+				);
+			}
+			activeEntity = body.entity;
+			closeEntityEditor();
+		} catch (saveError) {
+			entityError =
+				saveError instanceof Error ? saveError.message : 'Artist profile could not be saved.';
+		} finally {
+			entitySaving = false;
 		}
 	}
 
@@ -652,7 +1013,8 @@
 
 		if (entry.displayGroup === 'Composition') {
 			if (entry.slug.includes('wide')) return { group: 'Composition', branch: 'Framing' };
-			if (entry.slug.includes('diagonal')) return { group: 'Composition', branch: 'Orientation / Tilt' };
+			if (entry.slug.includes('diagonal'))
+				return { group: 'Composition', branch: 'Orientation / Tilt' };
 			return { group: 'Composition', branch: 'Layout' };
 		}
 
@@ -674,7 +1036,8 @@
 			return { group: 'Theme / Mood', branch: displayLabel(entry.category) };
 		}
 		if (entry.displayGroup === 'Artists and Makers') return { group: 'Artists', branch: 'Artists' };
-		if (entry.displayGroup === 'Characters') return { group: 'Characters / IP', branch: 'Mythology' };
+		if (entry.displayGroup === 'Characters')
+			return { group: 'Characters / IP', branch: 'Mythology' };
 		if (entry.displayGroup === 'Mythology and Iconography') {
 			return { group: 'Characters / IP', branch: 'Named Subjects / Traditions' };
 		}
@@ -685,7 +1048,8 @@
 			return { group: 'Text / Inscriptions', branch: 'Visible Text' };
 		}
 		if (entry.category === 'animal') return { group: 'Animals', branch: 'Animals' };
-		if (entry.displayGroup === 'Actions and Poses') return { group: 'Subjects', branch: 'Actions / Poses' };
+		if (entry.displayGroup === 'Actions and Poses')
+			return { group: 'Subjects', branch: 'Actions / Poses' };
 		return { group: 'Subjects', branch: displayLabel(entry.category) };
 	}
 
@@ -718,6 +1082,46 @@
 		return value.replace(/_/g, ' ');
 	}
 
+	function entityRefFromWikiSlug(
+		value: string | null
+	): { kind: AtlasEntityKind; slug: string } | null {
+		const match = value?.match(/^(artist):(.+)$/);
+		if (!match) return null;
+		return { kind: match[1] as AtlasEntityKind, slug: match[2] };
+	}
+
+	function entityProfileSummary(entity: AtlasEntityProfile) {
+		return (
+			entity.summary ||
+			entity.notes ||
+			`Artist profile for ${entity.label}. Linked works and source identities are built from imported assets.`
+		);
+	}
+
+	function entityDetailList(values: string[]) {
+		return values.length ? values.join(', ') : 'None recorded yet';
+	}
+
+	function entityLinkLabel(link: AtlasEntityProfile['links'][number]) {
+		return [link.sourceLabel || link.host, link.username ? `@${link.username}` : null]
+			.filter(Boolean)
+			.join(' ');
+	}
+
+	function entityLinkEvidence(link: AtlasEntityProfile['links'][number]) {
+		return [
+			link.confidence,
+			link.lastSeenAt ? `last seen ${new Date(link.lastSeenAt).toLocaleDateString()}` : null,
+			link.firstSeenAssetId ? `first asset ${shortId(link.firstSeenAssetId)}` : null
+		]
+			.filter(Boolean)
+			.join(' / ');
+	}
+
+	function shortId(value: string) {
+		return value.length > 14 ? `${value.slice(0, 12)}...` : value;
+	}
+
 	function referenceLabel(value: string) {
 		return entryBySlug.get(value)?.label ?? displayLabel(value);
 	}
@@ -727,10 +1131,22 @@
 		if (!entry) return 'missing';
 		if (entry.kind === 'classifier') return 'classifier';
 		if (entry.kind === 'entity' && entry.category === 'artist') return 'artist';
-		if (entry.kind === 'entity' && ['work', 'narrative_subject'].includes(entry.category)) return 'work';
+		if (entry.kind === 'entity' && ['work', 'narrative_subject'].includes(entry.category))
+			return 'work';
 		if (entry.kind === 'entity') return 'source';
 		if (['theme', 'mood'].includes(entry.category)) return 'theme';
 		return 'visual';
+	}
+
+	function visibleReferences(values: string[], listKey: string, limit: number) {
+		return expandedReferenceLists[listKey] ? values : values.slice(0, limit);
+	}
+
+	function toggleReferenceList(listKey: string) {
+		expandedReferenceLists = {
+			...expandedReferenceLists,
+			[listKey]: !expandedReferenceLists[listKey]
+		};
 	}
 
 	function parseMarkdown(markdown: string): MarkdownBlock[] {
@@ -796,47 +1212,39 @@
 	}
 </script>
 
-<section class="atlas-wiki" aria-label="Atlas wiki">
+<section class="atlas-wiki" class:mobile-article-open={mobileArticleOpen} aria-label="Atlas wiki">
 	<aside class="wiki-nav" aria-label="Atlas wiki navigation">
 		<div class="nav-top">
-			<button type="button" class="back-link" onclick={openAtlasHome}>
-				<ArrowLeftIcon size={15} />
-				Back to Atlas home
+			<button
+				type="button"
+				class="mobile-atlas-back"
+				aria-label="Back to Atlas browse"
+				onclick={openAtlasHome}
+			>
+				<ArrowLeftIcon size={18} />
+				Atlas
 			</button>
 			<h1>Atlas Wiki</h1>
-			<details class="doc-group">
-				<summary>
-					<span>Documentation</span>
-					<CaretDownIcon class="chev" size={13} />
-				</summary>
-				<nav class="doc-links" aria-label="Atlas wiki documentation">
-					{#each DOC_LINKS as link}
-						<button
-							type="button"
-							class:active={activeDocSlug === link.slug}
-							onclick={() => loadDoc(link.slug)}
-						>
-							{link.label}
-						</button>
-					{/each}
-				</nav>
-			</details>
-			<div class="nav-actions">
-				<button type="button" class="new-tag-button" onclick={() => startNewTagDraft()}>
-					<PlusIcon size={15} /> New tag
+			<button
+				type="button"
+				class="guide-link"
+				class:active={!activeEntry &&
+					!activeEntity &&
+					!activeDocSlug &&
+					!creatingNewTag &&
+					!reviewMode}
+				onclick={openWikiGuide}
+			>
+				Wiki Guide
+			</button>
+			{#if activeEntity}
+				<button
+					type="button"
+					class="guide-link active entity-nav-link"
+					onclick={() => activeEntity && selectEntity(activeEntity.kind, activeEntity.slug)}
+				>
+					{activeEntity.label}
 				</button>
-				<button type="button" class="new-tag-button" onclick={openReviewQueue}>
-					Review tags
-				</button>
-				<button type="button" class="new-tag-button" onclick={() => copyVocabularyExport('markdown')}>
-					<CopySimpleIcon size={15} /> Copy AI vocab
-				</button>
-				<button type="button" class="new-tag-button" onclick={() => copyVocabularyExport('json')}>
-					Copy JSON
-				</button>
-			</div>
-			{#if vocabularyExportStatus}
-				<p class="nav-status">{vocabularyExportStatus}</p>
 			{/if}
 		</div>
 
@@ -858,7 +1266,12 @@
 		{:else if error}
 			<div class="state error">{error}</div>
 		{:else}
-			<div class="nav-scroll" aria-label="Browse index">
+			<div
+				class="nav-scroll"
+				aria-label="Browse index"
+				onscroll={(event) =>
+					updateMobileNavFromScroll(event.currentTarget.scrollTop, 'atlas-wiki-index')}
+			>
 				<p class="nav-label">Browse Index</p>
 				{#each browseGroups as group (group.name)}
 					<details class="group" open>
@@ -888,27 +1301,79 @@
 		{/if}
 	</aside>
 
-	<main class="entry-scroll" aria-label="Atlas wiki article">
+	<main
+		class="entry-scroll"
+		bind:this={entryScroll}
+		aria-label="Atlas wiki article"
+		onscroll={(event) =>
+			updateMobileNavFromScroll(event.currentTarget.scrollTop, 'atlas-wiki-article')}
+	>
+		<div class="mobile-article-bar">
+			<button type="button" onclick={returnToWikiIndex}>
+				<ArrowLeftIcon size={20} />
+				Wiki index
+			</button>
+		</div>
 		{#if reviewMode}
 			<article class="entry doc-entry entry-animate" aria-label="Atlas wiki review queue">
 				<nav class="breadcrumbs" aria-label="Wiki breadcrumbs">
-					<span>Atlas Wiki</span><span class="crumb-sep">›</span><span class="current">Review tags</span>
+					<span>Atlas Wiki</span><span class="crumb-sep">›</span><span class="current"
+						>Review tags</span
+					>
 				</nav>
 				<header class="entry-header">
 					<div class="entry-title-row">
 						<div>
 							<h2>Review tags</h2>
-							<p class="definition">
-								Tags without wiki entries and wiki pages that still need approval.
-							</p>
+							<p class="definition">Classify, review, clean up, or restore Atlas vocabulary.</p>
 						</div>
-						<button type="button" class="wiki-action" onclick={openReviewQueue}>Refresh</button>
+						<button type="button" class="wiki-action" onclick={() => openReviewQueue(reviewFilter)}
+							>Refresh</button
+						>
 					</div>
 				</header>
+				<nav class="review-filters" aria-label="Review tag filters">
+					{#each [['all', 'All review'], ['needs_classification', 'Needs classification'], ['needs_review', 'Needs review'], ['unused', 'Unused'], ['deleted', 'Deleted']] as filter}
+						<button
+							type="button"
+							class:active={reviewFilter === filter[0]}
+							onclick={() => openReviewQueue(filter[0] as typeof reviewFilter)}
+						>
+							{filter[1]}
+						</button>
+					{/each}
+				</nav>
 				{#if reviewLoading}
 					<div class="state">Loading review queue...</div>
 				{:else if reviewError}
 					<div class="state error">{reviewError}</div>
+				{:else if reviewFilter === 'deleted'}
+					<div class="review-list">
+						{#each deletedItems as item}
+							<section class="review-row">
+								<div>
+									<p class="review-title">{item.label}</p>
+									<p class="review-definition">
+										Deleted {new Date(item.deletedAt).toLocaleDateString()}
+										{item.replacementSlug ? ` · merged into ${item.replacementSlug}` : ''}
+									</p>
+									<p class="review-meta">{item.slug}</p>
+								</div>
+								<div class="review-status">
+									<button
+										type="button"
+										class="wiki-action"
+										disabled={governanceBusy}
+										onclick={() => restoreDeletedConcept(item.slug)}
+									>
+										Restore
+									</button>
+								</div>
+							</section>
+						{:else}
+							<p class="state">No deleted tags.</p>
+						{/each}
+					</div>
 				{:else}
 					<div class="review-list">
 						{#each reviewItems as item}
@@ -922,17 +1387,29 @@
 									</p>
 								</div>
 								<div class="review-status">
-									<span>{item.reason === 'missing_wiki' ? 'Missing wiki' : 'Needs review'}</span>
+									<span>
+										{item.reason === 'missing_wiki'
+											? 'Missing wiki'
+											: item.reason === 'needs_classification'
+												? 'Needs classification'
+												: item.reason === 'unused'
+													? 'Unused'
+													: 'Needs review'}
+									</span>
 									<span>{displayLabel(item.status)} / {displayLabel(item.maturity)}</span>
 									<button
 										type="button"
 										class="wiki-action"
 										onclick={() =>
-											item.reason === 'missing_wiki'
+											item.reason === 'missing_wiki' || item.reason === 'needs_classification'
 												? startNewTagDraft(item)
 												: selectEntry(item.slug)}
 									>
-										{item.reason === 'missing_wiki' ? 'Draft entry' : 'Open'}
+										{item.reason === 'missing_wiki'
+											? 'Draft entry'
+											: item.reason === 'needs_classification'
+												? 'Classify'
+												: 'Open'}
 									</button>
 									<button
 										type="button"
@@ -951,16 +1428,27 @@
 		{:else if creatingNewTag}
 			<article class="entry doc-entry entry-animate" aria-label="New Atlas wiki tag">
 				<nav class="breadcrumbs" aria-label="Wiki breadcrumbs">
-					<span>Atlas Wiki</span><span class="crumb-sep">›</span><span class="current">New tag</span>
+					<span>Atlas Wiki</span><span class="crumb-sep">›</span><span class="current">New tag</span
+					>
 				</nav>
 				<header class="entry-header">
 					<div class="entry-title-row">
 						<h2>New tag</h2>
 						<div class="wiki-edit-actions">
-							<button type="button" class="wiki-action primary" disabled={newTagSaving} onclick={createNewTag}>
+							<button
+								type="button"
+								class="wiki-action primary"
+								disabled={newTagSaving}
+								onclick={createNewTag}
+							>
 								<CheckIcon size={15} /> Create
 							</button>
-							<button type="button" class="wiki-action" disabled={newTagSaving} onclick={cancelNewTagDraft}>
+							<button
+								type="button"
+								class="wiki-action"
+								disabled={newTagSaving}
+								onclick={cancelNewTagDraft}
+							>
 								<XIcon size={15} /> Cancel
 							</button>
 						</div>
@@ -979,7 +1467,15 @@
 						</label>
 						<label class="wiki-field">
 							<span>Kind</span>
-							<select bind:value={newTagDraft.kind}>
+							<select
+								value={newTagDraft.kind}
+								onchange={(event) => {
+									newTagDraft.kind = (event.currentTarget as HTMLSelectElement).value;
+									newTagDraft.category = '';
+									newTagDraft.displayGroup = '';
+								}}
+							>
+								<option value="" disabled>Select concept behavior</option>
 								<option value="visual_tag">visual_tag</option>
 								<option value="entity">entity</option>
 								<option value="claim">claim</option>
@@ -989,11 +1485,17 @@
 						</label>
 						<label class="wiki-field">
 							<span>Category</span>
-							<input
-								bind:value={newTagDraft.category}
-								list="atlas-category-options"
-								placeholder="object, animal, artist..."
-							/>
+							<select
+								value={newTagDraft.category}
+								disabled={!newTagDraft.kind}
+								onchange={(event) =>
+									chooseNewTagCategory((event.currentTarget as HTMLSelectElement).value)}
+							>
+								<option value="" disabled>Select semantic category</option>
+								{#each categoriesForKind(newTagDraft.kind) as category}
+									<option value={category.id}>{category.label}</option>
+								{/each}
+							</select>
 							<small>Ontology bucket. Use this for governance and search behavior.</small>
 						</label>
 						<label class="wiki-field">
@@ -1021,7 +1523,8 @@
 							<AtlasWikiReferenceEditor
 								label="Related tags"
 								values={splitDraftList(newTagDraft.related)}
-								onChange={(values) => (newTagDraft = { ...newTagDraft, related: values.join('\n') })}
+								onChange={(values) =>
+									(newTagDraft = { ...newTagDraft, related: values.join('\n') })}
 								placeholder="Search related tags..."
 								emptyText="At least one relationship is required unless this is a simple visible object."
 							/>
@@ -1031,12 +1534,233 @@
 							<textarea bind:value={newTagDraft.aiGuidance} rows="4"></textarea>
 						</label>
 					</div>
-					<datalist id="atlas-category-options">
-						{#each CATEGORY_OPTIONS as category}
-							<option value={category}>{displayLabel(category)}</option>
-						{/each}
-					</datalist>
 				</header>
+			</article>
+		{:else if activeEntity || entityLoading || entityError}
+			<article class="entry entity-profile entry-animate" aria-label="Atlas artist profile">
+				<nav class="breadcrumbs" aria-label="Wiki breadcrumbs">
+					<span>Atlas Wiki</span><span class="crumb-sep">›</span><span>Artists</span>
+					<span class="crumb-sep">›</span><span class="current"
+						>{activeEntity?.label ?? 'Loading'}</span
+					>
+				</nav>
+				{#if entityLoading}
+					<div class="state">Loading artist profile...</div>
+				{:else if entityError}
+					<div class="state error">{entityError}</div>
+				{:else if activeEntity}
+					<header class="entry-header entity-header">
+						<div class="entry-title-row">
+							<div>
+								<h2>{activeEntity.label}</h2>
+								<p class="entity-kind">{displayLabel(activeEntity.kind)} entity</p>
+							</div>
+							<div class="wiki-edit-actions">
+								{#if entityEditMode && entityDraft}
+									<button
+										type="button"
+										class="wiki-action primary"
+										disabled={entitySaving}
+										onclick={() => activeEntity && saveEntityProfile(activeEntity)}
+									>
+										<CheckIcon size={15} /> Save
+									</button>
+									<button
+										type="button"
+										class="wiki-action"
+										disabled={entitySaving}
+										onclick={closeEntityEditor}
+									>
+										<XIcon size={15} /> Cancel
+									</button>
+								{:else}
+									<button
+										type="button"
+										class="wiki-action primary"
+										onclick={() => activeEntity && openAtlasSearch(`artist:(${activeEntity.slug})`)}
+									>
+										Browse works
+									</button>
+									<button
+										type="button"
+										class="wiki-action"
+										onclick={() => activeEntity && startEntityEditor(activeEntity)}
+									>
+										<PencilSimpleIcon size={15} /> Edit profile
+									</button>
+								{/if}
+							</div>
+						</div>
+						{#if entityEditMode && entityDraft}
+							<div class="entity-editor-grid">
+								<label class="wiki-field wide">
+									<span>Summary</span>
+									<textarea bind:value={entityDraft.summary} rows="3"></textarea>
+								</label>
+								<label class="wiki-field wide">
+									<span>Notes</span>
+									<textarea bind:value={entityDraft.notes} rows="3"></textarea>
+								</label>
+								<label class="wiki-field">
+									<span>Aliases</span>
+									<textarea
+										bind:value={entityDraft.aliases}
+										rows="4"
+										placeholder="One alias per line"
+									></textarea>
+								</label>
+							</div>
+						{:else}
+							{#if activeEntity.aliases.length}
+								<p class="aliases">
+									Aliases: {activeEntity.aliases.map((alias) => alias.alias).join(', ')}
+								</p>
+							{/if}
+							<p class="definition">{entityProfileSummary(activeEntity)}</p>
+						{/if}
+					</header>
+
+					<section class="entry-section" aria-labelledby="artist-works-title">
+						<h3 id="artist-works-title" class="section-title">Imported Works</h3>
+						<div class="examples entity-work-grid">
+							{#each activeEntity.works.slice(0, 8) as work}
+								<button
+									type="button"
+									class="example-card"
+									aria-label={`${wikiAssetIsGif(work) ? 'Animated GIF. ' : ''}Open ${work.title} in Atlas inspect`}
+									onclick={() => openAtlasAsset(work.id)}
+									onpointerenter={() => startWikiAssetPreview(work)}
+									onpointerleave={() => stopWikiAssetPreview(work)}
+									onfocus={() => startWikiAssetPreview(work)}
+									onblur={() => stopWikiAssetPreview(work)}
+								>
+									<div class="example-img asset-thumb" aria-hidden="true">
+										{#if work.thumbnailUrl}
+											<img
+												class:static-hidden={wikiAssetIsGif(work) &&
+													animatedWikiAssetId === work.id}
+												src={work.thumbnailUrl}
+												alt=""
+												loading="lazy"
+											/>
+											{#if wikiAssetIsGif(work) && animatedWikiAssetId === work.id}
+												<img
+													class="animated-preview"
+													src={wikiAssetOriginalUrl(work)}
+													alt=""
+													aria-hidden="true"
+													onerror={() => stopWikiAssetPreview(work)}
+												/>
+											{/if}
+											{#if wikiAssetIsGif(work)}
+												<span class="gif-badge" title="Animated GIF; hover or focus to preview"
+													>GIF</span
+												>
+											{/if}
+										{:else}
+											<span>No preview</span>
+										{/if}
+									</div>
+									<p class="example-label">Imported work</p>
+									<p class="example-title">{work.title}</p>
+									<p class="example-meta">{new Date(work.importedAt).toLocaleDateString()}</p>
+								</button>
+							{:else}
+								<div class="example-card empty-example">
+									<div class="example-img" aria-hidden="true"></div>
+									<p class="example-label">No works yet</p>
+									<p class="example-meta">
+										Imported works attributed to this artist will appear here.
+									</p>
+								</div>
+							{/each}
+						</div>
+					</section>
+
+					<section class="info-grid entity-info-grid" aria-label="Artist profile metadata">
+						<div class="info-block">
+							<h3 class="section-title small">Profile Links</h3>
+							{#if entityEditMode && entityDraft}
+								<label class="wiki-field compact">
+									<span>Profile URLs</span>
+									<textarea bind:value={entityDraft.links} rows="5"></textarea>
+								</label>
+							{:else if activeEntity.links.length}
+								<div class="entity-link-list">
+									{#each activeEntity.links as link}
+										<div class="entity-link-card">
+											<a
+												class="reference-chip relation"
+												href={link.url}
+												target="_blank"
+												rel="noreferrer"
+											>
+												{entityLinkLabel(link)}
+											</a>
+											<small>{entityLinkEvidence(link)}</small>
+										</div>
+									{/each}
+								</div>
+							{:else}
+								<p class="empty-copy">No profile links recorded yet.</p>
+							{/if}
+						</div>
+						<div class="info-block">
+							<h3 class="section-title small">Style / Movement</h3>
+							{#if entityEditMode && entityDraft}
+								<label class="wiki-field compact">
+									<span>Styles</span>
+									<textarea bind:value={entityDraft.styles} rows="4"></textarea>
+								</label>
+								<label class="wiki-field compact">
+									<span>Movements</span>
+									<textarea bind:value={entityDraft.movements} rows="4"></textarea>
+								</label>
+								<label class="wiki-field compact">
+									<span>Historical period</span>
+									<input bind:value={entityDraft.historicalPeriod} />
+								</label>
+							{:else}
+								<p><strong>Styles:</strong> {entityDetailList(activeEntity.styles)}</p>
+								<p><strong>Movements:</strong> {entityDetailList(activeEntity.movements)}</p>
+								<p>
+									<strong>Period:</strong>
+									{activeEntity.historicalPeriod ?? 'None recorded yet'}
+								</p>
+							{/if}
+						</div>
+						<div class="info-block">
+							<h3 class="section-title small">Subjects / Media</h3>
+							{#if entityEditMode && entityDraft}
+								<label class="wiki-field compact">
+									<span>Common subjects</span>
+									<textarea bind:value={entityDraft.commonSubjects} rows="4"></textarea>
+								</label>
+								<label class="wiki-field compact">
+									<span>Media</span>
+									<textarea bind:value={entityDraft.media} rows="4"></textarea>
+								</label>
+							{:else}
+								<p><strong>Subjects:</strong> {entityDetailList(activeEntity.commonSubjects)}</p>
+								<p><strong>Media:</strong> {entityDetailList(activeEntity.media)}</p>
+							{/if}
+						</div>
+					</section>
+
+					<section class="ai-guidance">
+						<h3 class="section-title small">Artist Notes</h3>
+						{#if entityEditMode && entityDraft}
+							<label class="wiki-field">
+								<span>AI guidance</span>
+								<textarea bind:value={entityDraft.aiGuidance} rows="4"></textarea>
+							</label>
+						{:else}
+							<p>
+								{activeEntity.aiGuidance ?? 'No artist-specific AI tagging guidance recorded yet.'}
+							</p>
+						{/if}
+					</section>
+				{/if}
 			</article>
 		{:else if activeEntry}
 			<article class="entry entry-animate" aria-label={`${activeEntry.label} wiki entry`}>
@@ -1067,23 +1791,107 @@
 								>
 									<CheckIcon size={15} /> Save
 								</button>
-								<button type="button" class="wiki-action" disabled={wikiSaving} onclick={closeWikiEditor}>
+								<button
+									type="button"
+									class="wiki-action"
+									disabled={wikiSaving}
+									onclick={closeWikiEditor}
+								>
 									<XIcon size={15} /> Cancel
 								</button>
 							{:else}
-								<button type="button" class="wiki-action primary" onclick={() => startWikiEditor(activeEntry)}>
+								<button
+									type="button"
+									class="wiki-action"
+									disabled={wikiAgentLoading ||
+										wikiEntryComplete(activeEntry) ||
+										wikiAgentRun?.status === 'queued' ||
+										wikiAgentRun?.status === 'running'}
+									title={wikiEntryComplete(activeEntry)
+										? 'This entry already has all core wiki sections.'
+										: 'Fill missing wiki fields with an Atlas-guided draft.'}
+									onclick={() => generateWikiEntry(activeEntry)}
+								>
+									<SparkleIcon size={15} />
+									{wikiEntryComplete(activeEntry) ? 'Entry complete' : wikiGenerationCopy()}
+								</button>
+								{#if wikiAgentRun?.status === 'queued' || wikiAgentRun?.status === 'running'}
+									<button type="button" class="wiki-action" onclick={cancelWikiGeneration}>
+										<XIcon size={15} /> Cancel
+									</button>
+								{:else if wikiAgentRun?.status === 'failed' || wikiAgentRun?.status === 'cancelled'}
+									<button
+										type="button"
+										class="wiki-action"
+										onclick={() => generateWikiEntry(activeEntry, wikiAgentRun?.id)}
+									>
+										<SparkleIcon size={15} /> Retry
+									</button>
+								{:else if wikiAgentRun?.status === 'succeeded' && adoptedWikiRunId !== wikiAgentRun.id}
+									<button
+										type="button"
+										class="wiki-action primary"
+										onclick={() => wikiAgentRun && adoptWikiDraft(wikiAgentRun)}
+									>
+										<CheckIcon size={15} /> Review draft
+									</button>
+								{/if}
+								<button
+									type="button"
+									class="wiki-action primary"
+									onclick={() => startWikiEditor(activeEntry)}
+								>
 									<PencilSimpleIcon size={15} /> Edit wiki
 								</button>
+								{#if activeEntry.status !== 'active'}
+									<button
+										type="button"
+										class="wiki-action"
+										disabled={governanceBusy}
+										onclick={() => approveConcept(activeEntry)}
+									>
+										<CheckIcon size={15} /> Approve
+									</button>
+								{/if}
+								<details class="governance-menu">
+									<summary class="wiki-action">Manage</summary>
+									<div>
+										<button
+											type="button"
+											onclick={() => beginGovernanceAction('deprecate', activeEntry.slug)}
+											>Deprecate</button
+										>
+										<button
+											type="button"
+											onclick={() => beginGovernanceAction('merge', activeEntry.slug)}>Merge</button
+										>
+										<button
+											type="button"
+											class="danger"
+											onclick={() => beginGovernanceAction('delete', activeEntry.slug)}
+											>Delete</button
+										>
+									</div>
+								</details>
 							{/if}
 						</div>
 					</div>
 					{#if wikiError}
 						<p class="wiki-error">{wikiError}</p>
 					{/if}
+					{#if governanceError && !governanceAction}
+						<p class="wiki-error">{governanceError}</p>
+					{/if}
+					{#if wikiAgentError || wikiAgentRun?.error}
+						<p class="wiki-error">{wikiAgentError ?? wikiAgentRun?.error}</p>
+					{/if}
 					{#if wikiEditMode && wikiDraft}
 						<label class="wiki-field">
 							<span>Aliases</span>
-							<input bind:value={wikiDraft.aliases} placeholder="One alias per line or comma-separated" />
+							<input
+								bind:value={wikiDraft.aliases}
+								placeholder="One alias per line or comma-separated"
+							/>
 						</label>
 						<label class="wiki-field">
 							<span>Short definition</span>
@@ -1112,12 +1920,36 @@
 								<button
 									type="button"
 									class="example-card"
-									aria-label={`Open ${example.title} in Atlas inspect`}
+									aria-label={`${wikiAssetIsGif(example) ? 'Animated GIF. ' : ''}Open ${example.title} in Atlas inspect`}
 									onclick={() => openAtlasAsset(example.id)}
+									onpointerenter={() => startWikiAssetPreview(example)}
+									onpointerleave={() => stopWikiAssetPreview(example)}
+									onfocus={() => startWikiAssetPreview(example)}
+									onblur={() => stopWikiAssetPreview(example)}
 								>
 									<div class="example-img asset-thumb" aria-hidden="true">
 										{#if example.thumbnailUrl}
-											<img src={example.thumbnailUrl} alt="" loading="lazy" />
+											<img
+												class:static-hidden={wikiAssetIsGif(example) &&
+													animatedWikiAssetId === example.id}
+												src={example.thumbnailUrl}
+												alt=""
+												loading="lazy"
+											/>
+											{#if wikiAssetIsGif(example) && animatedWikiAssetId === example.id}
+												<img
+													class="animated-preview"
+													src={wikiAssetOriginalUrl(example)}
+													alt=""
+													aria-hidden="true"
+													onerror={() => stopWikiAssetPreview(example)}
+												/>
+											{/if}
+											{#if wikiAssetIsGif(example)}
+												<span class="gif-badge" title="Animated GIF; hover or focus to preview"
+													>GIF</span
+												>
+											{/if}
 										{:else}
 											<span>No preview</span>
 										{/if}
@@ -1148,12 +1980,36 @@
 							<button
 								type="button"
 								class="example-card"
-								aria-label={`Open ${activeEntry.counterexampleAssets[0].title} in Atlas inspect`}
+								aria-label={`${wikiAssetIsGif(activeEntry.counterexampleAssets[0]) ? 'Animated GIF. ' : ''}Open ${activeEntry.counterexampleAssets[0].title} in Atlas inspect`}
 								onclick={() => openAtlasAsset(activeEntry.counterexampleAssets[0].id)}
+								onpointerenter={() => startWikiAssetPreview(activeEntry.counterexampleAssets[0])}
+								onpointerleave={() => stopWikiAssetPreview(activeEntry.counterexampleAssets[0])}
+								onfocus={() => startWikiAssetPreview(activeEntry.counterexampleAssets[0])}
+								onblur={() => stopWikiAssetPreview(activeEntry.counterexampleAssets[0])}
 							>
 								<div class="example-img asset-thumb anti" aria-hidden="true">
 									{#if activeEntry.counterexampleAssets[0].thumbnailUrl}
-										<img src={activeEntry.counterexampleAssets[0].thumbnailUrl} alt="" loading="lazy" />
+										<img
+											class:static-hidden={wikiAssetIsGif(activeEntry.counterexampleAssets[0]) &&
+												animatedWikiAssetId === activeEntry.counterexampleAssets[0].id}
+											src={activeEntry.counterexampleAssets[0].thumbnailUrl}
+											alt=""
+											loading="lazy"
+										/>
+										{#if wikiAssetIsGif(activeEntry.counterexampleAssets[0]) && animatedWikiAssetId === activeEntry.counterexampleAssets[0].id}
+											<img
+												class="animated-preview"
+												src={wikiAssetOriginalUrl(activeEntry.counterexampleAssets[0])}
+												alt=""
+												aria-hidden="true"
+												onerror={() => stopWikiAssetPreview(activeEntry.counterexampleAssets[0])}
+											/>
+										{/if}
+										{#if wikiAssetIsGif(activeEntry.counterexampleAssets[0])}
+											<span class="gif-badge" title="Animated GIF; hover or focus to preview"
+												>GIF</span
+											>
+										{/if}
 									{:else}
 										<span>No preview</span>
 									{/if}
@@ -1179,7 +2035,11 @@
 							</div>
 						{/if}
 					</div>
-					<button type="button" class="entry-link" onclick={() => selectEntry(activeEntry.slug)}>
+					<button
+						type="button"
+						class="entry-link"
+						onclick={() => openAtlasSearch(activeEntry.slug)}
+					>
 						Open tag in Atlas →
 					</button>
 					{#if wikiEditMode && wikiDraft}
@@ -1191,8 +2051,13 @@
 										Auto-derived examples still come from focal or supporting tag usage.
 									</p>
 								</div>
-								<button type="button" class="wiki-action" onclick={() => toggleExamplePicker(activeEntry)}>
-									<PlusIcon size={15} /> {examplePickerOpen ? 'Close picker' : 'Choose assets'}
+								<button
+									type="button"
+									class="wiki-action"
+									onclick={() => toggleExamplePicker(activeEntry)}
+								>
+									<PlusIcon size={15} />
+									{examplePickerOpen ? 'Close picker' : 'Choose assets'}
 								</button>
 							</div>
 							<div class="selected-examples">
@@ -1210,9 +2075,17 @@
 													</div>
 													<div>
 														<p>{selected?.title ?? id}</p>
-														<small>{selected?.visualRole ? displayLabel(selected.visualRole) : 'manual example'}</small>
+														<small
+															>{selected?.visualRole
+																? displayLabel(selected.visualRole)
+																: 'manual example'}</small
+														>
 													</div>
-													<button type="button" aria-label={`Remove ${id}`} onclick={() => removeExampleAsset(id, 'example')}>
+													<button
+														type="button"
+														aria-label={`Remove ${id}`}
+														onclick={() => removeExampleAsset(id, 'example')}
+													>
 														<XIcon size={13} />
 													</button>
 												</div>
@@ -1236,7 +2109,11 @@
 													</div>
 													<div>
 														<p>{selected?.title ?? id}</p>
-														<small>{selected?.visualRole ? displayLabel(selected.visualRole) : 'manual anti-example'}</small>
+														<small
+															>{selected?.visualRole
+																? displayLabel(selected.visualRole)
+																: 'manual anti-example'}</small
+														>
 													</div>
 													<button
 														type="button"
@@ -1279,12 +2156,15 @@
 														<small>
 															{candidate.subtitle}
 															{#if candidate.role}
-																 · {displayLabel(candidate.role)}
+																· {displayLabel(candidate.role)}
 															{/if}
 														</small>
 													</div>
 													<div class="candidate-actions">
-														<button type="button" onclick={() => addExampleAsset(candidate, 'example')}>
+														<button
+															type="button"
+															onclick={() => addExampleAsset(candidate, 'example')}
+														>
 															Example
 														</button>
 														<button
@@ -1321,11 +2201,21 @@
 								placeholder="Search suggested tags..."
 							/>
 						{:else}
-							{@render ReferenceList(activeEntry.automaticImplications, 'None', 'relation')}
+							{@render ReferenceList(
+								activeEntry.automaticImplications,
+								'None',
+								'relation',
+								`${activeEntry.slug}:automatic`
+							)}
 						{/if}
 						{#if !wikiEditMode && activeEntry.suggestedImplications.length}
 							<p class="subhead">Suggested</p>
-							{@render ReferenceList(activeEntry.suggestedImplications, 'None', 'relation')}
+							{@render ReferenceList(
+								activeEntry.suggestedImplications,
+								'None',
+								'relation',
+								`${activeEntry.slug}:suggested`
+							)}
 						{/if}
 					</div>
 					<div class="info-block">
@@ -1338,7 +2228,12 @@
 								placeholder="Search confusable tags..."
 							/>
 						{:else}
-							{@render ReferenceList(activeEntry.confusable, 'None listed', 'relation')}
+							{@render ReferenceList(
+								activeEntry.confusable,
+								'None listed',
+								'relation',
+								`${activeEntry.slug}:confusable`
+							)}
 						{/if}
 					</div>
 					<div class="info-block">
@@ -1350,18 +2245,22 @@
 								onChange={(values) => setDraftList('broader', values)}
 								placeholder="Search broader tags..."
 							/>
-							<AtlasWikiReferenceEditor
-								label="Narrower concepts"
-								values={splitDraftList(wikiDraft.narrower)}
-								onChange={(values) => setDraftList('narrower', values)}
-								placeholder="Search narrower tags..."
-							/>
 						{:else}
-							{@render ReferenceList(activeEntry.broader, 'None listed', 'relation')}
+							{@render ReferenceList(
+								activeEntry.broader,
+								'None listed',
+								'relation',
+								`${activeEntry.slug}:broader`
+							)}
 						{/if}
 						{#if !wikiEditMode && activeEntry.narrower.length}
 							<p class="subhead">Narrower / specific</p>
-							{@render ReferenceList(activeEntry.narrower, 'None', 'relation')}
+							{@render ReferenceList(
+								activeEntry.narrower,
+								'None',
+								'relation',
+								`${activeEntry.slug}:narrower`
+							)}
 						{/if}
 					</div>
 					<div class="info-block">
@@ -1379,7 +2278,8 @@
 							{@render ReferenceList(
 								activeEntry.allowedClassifiers,
 								'None listed',
-								activeEntry.kind === 'classifier' ? 'classifier-values' : 'classifier-links'
+								activeEntry.kind === 'classifier' ? 'classifier-values' : 'classifier-links',
+								`${activeEntry.slug}:allowed-classifiers`
 							)}
 						{/if}
 					</div>
@@ -1413,7 +2313,7 @@
 							{#if activeEntry.related.length}
 								<p>
 									<strong>Related:</strong>
-									{@render InlineReferenceList(activeEntry.related)}
+									{@render InlineReferenceList(activeEntry.related, `${activeEntry.slug}:related`)}
 								</p>
 							{/if}
 						{/if}
@@ -1424,15 +2324,65 @@
 						<dl>
 							<div>
 								<dt>Kind</dt>
-								<dd>{displayLabel(activeEntry.kind)}</dd>
+								<dd>
+									{#if wikiEditMode && wikiDraft}
+										<select
+											value={wikiDraft.kind}
+											aria-label="Concept kind"
+											onchange={(event) => {
+												if (!wikiDraft) return;
+												wikiDraft.kind = (event.currentTarget as HTMLSelectElement)
+													.value as WikiDraft['kind'];
+												wikiDraft.category = '';
+												wikiDraft.displayGroup = '';
+											}}
+										>
+											{#each ATLAS_ONTOLOGY.kinds as kind}
+												<option value={kind.id}>{kind.label}</option>
+											{/each}
+										</select>
+									{:else}
+										{displayLabel(activeEntry.kind)}
+									{/if}
+								</dd>
 							</div>
 							<div>
 								<dt>Category</dt>
-								<dd>{displayLabel(activeEntry.category)}</dd>
+								<dd>
+									{#if wikiEditMode && wikiDraft}
+										<select
+											value={wikiDraft.category}
+											aria-label="Concept category"
+											onchange={(event) => {
+												if (!wikiDraft) return;
+												wikiDraft.category = (event.currentTarget as HTMLSelectElement).value;
+												wikiDraft.displayGroup =
+													defaultDisplayGroupFor(wikiDraft.kind, wikiDraft.category) ?? '';
+											}}
+										>
+											<option value="" disabled>Select category</option>
+											{#each categoriesForKind(wikiDraft.kind) as category}
+												<option value={category.id}>{category.label}</option>
+											{/each}
+										</select>
+									{:else}
+										{displayLabel(activeEntry.category)}
+									{/if}
+								</dd>
 							</div>
 							<div>
 								<dt>Group</dt>
-								<dd>{activeEntry.displayGroup}</dd>
+								<dd>
+									{#if wikiEditMode && wikiDraft}
+										<select bind:value={wikiDraft.displayGroup} aria-label="Concept display group">
+											{#each DISPLAY_GROUP_OPTIONS as group}
+												<option value={group}>{group}</option>
+											{/each}
+										</select>
+									{:else}
+										{activeEntry.displayGroup}
+									{/if}
+								</dd>
 							</div>
 							<div>
 								<dt>Status</dt>
@@ -1537,15 +2487,262 @@
 				{/if}
 			</article>
 		{:else}
-			<div class="state">No wiki entry selected.</div>
+			<article class="entry guide-entry entry-animate" aria-label="Atlas wiki guide">
+				<nav class="breadcrumbs" aria-label="Wiki breadcrumbs">
+					<span>Atlas Wiki</span><span class="crumb-sep">›</span><span class="current">Guide</span>
+				</nav>
+				<header class="entry-header guide-header">
+					<div>
+						<h2>Wiki Guide</h2>
+						<p class="definition">
+							Atlas tags, classifiers, implications, examples, and documentation in one browsable
+							map.
+						</p>
+					</div>
+					<div class="guide-actions" aria-label="Atlas wiki actions">
+						<button type="button" class="wiki-action primary" onclick={() => startNewTagDraft()}>
+							<PlusIcon size={15} /> New tag
+						</button>
+						<button type="button" class="wiki-action" onclick={() => openReviewQueue()}
+							>Review tags</button
+						>
+						<button
+							type="button"
+							class="wiki-action"
+							onclick={() => copyVocabularyExport('markdown')}
+						>
+							<CopySimpleIcon size={15} /> Copy AI vocab
+						</button>
+						<button type="button" class="wiki-action" onclick={() => copyVocabularyExport('json')}>
+							Copy JSON
+						</button>
+					</div>
+					{#if vocabularyExportStatus}
+						<p class="nav-status guide-status">{vocabularyExportStatus}</p>
+					{/if}
+				</header>
+
+				<div class="guide-layout">
+					<aside class="toc" aria-label="Wiki guide table of contents">
+						<p>Contents</p>
+						<a href="#wiki-docs">Documentation</a>
+						<a href="#wiki-tree">Tag tree</a>
+						<a href="#wiki-classifiers">Classifiers</a>
+					</aside>
+
+					<div class="guide-main">
+						<section id="wiki-docs" class="guide-section">
+							<div class="guide-section-head">
+								<h3 class="section-title">Documentation</h3>
+								<p>Source-of-truth references for editing and applying Atlas metadata.</p>
+							</div>
+							<div class="doc-card-grid">
+								{#each DOC_LINKS as link}
+									<button type="button" onclick={() => loadDoc(link.slug)}>
+										<strong>{link.label}</strong>
+										<span>Open guide</span>
+									</button>
+								{/each}
+							</div>
+						</section>
+
+						<section id="wiki-tree" class="guide-section">
+							<div class="guide-section-head">
+								<h3 class="section-title">Tag Tree</h3>
+								<p>{entries.length.toLocaleString()} entries grouped by Atlas display structure.</p>
+							</div>
+							<div class="guide-tree">
+								{#each browseGroups as group (group.name)}
+									<details class="tree-group" open>
+										<summary>
+											<span>{group.name}</span>
+											<small>
+												{group.branches.reduce((sum, branch) => sum + branch.entries.length, 0)}
+											</small>
+										</summary>
+										<div class="tree-branches">
+											{#each group.branches as branch (branch.name)}
+												<section class="tree-branch">
+													<h4>{branch.name}</h4>
+													<div class="tree-tags">
+														{#each branch.entries as entry (entry.slug)}
+															<button
+																type="button"
+																class={referenceClass(entry.slug)}
+																title={entry.shortDefinition}
+																onclick={() => selectEntry(entry.slug)}
+															>
+																{entry.label}
+															</button>
+														{/each}
+													</div>
+												</section>
+											{/each}
+										</div>
+									</details>
+								{/each}
+							</div>
+						</section>
+
+						<section id="wiki-classifiers" class="guide-section">
+							<div class="guide-section-head">
+								<h3 class="section-title">Classifiers</h3>
+								<p>
+									Classifier entries define scoped refinements like pose, visual role, position, and
+									value lists.
+								</p>
+							</div>
+							<div class="classifier-map">
+								{#each entries.filter((entry) => entry.kind === 'classifier') as entry (entry.slug)}
+									<button type="button" onclick={() => selectEntry(entry.slug)}>
+										<strong>{entry.label}</strong>
+										<span
+											>{entry.allowedClassifiers.length} value{entry.allowedClassifiers.length === 1
+												? ''
+												: 's'}</span
+										>
+									</button>
+								{/each}
+							</div>
+						</section>
+					</div>
+				</div>
+			</article>
 		{/if}
 	</main>
 </section>
 
-{#snippet ReferenceList(values: string[], empty: string, mode: 'relation' | 'classifier-links' | 'classifier-values')}
+{#if governanceAction && governanceSlug}
+	<div
+		class="governance-backdrop"
+		role="presentation"
+		tabindex="-1"
+		onclick={(event) => {
+			if (event.target === event.currentTarget) closeGovernanceAction();
+		}}
+		onkeydown={(event) => {
+			if (event.key === 'Escape') closeGovernanceAction();
+		}}
+	>
+		<div
+			class="governance-dialog"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="governance-title"
+		>
+			<header>
+				<div>
+					<p class="eyebrow">Atlas governance</p>
+					<h2 id="governance-title">
+						{governanceAction === 'delete'
+							? `Delete ${governanceSlug}`
+							: governanceAction === 'merge'
+								? `Merge ${governanceSlug}`
+								: `Deprecate ${governanceSlug}`}
+					</h2>
+				</div>
+				<button
+					type="button"
+					class="icon-action"
+					aria-label="Close"
+					onclick={closeGovernanceAction}
+				>
+					<XIcon size={18} />
+				</button>
+			</header>
+			{#if governanceAction === 'delete'}
+				{#if deletionImpact}
+					<p>
+						This removes the concept from Atlas and clears its assignments. A hidden recovery record
+						prevents seeds or AI from silently recreating it.
+					</p>
+					<dl class="impact-grid">
+						<div>
+							<dt>Assets</dt>
+							<dd>{deletionImpact.assetAssignments}</dd>
+						</div>
+						<div>
+							<dt>Regions</dt>
+							<dd>{deletionImpact.annotationAssignments}</dd>
+						</div>
+						<div>
+							<dt>Entity uses</dt>
+							<dd>{deletionImpact.entityAssignments}</dd>
+						</div>
+						<div>
+							<dt>Relations</dt>
+							<dd>{deletionImpact.incomingRelations + deletionImpact.outgoingRelations}</dd>
+						</div>
+					</dl>
+					{#if deletionImpact.tier === 'guarded'}
+						<label class="wiki-field">
+							<span>Type <strong>{deletionImpact.slug}</strong> to confirm</span>
+							<input bind:value={deletionConfirmation} autocomplete="off" />
+						</label>
+					{/if}
+				{:else}
+					<p>Loading deletion impact...</p>
+				{/if}
+			{:else}
+				<p>
+					{governanceAction === 'merge'
+						? 'All assignments and reusable aliases will move to the target concept. The old slug remains recoverable in Deleted tags.'
+						: 'The concept remains readable, but cannot receive new assignments. A replacement is optional.'}
+				</p>
+				<label class="wiki-field">
+					<span>{governanceAction === 'merge' ? 'Merge into' : 'Replacement concept'}</span>
+					<input
+						bind:value={governanceTarget}
+						placeholder="Search or enter an established slug"
+						list="atlas-live-concepts"
+					/>
+				</label>
+				<datalist id="atlas-live-concepts">
+					{#each entries.filter((entry) => entry.slug !== governanceSlug) as entry}
+						<option value={entry.slug}>{entry.label}</option>
+					{/each}
+				</datalist>
+			{/if}
+			{#if governanceError}
+				<p class="wiki-error">{governanceError}</p>
+			{/if}
+			<footer>
+				<button type="button" class="wiki-action" onclick={closeGovernanceAction}>Cancel</button>
+				<button
+					type="button"
+					class:danger={governanceAction === 'delete'}
+					class="wiki-action primary"
+					disabled={governanceBusy ||
+						(governanceAction === 'delete' &&
+							(!deletionImpact ||
+								(deletionImpact.tier === 'guarded' &&
+									deletionConfirmation.trim() !== deletionImpact.slug))) ||
+						(governanceAction === 'merge' && !governanceTarget.trim())}
+					onclick={submitGovernanceAction}
+				>
+					{governanceBusy
+						? 'Working...'
+						: governanceAction === 'delete'
+							? 'Delete everywhere'
+							: governanceAction === 'merge'
+								? 'Merge concept'
+								: 'Deprecate concept'}
+				</button>
+			</footer>
+		</div>
+	</div>
+{/if}
+
+{#snippet ReferenceList(
+	values: string[],
+	empty: string,
+	mode: 'relation' | 'classifier-links' | 'classifier-values',
+	listKey: string
+)}
 	{#if values.length}
+		{@const limit = mode === 'classifier-links' ? 4 : mode === 'classifier-values' ? 6 : 5}
 		<ul class="reference-list">
-			{#each values as value}
+			{#each visibleReferences(values, listKey, limit) as value}
 				<li>
 					{#if mode === 'classifier-values'}
 						<code>{displayLabel(value)}</code>
@@ -1559,18 +2756,43 @@
 							{referenceLabel(value)}
 						</button>
 					{:else}
-						<span class="tag-ref missing" title="No wiki entry yet">{displayLabel(value)}</span>
+						<button
+							type="button"
+							class="tag-ref missing"
+							title="Create this Atlas concept"
+							onclick={() => startMissingTagDraft(value)}
+						>
+							{displayLabel(value)}
+							<PlusIcon size={12} />
+						</button>
 					{/if}
 				</li>
 			{/each}
+			{#if values.length > limit}
+				<li class="reference-more-row">
+					<button
+						type="button"
+						class="reference-more"
+						aria-expanded={expandedReferenceLists[listKey] ? 'true' : 'false'}
+						aria-label={expandedReferenceLists[listKey]
+							? 'Show fewer references'
+							: `Show ${values.length - limit} more references`}
+						onclick={() => toggleReferenceList(listKey)}
+					>
+						{expandedReferenceLists[listKey] ? 'less' : `+${values.length - limit}`}
+					</button>
+				</li>
+			{/if}
 		</ul>
 	{:else}
 		<p class="empty-copy">{empty}</p>
 	{/if}
 {/snippet}
 
-{#snippet InlineReferenceList(values: string[])}
-	{#each values as value, index}
+{#snippet InlineReferenceList(values: string[], listKey: string)}
+	{@const limit = 5}
+	{@const inlineValues = visibleReferences(values, listKey, limit)}
+	{#each inlineValues as value, index}
 		{#if entryBySlug.has(value)}
 			<button
 				type="button"
@@ -1579,11 +2801,34 @@
 				onclick={() => selectEntry(value)}
 			>
 				{referenceLabel(value)}
-			</button>{#if index < values.length - 1}, {/if}
+			</button>{#if index < values.length - 1},
+			{/if}
 		{:else}
-			<span class="inline-ref missing" title="No wiki entry yet">{displayLabel(value)}</span>{#if index < values.length - 1}, {/if}
+			<button
+				type="button"
+				class="inline-ref missing"
+				title="Create this Atlas concept"
+				onclick={() => startMissingTagDraft(value)}
+			>
+				{displayLabel(value)}
+				<PlusIcon size={12} />
+			</button>{#if index < values.length - 1},
+			{/if}
 		{/if}
 	{/each}
+	{#if values.length > limit}
+		<button
+			type="button"
+			class="inline-more"
+			aria-expanded={expandedReferenceLists[listKey] ? 'true' : 'false'}
+			aria-label={expandedReferenceLists[listKey]
+				? 'Show fewer related tags'
+				: `Show ${values.length - limit} more related tags`}
+			onclick={() => toggleReferenceList(listKey)}
+		>
+			{expandedReferenceLists[listKey] ? 'less' : `+${values.length - limit}`}
+		</button>
+	{/if}
 {/snippet}
 
 <style>
@@ -1641,6 +2886,10 @@
 		color: var(--color-text);
 	}
 
+	.mobile-atlas-back {
+		display: none;
+	}
+
 	p,
 	h1,
 	h2,
@@ -1668,103 +2917,15 @@
 		line-height: 1;
 	}
 
-	.doc-group {
-		border-top: 1px solid var(--color-border-soft);
-		padding-top: 0.55rem;
-	}
-
-	.doc-group summary {
-		min-height: 1.85rem;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		border-radius: var(--radius-sm);
-		color: var(--wiki-heading-muted);
-		font-size: 0.72rem;
-		font-weight: 800;
-		letter-spacing: 0.11em;
-		text-transform: uppercase;
-		list-style: none;
-		cursor: pointer;
-		transition:
-			background var(--duration-fast) var(--ease-out),
-			color var(--duration-fast) var(--ease-out);
-	}
-
-	.doc-group summary::-webkit-details-marker {
-		display: none;
-	}
-
-	.doc-group summary:hover,
-	.doc-group summary:focus-visible {
-		background: oklch(100% 0 0 / 0.035);
-		color: var(--color-text);
-	}
-
-	.doc-group :global(.chev) {
-		color: var(--wiki-muted);
-		transition: transform var(--duration-fast) var(--ease-out);
-	}
-
-	.doc-group:not([open]) :global(.chev) {
-		transform: rotate(-90deg);
-	}
-
-	.doc-links {
-		display: grid;
-		gap: 0.12rem;
-		margin-top: 0.25rem;
-		padding: 0 0 0.2rem 0.45rem;
-	}
-
-	.doc-links button {
-		min-height: 1.55rem;
-		border: 0;
-		border-radius: var(--radius-sm);
-		background: transparent;
-		color: var(--wiki-soft);
-		font-size: 0.78rem;
-		text-align: left;
-		cursor: pointer;
-		transition:
-			color var(--duration-fast) var(--ease-out),
-			background var(--duration-fast) var(--ease-out),
-			transform var(--duration-fast) var(--ease-out);
-	}
-
-	.doc-links button:hover,
-	.doc-links button:focus-visible,
-	.doc-links button.active {
-		background: oklch(100% 0 0 / 0.04);
-		color: var(--color-text);
-		transform: translateX(0.1rem);
-	}
-
-	.nav-actions {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 0.45rem;
-		margin-top: 0.65rem;
-	}
-
-	.nav-status {
-		margin: 0.45rem 0 0;
-		color: var(--wiki-muted);
-		font-size: 0.72rem;
-		line-height: 1.35;
-	}
-
-	.new-tag-button {
+	.guide-link {
 		width: 100%;
-		min-height: 2rem;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.35rem;
+		min-height: 2.15rem;
 		border: 1px solid var(--color-border-soft);
 		border-radius: var(--radius-md);
-		background: oklch(100% 0 0 / 0.035);
+		background: oklch(100% 0 0 / 0.026);
 		color: var(--wiki-soft);
+		text-align: left;
+		padding: 0 0.7rem;
 		cursor: pointer;
 		transition:
 			border-color var(--duration-fast) var(--ease-out),
@@ -1772,11 +2933,24 @@
 			color var(--duration-fast) var(--ease-out);
 	}
 
-	.new-tag-button:hover,
-	.new-tag-button:focus-visible {
-		border-color: oklch(78% 0.08 78 / 0.45);
-		background: oklch(78% 0.08 78 / 0.08);
+	.guide-link:hover,
+	.guide-link:focus-visible,
+	.guide-link.active {
+		border-color: oklch(78% 0.08 78 / 0.42);
+		background: oklch(78% 0.08 78 / 0.075);
 		color: var(--color-text);
+	}
+
+	.entity-nav-link {
+		margin-top: 0.45rem;
+		color: var(--wiki-link-entity);
+	}
+
+	.nav-status {
+		margin: 0.45rem 0 0;
+		color: var(--wiki-muted);
+		font-size: 0.72rem;
+		line-height: 1.35;
 	}
 
 	.search-wrap {
@@ -1940,6 +3114,10 @@
 		overflow: auto;
 	}
 
+	.mobile-article-bar {
+		display: none;
+	}
+
 	.entry {
 		max-width: 78rem;
 		padding: 1.75rem clamp(1.6rem, 4vw, 3.7rem) 3.6rem;
@@ -2086,10 +3264,17 @@
 		color: var(--color-text);
 		padding: 0.55rem 0.65rem;
 		font: inherit;
+		color-scheme: dark;
 		transition:
 			border-color var(--duration-fast) var(--ease-out),
 			background var(--duration-fast) var(--ease-out),
 			box-shadow var(--duration-fast) var(--ease-out);
+	}
+
+	.wiki-field option,
+	.metadata option {
+		background: oklch(14% 0.007 70);
+		color: var(--color-text);
 	}
 
 	.wiki-field textarea {
@@ -2176,6 +3361,264 @@
 		gap: 0.35rem;
 	}
 
+	.guide-entry {
+		max-width: 90rem;
+	}
+
+	.guide-header {
+		max-width: none;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: 1.2rem;
+		align-items: start;
+	}
+
+	.guide-actions {
+		display: flex;
+		flex-wrap: nowrap;
+		justify-content: flex-end;
+		gap: 0.45rem;
+		max-width: 44rem;
+	}
+
+	.guide-status {
+		grid-column: 1 / -1;
+		margin-top: -0.45rem;
+	}
+
+	.guide-layout {
+		display: grid;
+		grid-template-columns: minmax(11rem, 0.22fr) minmax(0, 1fr);
+		gap: 2rem;
+		align-items: start;
+	}
+
+	.toc {
+		position: sticky;
+		top: 1.2rem;
+		display: grid;
+		gap: 0.25rem;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-lg);
+		background: oklch(100% 0 0 / 0.018);
+		padding: 0.85rem;
+	}
+
+	.toc p {
+		margin-bottom: 0.35rem;
+		color: var(--wiki-heading-muted);
+		font-size: 0.7rem;
+		font-weight: 800;
+		letter-spacing: 0.11em;
+		text-transform: uppercase;
+	}
+
+	.toc a {
+		border-radius: var(--radius-sm);
+		color: var(--wiki-soft);
+		padding: 0.32rem 0.42rem;
+		text-decoration: none;
+		transition:
+			background var(--duration-fast) var(--ease-out),
+			color var(--duration-fast) var(--ease-out);
+	}
+
+	.toc a:hover,
+	.toc a:focus-visible {
+		background: oklch(100% 0 0 / 0.045);
+		color: var(--color-text);
+	}
+
+	.guide-main {
+		min-width: 0;
+		display: grid;
+		gap: 1.75rem;
+	}
+
+	.guide-section {
+		border-top: 1px solid var(--color-border-soft);
+		padding-top: 1.2rem;
+		scroll-margin-top: 1.2rem;
+	}
+
+	.guide-section:first-child {
+		border-top: 0;
+		padding-top: 0;
+	}
+
+	.guide-section-head {
+		display: flex;
+		align-items: end;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-bottom: 0.85rem;
+	}
+
+	.guide-section-head p {
+		max-width: 32rem;
+		color: var(--wiki-muted);
+		font-size: 0.86rem;
+		line-height: 1.45;
+		text-align: right;
+	}
+
+	.doc-card-grid,
+	.classifier-map {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+		gap: 0.55rem;
+	}
+
+	.doc-card-grid button,
+	.classifier-map button {
+		min-width: 0;
+		display: grid;
+		gap: 0.25rem;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-md);
+		background: oklch(100% 0 0 / 0.02);
+		color: var(--wiki-soft);
+		padding: 0.72rem 0.8rem;
+		text-align: left;
+		cursor: pointer;
+		transition:
+			border-color var(--duration-fast) var(--ease-out),
+			background var(--duration-fast) var(--ease-out),
+			color var(--duration-fast) var(--ease-out),
+			transform var(--duration-fast) var(--ease-out);
+	}
+
+	.doc-card-grid button:hover,
+	.doc-card-grid button:focus-visible,
+	.classifier-map button:hover,
+	.classifier-map button:focus-visible {
+		border-color: var(--color-border-strong);
+		background: oklch(100% 0 0 / 0.045);
+		color: var(--color-text);
+		transform: translateY(-0.08rem);
+	}
+
+	.doc-card-grid strong,
+	.classifier-map strong {
+		overflow: hidden;
+		color: var(--color-text);
+		font-size: 0.9rem;
+		font-weight: 680;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.doc-card-grid span,
+	.classifier-map span {
+		color: var(--wiki-muted);
+		font-size: 0.76rem;
+	}
+
+	.guide-tree {
+		display: grid;
+		gap: 0.65rem;
+	}
+
+	.tree-group {
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-lg);
+		background: oklch(100% 0 0 / 0.018);
+		overflow: hidden;
+	}
+
+	.tree-group summary {
+		min-height: 2.75rem;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 0 0.95rem;
+		color: var(--color-text);
+		list-style: none;
+		cursor: pointer;
+	}
+
+	.tree-group summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.tree-group summary small {
+		color: var(--wiki-muted);
+		font-size: 0.74rem;
+	}
+
+	.tree-branches {
+		display: grid;
+		gap: 0.8rem;
+		border-top: 1px solid var(--color-border-soft);
+		padding: 0.9rem;
+	}
+
+	.tree-branch {
+		display: grid;
+		grid-template-columns: minmax(9rem, 0.22fr) minmax(0, 1fr);
+		gap: 0.8rem;
+		align-items: start;
+	}
+
+	.tree-branch h4 {
+		color: var(--wiki-heading-muted);
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0.08em;
+		line-height: 1.35;
+		text-transform: uppercase;
+	}
+
+	.tree-tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.35rem;
+	}
+
+	.tree-tags button {
+		min-height: 1.65rem;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-sm);
+		background: oklch(100% 0 0 / 0.02);
+		color: var(--wiki-link-visual);
+		padding: 0 0.5rem;
+		cursor: pointer;
+		transition:
+			border-color var(--duration-fast) var(--ease-out),
+			background var(--duration-fast) var(--ease-out),
+			color var(--duration-fast) var(--ease-out);
+	}
+
+	.tree-tags button:hover,
+	.tree-tags button:focus-visible {
+		border-color: var(--color-border-strong);
+		background: oklch(100% 0 0 / 0.05);
+		color: var(--color-text);
+	}
+
+	.tree-tags button.classifier {
+		color: var(--wiki-link-classifier);
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-size: 0.76rem;
+	}
+
+	.tree-tags button.artist {
+		color: var(--wiki-link-entity);
+	}
+
+	.tree-tags button.work {
+		color: var(--wiki-link-work);
+	}
+
+	.tree-tags button.source {
+		color: oklch(75% 0.035 235);
+	}
+
+	.tree-tags button.theme {
+		color: var(--wiki-link-theme);
+	}
+
 	.entry h2 {
 		margin: 0 0 0.8rem;
 		color: var(--color-text);
@@ -2204,6 +3647,25 @@
 		font-size: 0.94rem;
 	}
 
+	.entity-kind {
+		margin-top: 0.28rem;
+		color: var(--wiki-muted);
+		font-size: 0.84rem;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
+	.entity-editor-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.2rem 1rem;
+	}
+
+	.entity-editor-grid .wide {
+		grid-column: 1 / -1;
+	}
+
 	.entry-section {
 		margin-top: 1.6rem;
 	}
@@ -2229,6 +3691,10 @@
 		display: grid;
 		grid-template-columns: repeat(4, minmax(9rem, 1fr));
 		gap: 1.1rem;
+	}
+
+	.entity-work-grid {
+		grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
 	}
 
 	.example-card {
@@ -2321,6 +3787,35 @@
 		height: 100%;
 		display: block;
 		object-fit: cover;
+	}
+
+	.asset-thumb .animated-preview {
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+	}
+
+	.asset-thumb img.static-hidden {
+		opacity: 0;
+	}
+
+	.asset-thumb .gif-badge {
+		position: absolute;
+		right: var(--space-2);
+		bottom: var(--space-2);
+		z-index: 2;
+		min-width: 2.2rem;
+		min-height: 1.55rem;
+		display: inline-grid;
+		place-items: center;
+		padding: 0 0.45rem;
+		border: 1px solid oklch(82% 0.012 75 / 0.26);
+		border-radius: var(--radius-sm);
+		background: oklch(8% 0.006 70 / 0.86);
+		color: var(--color-text);
+		font-size: 0.66rem;
+		font-weight: 800;
+		letter-spacing: 0.08em;
 	}
 
 	.asset-thumb span {
@@ -2555,6 +4050,10 @@
 		border-bottom: 1px solid var(--color-border-soft);
 	}
 
+	.entity-info-grid {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+
 	.info-block {
 		min-width: 0;
 		margin-right: 1.5rem;
@@ -2574,8 +4073,89 @@
 		line-height: 1.52;
 	}
 
+	.entity-link-list {
+		display: grid;
+		gap: 0.45rem;
+	}
+
+	.entity-link-card {
+		display: grid;
+		gap: 0.24rem;
+		justify-items: start;
+	}
+
+	.entity-link-card small {
+		color: var(--color-dim);
+		font-size: 0.72rem;
+		line-height: 1.35;
+	}
+
+	.reference-chip {
+		min-height: 1.9rem;
+		display: inline-flex;
+		align-items: center;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-md);
+		background: oklch(100% 0 0 / 0.025);
+		color: var(--wiki-link-entity);
+		padding: 0 0.62rem;
+		text-decoration: none;
+		font-size: 0.82rem;
+	}
+
+	.reference-chip:hover,
+	.reference-chip:focus-visible {
+		border-color: var(--color-border-strong);
+		background: oklch(100% 0 0 / 0.055);
+		color: var(--color-text);
+	}
+
 	.reference-list li + li {
 		margin-top: 0.38rem;
+	}
+
+	.reference-more-row {
+		list-style: none;
+		margin-left: -1rem;
+	}
+
+	.reference-more,
+	.inline-more {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-sm);
+		background: oklch(100% 0 0 / 0.025);
+		color: var(--wiki-muted);
+		font-size: 0.72rem;
+		line-height: 1.2;
+		cursor: pointer;
+		transition:
+			border-color var(--duration-fast) var(--ease-out),
+			background var(--duration-fast) var(--ease-out),
+			color var(--duration-fast) var(--ease-out);
+	}
+
+	.reference-more {
+		min-height: 1.35rem;
+		padding: 0 0.42rem;
+	}
+
+	.inline-more {
+		min-height: 1.25rem;
+		margin-left: 0.28rem;
+		padding: 0 0.38rem;
+		vertical-align: baseline;
+	}
+
+	.reference-more:hover,
+	.reference-more:focus-visible,
+	.inline-more:hover,
+	.inline-more:focus-visible {
+		border-color: var(--color-border-strong);
+		background: oklch(100% 0 0 / 0.055);
+		color: var(--color-text);
 	}
 
 	.tag-ref,
@@ -2829,6 +4409,30 @@
 			grid-template-columns: 18rem minmax(0, 1fr);
 		}
 
+		.guide-header,
+		.guide-layout,
+		.tree-branch {
+			grid-template-columns: 1fr;
+		}
+
+		.guide-actions {
+			flex-wrap: wrap;
+			justify-content: flex-start;
+			max-width: none;
+		}
+
+		.guide-section-head {
+			display: grid;
+		}
+
+		.guide-section-head p {
+			text-align: left;
+		}
+
+		.toc {
+			position: static;
+		}
+
 		.examples,
 		.info-grid {
 			grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2840,15 +4444,181 @@
 		}
 	}
 
-	@media (max-width: 760px) {
+	@media (max-width: 820px), (pointer: coarse) and (max-width: 1180px) {
 		.atlas-wiki {
+			display: block;
+			background: var(--wiki-bg);
+		}
+
+		.atlas-wiki:not(.mobile-article-open) .entry-scroll,
+		.atlas-wiki.mobile-article-open .wiki-nav {
+			display: none;
+		}
+
+		.wiki-nav,
+		.entry-scroll {
+			height: 100%;
+			border-right: 0;
+		}
+
+		.nav-top {
+			display: grid;
+			grid-template-columns: auto minmax(0, 1fr) auto;
+			align-items: center;
+			gap: 0.65rem;
+			padding: 0.85rem 1rem 0.7rem;
+		}
+
+		.mobile-atlas-back {
+			min-height: 2.75rem;
+			display: inline-flex;
+			align-items: center;
+			gap: 0.35rem;
+			border: 1px solid var(--color-border-soft);
+			border-radius: var(--radius-md);
+			background: oklch(100% 0 0 / 0.025);
+			color: var(--wiki-soft);
+			padding: 0 0.65rem;
+			font: inherit;
+			font-size: 0.82rem;
+			font-weight: 680;
+			cursor: pointer;
+		}
+
+		.nav-top h1 {
+			margin: 0;
+			font-size: 1.65rem;
+		}
+
+		.guide-link {
+			width: auto;
+			min-height: 2.75rem;
+			padding: 0 0.75rem;
+		}
+
+		.entity-nav-link {
+			grid-column: 1 / -1;
+			width: 100%;
+			margin-top: 0;
+		}
+
+		.atlas-wiki:not(.mobile-article-open) .guide-link.active {
+			border-color: var(--color-border-soft);
+			background: oklch(100% 0 0 / 0.026);
+			color: var(--wiki-soft);
+		}
+
+		.search-box input {
+			min-height: 3rem;
+		}
+
+		.search-wrap {
+			padding: 0.65rem 1rem;
+		}
+
+		.kbd {
+			display: none;
+		}
+
+		.search-box input {
+			padding-right: 0.8rem;
+			font-size: 1rem;
+		}
+
+		.nav-scroll {
+			padding: 0.45rem 1rem
+				calc(var(--bottom-nav-height, 0px) + max(1.4rem, env(safe-area-inset-bottom)));
+			overscroll-behavior-y: contain;
+		}
+
+		.nav-label {
+			margin: 0.25rem 0 0.45rem;
+		}
+
+		.group summary {
+			min-height: 3rem;
+		}
+
+		.branch {
+			margin-left: 0.2rem;
+			padding-left: 0.7rem;
+		}
+
+		.wiki-link {
+			min-height: 2.75rem;
+			display: flex;
+			align-items: center;
+			margin: 0.08rem 0;
+			padding: 0.55rem 0.65rem;
+		}
+
+		.mobile-article-bar {
+			position: sticky;
+			top: 0;
+			z-index: var(--z-sticky);
+			display: flex;
+			align-items: center;
+			min-height: 3.5rem;
+			border-bottom: 1px solid var(--color-border-soft);
+			background: oklch(11% 0.008 70 / 0.97);
+			padding: 0.4rem 0.75rem;
+		}
+
+		.mobile-article-bar button {
+			min-height: 2.7rem;
+			display: inline-flex;
+			align-items: center;
+			gap: 0.45rem;
+			border: 1px solid transparent;
+			border-radius: var(--radius-md);
+			background: transparent;
+			color: var(--wiki-soft);
+			padding: 0 0.55rem;
+			font: inherit;
+			font-weight: 680;
+			cursor: pointer;
+		}
+
+		.entry {
+			padding: 1.1rem 1rem calc(var(--bottom-nav-height, 0px) + 2.2rem);
+		}
+
+		.entry-title-row,
+		.review-row,
+		.new-tag-grid,
+		.candidate-row {
 			grid-template-columns: 1fr;
-			grid-template-rows: minmax(20rem, 46vh) minmax(0, 1fr);
+		}
+
+		.entry-title-row {
+			display: grid;
+		}
+
+		.wiki-edit-actions,
+		.review-status {
+			justify-content: flex-start;
+			justify-items: start;
+		}
+
+		.wiki-action {
+			min-height: 2.75rem;
+			padding: 0 0.85rem;
+		}
+
+		.breadcrumbs {
+			font-size: 0.76rem;
+		}
+
+		.entry h2 {
+			font-size: clamp(2.15rem, 10vw, 3rem);
+			line-height: 1;
 		}
 
 		.lower-grid,
 		.examples,
-		.info-grid {
+		.info-grid,
+		.doc-card-grid,
+		.classifier-map {
 			grid-template-columns: 1fr;
 		}
 
@@ -2861,6 +4631,199 @@
 
 		.info-block:last-child {
 			border-bottom: 0;
+		}
+
+		.example-card {
+			min-height: 2.75rem;
+		}
+
+		.candidate-actions {
+			justify-content: flex-start;
+		}
+	}
+
+	@media (min-width: 760px) and (max-width: 820px),
+		(pointer: coarse) and (min-width: 760px) and (max-width: 1180px) {
+		.nav-scroll {
+			padding-bottom: max(1.4rem, env(safe-area-inset-bottom));
+		}
+
+		.entry {
+			padding-bottom: max(2.2rem, env(safe-area-inset-bottom));
+		}
+	}
+
+	.review-filters {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.45rem;
+		margin: 0 0 1rem;
+	}
+
+	.review-filters button {
+		min-height: 2.5rem;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-md);
+		background: transparent;
+		color: var(--wiki-soft);
+		padding: 0 0.8rem;
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.review-filters button.active {
+		border-color: oklch(78% 0.08 78 / 0.55);
+		background: oklch(78% 0.08 78 / 0.1);
+		color: var(--wiki-text);
+	}
+
+	.governance-menu {
+		position: relative;
+	}
+
+	.governance-menu summary {
+		list-style: none;
+		cursor: pointer;
+	}
+
+	.governance-menu summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.governance-menu > div {
+		position: absolute;
+		top: calc(100% + 0.4rem);
+		right: 0;
+		z-index: var(--z-popover);
+		display: grid;
+		min-width: 10rem;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: oklch(16% 0.01 70);
+		padding: 0.35rem;
+	}
+
+	.governance-menu > div button {
+		min-height: 2.75rem;
+		border: 0;
+		border-radius: var(--radius-sm);
+		background: transparent;
+		color: var(--wiki-text);
+		padding: 0 0.7rem;
+		text-align: left;
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.governance-menu > div button:hover,
+	.governance-menu > div button:focus-visible {
+		background: oklch(72% 0.012 75 / 0.08);
+	}
+
+	.governance-menu > div button.danger {
+		color: oklch(72% 0.15 28);
+	}
+
+	.governance-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: var(--z-modal);
+		display: grid;
+		place-items: center;
+		background: oklch(8% 0.006 70 / 0.76);
+		padding: 1rem;
+	}
+
+	.governance-dialog {
+		width: min(34rem, 100%);
+		max-height: calc(100dvh - 2rem);
+		overflow: auto;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		background: oklch(14% 0.009 70);
+		padding: 1rem;
+		color: var(--wiki-text);
+	}
+
+	.governance-dialog > header,
+	.governance-dialog > footer {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.8rem;
+	}
+
+	.governance-dialog h2 {
+		margin: 0;
+		font-family: var(--font-heading);
+		font-size: 1.55rem;
+	}
+
+	.governance-dialog .eyebrow {
+		margin: 0 0 0.2rem;
+		color: var(--wiki-dim);
+		font-size: 0.72rem;
+		font-weight: 720;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+	}
+
+	.governance-dialog > p {
+		color: var(--wiki-soft);
+		line-height: 1.55;
+	}
+
+	.governance-dialog footer {
+		justify-content: flex-end;
+		margin-top: 1rem;
+	}
+
+	.impact-grid {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: 1px;
+		overflow: hidden;
+		border: 1px solid var(--color-border-soft);
+		border-radius: var(--radius-md);
+		background: var(--color-border-soft);
+	}
+
+	.impact-grid div {
+		background: oklch(16% 0.01 70);
+		padding: 0.75rem;
+	}
+
+	.impact-grid dt {
+		color: var(--wiki-dim);
+		font-size: 0.72rem;
+	}
+
+	.impact-grid dd {
+		margin: 0.2rem 0 0;
+		font-weight: 720;
+	}
+
+	.wiki-action.danger,
+	.governance-dialog .wiki-action.danger {
+		border-color: oklch(62% 0.18 28 / 0.48);
+		background: oklch(62% 0.18 28 / 0.12);
+		color: oklch(76% 0.12 28);
+	}
+
+	@media (max-width: 540px) {
+		.governance-backdrop {
+			align-items: end;
+			padding: 0;
+		}
+
+		.governance-dialog {
+			max-height: 88dvh;
+			border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+			padding: 1rem 1rem max(1rem, env(safe-area-inset-bottom));
+		}
+
+		.impact-grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 	}
 </style>

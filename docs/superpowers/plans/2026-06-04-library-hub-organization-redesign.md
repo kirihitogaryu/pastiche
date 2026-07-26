@@ -92,6 +92,7 @@ Execution note: the current code and older snippets may still use `facet` becaus
 ### Task 0: Replace Product And Public API Terminology
 
 **Files:**
+
 - Modify: `src/lib/library/types.ts`
 - Modify: `src/lib/server/library/schema.ts`
 - Modify: `src/lib/server/library/organization.ts`
@@ -209,6 +210,7 @@ Expected: Remaining matches are allowed only in migration comments, compatibilit
 ### Task 1: Add Global Tag Groups To Shared Types
 
 **Files:**
+
 - Modify: `src/lib/library/types.ts`
 - Test: Type coverage through `npm run check`
 
@@ -276,6 +278,7 @@ Expected: Type errors appear anywhere that constructs `LibraryTagFacet` or `Libr
 ### Task 2: Add The Reserved General Facet
 
 **Files:**
+
 - Modify: `src/lib/server/library/schema.ts`
 - Modify: `src/lib/server/library/organization.ts`
 - Test: `src/lib/server/library/library.spec.ts`
@@ -287,9 +290,10 @@ Add a test that initializes the database and verifies the default facets include
 ```ts
 it('creates the reserved general tag facet', () => {
 	const db = openLibraryDatabase();
-	const facets = db
-		.prepare('select slug, name from tag_facets order by rowid')
-		.all() as Array<{ slug: string; name: string }>;
+	const facets = db.prepare('select slug, name from tag_facets order by rowid').all() as Array<{
+		slug: string;
+		name: string;
+	}>;
 	db.close();
 
 	expect(facets[0]).toEqual({ slug: 'general', name: 'General' });
@@ -351,6 +355,7 @@ Expected: PASS, after updating any expectations that previously assumed plain ta
 ### Task 3: Return Global Tags And Project Covers
 
 **Files:**
+
 - Modify: `src/lib/server/library/read.ts`
 - Test: `src/lib/server/library/read.spec.ts`
 
@@ -434,7 +439,7 @@ function mapTagFacets(facets: TagFacetRow[], tags: TagRow[]): LibraryTagFacet[] 
 Replace `tagFacets: tagFacets.map(mapTagFacet)` with:
 
 ```ts
-tagFacets: mapTagFacets(tagFacets, allTags)
+tagFacets: mapTagFacets(tagFacets, allTags);
 ```
 
 - [ ] **Step 4: Add project cover previews**
@@ -442,9 +447,7 @@ tagFacets: mapTagFacets(tagFacets, allTags)
 Before returning `projects`, build a map:
 
 ```ts
-const assetPreviewById = new Map(
-	assets.map((asset) => [asset.id, mapImage(asset).previewUrl])
-);
+const assetPreviewById = new Map(assets.map((asset) => [asset.id, mapImage(asset).previewUrl]));
 ```
 
 Update `mapProject` to accept that map:
@@ -462,7 +465,9 @@ function mapProject(
 		description: project.description,
 		pinned: Boolean(project.pinned),
 		coverAssetId: project.cover_asset_id,
-		coverPreviewUrl: project.cover_asset_id ? (assetPreviewById.get(project.cover_asset_id) ?? null) : null,
+		coverPreviewUrl: project.cover_asset_id
+			? (assetPreviewById.get(project.cover_asset_id) ?? null)
+			: null,
 		assetCount,
 		folderCount: folderRefs.filter((ref) => ref.project_id === project.id).length,
 		createdAt: project.created_at,
@@ -488,6 +493,7 @@ Expected: PASS.
 ### Task 4: Add Explicit Facet Creation
 
 **Files:**
+
 - Modify: `src/lib/server/library/organization.ts`
 - Create: `src/routes/api/library/tag-facets/+server.ts`
 - Test: `src/routes/api/library/organization.server.spec.ts`
@@ -571,6 +577,7 @@ Expected: PASS.
 ### Task 5: Add Folder/Tag/Project View Model Helpers
 
 **Files:**
+
 - Create: `src/lib/components/library/libraryOverviewModel.ts`
 - Create: `src/lib/components/library/libraryOverviewModel.spec.ts`
 
@@ -591,7 +598,13 @@ describe('libraryOverviewModel', () => {
 	it('builds a nested folder tree from flat folders', () => {
 		const tree = buildFolderTree([
 			{ id: 'root', name: 'References', parentId: null, path: ['References'], assetCount: 2 },
-			{ id: 'child', name: 'Figures', parentId: 'root', path: ['References', 'Figures'], assetCount: 1 }
+			{
+				id: 'child',
+				name: 'Figures',
+				parentId: 'root',
+				path: ['References', 'Figures'],
+				assetCount: 1
+			}
 		] as never);
 
 		expect(tree[0].children[0].name).toBe('Figures');
@@ -697,6 +710,7 @@ Expected: PASS.
 ### Task 6: Build Project Cards
 
 **Files:**
+
 - Create: `src/lib/components/library/ProjectCardGrid.svelte`
 
 - [ ] **Step 1: Create component contract**
@@ -716,7 +730,12 @@ type Props = {
 Each card:
 
 ```svelte
-<button class="project-card" class:empty={!project.coverPreviewUrl} type="button" onclick={() => onOpen(project.id)}>
+<button
+	class="project-card"
+	class:empty={!project.coverPreviewUrl}
+	type="button"
+	onclick={() => onOpen(project.id)}
+>
 	<div class="project-media">
 		{#if project.coverPreviewUrl}
 			<img src={project.coverPreviewUrl} alt="" loading="lazy" />
@@ -761,6 +780,7 @@ Use:
 ### Task 7: Build Folder Accordion Tree
 
 **Files:**
+
 - Create: `src/lib/components/library/FolderTree.svelte`
 
 - [ ] **Step 1: Create component contract**
@@ -784,8 +804,15 @@ Render a chevron only when `node.children.length > 0`:
 {#each nodes as node (node.id)}
 	<div class="folder-row depth-{Math.min(node.depth, 2)}">
 		{#if node.children.length}
-			<button class="folder-toggle" type="button" aria-label={`Toggle ${node.name}`} onclick={() => onToggle(node.id)}>
-				{#if expanded.has(node.id)}<CaretDownIcon size={16} />{:else}<CaretRightIcon size={16} />{/if}
+			<button
+				class="folder-toggle"
+				type="button"
+				aria-label={`Toggle ${node.name}`}
+				onclick={() => onToggle(node.id)}
+			>
+				{#if expanded.has(node.id)}<CaretDownIcon size={16} />{:else}<CaretRightIcon
+						size={16}
+					/>{/if}
 			</button>
 		{:else}
 			<span class="folder-spacer"></span>
@@ -807,9 +834,21 @@ Render a chevron only when `node.children.length > 0`:
 Use indentation that stops becoming more dramatic after depth 2:
 
 ```css
-.depth-0 { --indent: 0rem; --row-height: 3rem; --font-size: 1rem; }
-.depth-1 { --indent: 1.35rem; --row-height: 2.75rem; --font-size: 0.93rem; }
-.depth-2 { --indent: 2.35rem; --row-height: 2.55rem; --font-size: 0.88rem; }
+.depth-0 {
+	--indent: 0rem;
+	--row-height: 3rem;
+	--font-size: 1rem;
+}
+.depth-1 {
+	--indent: 1.35rem;
+	--row-height: 2.75rem;
+	--font-size: 0.93rem;
+}
+.depth-2 {
+	--indent: 2.35rem;
+	--row-height: 2.55rem;
+	--font-size: 0.88rem;
+}
 
 .folder-row {
 	display: grid;
@@ -821,6 +860,7 @@ Use indentation that stops becoming more dramatic after depth 2:
 ### Task 8: Build Tag Facet Groups
 
 **Files:**
+
 - Create: `src/lib/components/library/TagFacetGroups.svelte`
 
 - [ ] **Step 1: Create component contract**
@@ -856,7 +896,9 @@ Markup:
 	{#each facets as facet (facet.id)}
 		<article class="facet-row" class:general={facet.slug === 'general'}>
 			<button class="facet-toggle" type="button" onclick={() => onToggle(facet.slug)}>
-				{#if expanded.has(facet.slug)}<CaretDownIcon size={15} />{:else}<CaretRightIcon size={15} />{/if}
+				{#if expanded.has(facet.slug)}<CaretDownIcon size={15} />{:else}<CaretRightIcon
+						size={15}
+					/>{/if}
 				<span class="facet-dot" data-facet={facet.slug}></span>
 				<strong>{facet.name}</strong>
 			</button>
@@ -882,6 +924,7 @@ Use small neutral pills with subtle facet dots. Do not style facet headers as pi
 ### Task 9: Build Smart Folder List
 
 **Files:**
+
 - Create: `src/lib/components/library/SmartFolderList.svelte`
 
 - [ ] **Step 1: Create component**
@@ -904,6 +947,7 @@ Render rows at the bottom with smaller typography and quieter borders than user 
 ### Task 10: Replace Generic Overview Sections
 
 **Files:**
+
 - Modify: `src/lib/components/library/LibraryOverview.svelte`
 
 - [ ] **Step 1: Replace imports**
@@ -994,6 +1038,7 @@ Remove the current `activeSection`, `section-chips`, and `View Full Library` row
 ### Task 11: Add Facet Creation To The Popover
 
 **Files:**
+
 - Modify: `src/lib/components/library/CreateOrganizationPopover.svelte`
 
 - [ ] **Step 1: Extend kind**
@@ -1046,6 +1091,7 @@ Only show the selector when `kind === 'tag' && !name.includes(':')`.
 ### Task 12: Top-Bar And Back Affordances
 
 **Files:**
+
 - Modify: `src/lib/components/library/LibraryWorkspace.svelte`
 - Modify: `src/lib/components/library/FolderContents.svelte`
 
@@ -1077,6 +1123,7 @@ If `LibraryWorkspace.svelte` owns top-bar buttons, route folder/project/tag icon
 ### Task 13: Apply The New Hub Layout
 
 **Files:**
+
 - Modify: `src/lib/components/library/LibraryOverview.svelte`
 - Modify: new component CSS files from Milestone 4
 
@@ -1133,6 +1180,7 @@ Project names, folder names, and tag pills must not overflow:
 ### Task 14: Popover Safety Pass
 
 **Files:**
+
 - Modify: `src/lib/components/library/CreateOrganizationPopover.svelte`
 
 - [ ] **Step 1: Keep desktop anchored**
@@ -1160,9 +1208,11 @@ At mobile sizes, keep:
 Add a Svelte window keydown handler:
 
 ```svelte
-<svelte:window onkeydown={(event) => {
-	if (event.key === 'Escape') onClose();
-}} />
+<svelte:window
+	onkeydown={(event) => {
+		if (event.key === 'Escape') onClose();
+	}}
+/>
 ```
 
 ---
@@ -1172,6 +1222,7 @@ Add a Svelte window keydown handler:
 ### Task 15: Run Code Verification
 
 **Files:**
+
 - No file changes unless failures reveal needed fixes.
 
 - [ ] **Step 1: Run unit tests**

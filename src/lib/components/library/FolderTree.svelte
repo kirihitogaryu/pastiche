@@ -2,6 +2,7 @@
 	import CaretDownIcon from 'phosphor-svelte/lib/CaretDownIcon';
 	import CaretRightIcon from 'phosphor-svelte/lib/CaretRightIcon';
 	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
+	import FolderOpenIcon from 'phosphor-svelte/lib/FolderOpenIcon';
 	import FolderTree from './FolderTree.svelte';
 	import type { FolderTreeNode } from './libraryOverviewModel';
 
@@ -10,14 +11,18 @@
 		expanded: Set<string>;
 		onToggle: (id: string) => void;
 		onOpen: (node: FolderTreeNode) => void;
+		activeId?: string | null;
 	};
 
-	let { nodes, expanded, onToggle, onOpen }: Props = $props();
+	let { nodes, expanded, onToggle, onOpen, activeId = null }: Props = $props();
 </script>
 
 <div class="folder-tree">
 	{#each nodes as node (node.id)}
-		<div class="folder-row depth-{Math.min(node.depth, 2)}">
+		<div
+			class="folder-row depth-{Math.min(node.depth, 2)}"
+			class:has-children={node.children.length > 0}
+		>
 			{#if node.children.length}
 				<button
 					class="folder-toggle"
@@ -31,17 +36,25 @@
 						<CaretRightIcon size={16} />
 					{/if}
 				</button>
-			{:else}
-				<span class="folder-spacer"></span>
 			{/if}
-			<button class="folder-open" type="button" onclick={() => onOpen(node)}>
-				<FolderIcon size={18} />
+			<button
+				class="folder-open"
+				class:active={activeId === node.id}
+				type="button"
+				aria-current={activeId === node.id ? 'page' : undefined}
+				onclick={() => onOpen(node)}
+			>
+				{#if activeId === node.id}
+					<FolderOpenIcon size={18} />
+				{:else}
+					<FolderIcon size={18} />
+				{/if}
 				<span>{node.name}</span>
 				<small>{node.assetCount.toLocaleString()}</small>
 			</button>
 		</div>
 		{#if node.children.length && expanded.has(node.id)}
-			<FolderTree nodes={node.children} {expanded} {onToggle} {onOpen} />
+			<FolderTree nodes={node.children} {expanded} {onToggle} {onOpen} {activeId} />
 		{/if}
 	{/each}
 </div>
@@ -54,19 +67,19 @@
 
 	.depth-0 {
 		--indent: 0rem;
-		--row-height: 2.8rem;
+		--row-height: 3.1rem;
 		--font-size: 1rem;
 	}
 
 	.depth-1 {
-		--indent: 1.55rem;
-		--row-height: 2.45rem;
+		--indent: 1.4rem;
+		--row-height: 2.85rem;
 		--font-size: 0.93rem;
 	}
 
 	.depth-2 {
-		--indent: 2.95rem;
-		--row-height: 2.35rem;
+		--indent: 2.8rem;
+		--row-height: 2.8rem;
 		--font-size: 0.88rem;
 	}
 
@@ -74,8 +87,12 @@
 		position: relative;
 		min-width: 0;
 		display: grid;
-		grid-template-columns: 1.65rem 1fr;
+		grid-template-columns: 1fr;
 		padding-left: var(--indent);
+	}
+
+	.folder-row.has-children {
+		grid-template-columns: 2.75rem minmax(0, 1fr);
 	}
 
 	.folder-row.depth-1::before,
@@ -93,9 +110,8 @@
 		opacity: 0.9;
 	}
 
-	.folder-toggle,
-	.folder-spacer {
-		width: 1.65rem;
+	.folder-toggle {
+		width: 2.75rem;
 		min-height: var(--row-height);
 		display: grid;
 		place-items: center;
@@ -129,21 +145,25 @@
 			border-color var(--duration-fast) var(--ease-out);
 	}
 
-	.depth-0 .folder-open {
-		border-color: var(--color-border);
-		border-radius: var(--radius-lg);
-		background: oklch(18% 0.01 70 / 0.52);
-	}
-
 	.depth-1 .folder-open,
 	.depth-2 .folder-open {
 		color: oklch(83% 0.015 70);
 	}
 
 	.folder-open:hover,
-	.folder-open:focus-visible {
+	.folder-open:focus-visible,
+	.folder-open.active {
 		border-color: var(--color-border-strong);
 		background: var(--color-surface-soft);
+	}
+
+	.folder-open.active {
+		border-color: transparent;
+		color: var(--color-text);
+	}
+
+	.folder-open.active :global(svg) {
+		color: var(--color-accent);
 	}
 
 	.folder-open span {

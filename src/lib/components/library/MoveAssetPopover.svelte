@@ -1,19 +1,21 @@
 <script lang="ts">
 	import CheckIcon from 'phosphor-svelte/lib/CheckIcon';
 	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
-	import type { LibraryResponse } from '$lib/library/types';
-	import { setLibrarySnapshot } from '$lib/state/library-state.svelte';
+	import type { LibraryAsset, LibraryResponse } from '$lib/library/types';
+	import { replaceLibraryAsset } from '$lib/state/library-state.svelte';
 	import type { LibraryFolder } from '$lib/types';
 	import { buildFolderTree, type FolderTreeNode } from './libraryOverviewModel';
 
 	type Props = {
 		asset: { id: string; title: string; record?: { organization: { folderId: string | null } } };
 		library: LibraryResponse;
+		assetIds?: string[];
 		anchor?: { left: number; top: number } | null;
 		onClose: () => void;
+		onMoved?: (folderId: string | null) => void | Promise<void>;
 	};
 
-	let { asset, library, anchor = null, onClose }: Props = $props();
+	let { asset, library, assetIds = [], anchor = null, onClose, onMoved }: Props = $props();
 	let movingTo = $state<string | null | undefined>(undefined);
 	let error = $state<string | null>(null);
 	let popoverElement = $state<HTMLElement | null>(null);
@@ -22,9 +24,7 @@
 	let folders = $derived(buildFolderTree(library.folders));
 	let currentFolderId = $derived(asset.record?.organization.folderId ?? null);
 	let popoverStyle = $derived(
-		anchor
-			? `--popover-left: ${anchor.left}px; --popover-top: ${anchor.top}px;`
-			: ''
+		anchor ? `--popover-left: ${anchor.left}px; --popover-top: ${anchor.top}px;` : ''
 	);
 
 	$effect(() => {
@@ -40,16 +40,20 @@
 		movingTo = folderId;
 		error = null;
 		try {
+			if (assetIds.length && onMoved) {
+				await onMoved(folderId);
+				return;
+			}
 			const response = await fetch(`/api/library/assets/${encodeURIComponent(asset.id)}`, {
 				method: 'PATCH',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ folder_id: folderId })
 			});
-			const body = (await response.json()) as { error?: string; snapshot?: LibraryResponse };
-			if (!response.ok || !body.snapshot) {
+			const body = (await response.json()) as { error?: string; asset?: LibraryAsset };
+			if (!response.ok || !body.asset) {
 				throw new Error(body.error ?? 'Asset could not be moved.');
 			}
-			setLibrarySnapshot(body.snapshot);
+			replaceLibraryAsset(body.asset);
 			onClose();
 		} catch (moveError) {
 			error = moveError instanceof Error ? moveError.message : 'Asset could not be moved.';
@@ -91,7 +95,7 @@
 >
 	<header>
 		<FolderIcon size={18} />
-		<strong>Move to Folder</strong>
+		<strong>{assetIds.length > 1 ? `Move ${assetIds.length} images` : 'Move to folder'}</strong>
 	</header>
 
 	<div class="folder-list">

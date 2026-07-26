@@ -819,26 +819,26 @@ Agent proposals should be exportable as structured data.
 
 ```ts
 type AtlasTagProposal = {
-  proposedSlug: string;
-  proposedLabel: string;
-  metadataKind: 'visual_tag' | 'entity' | 'claim' | 'classifier' | 'computed';
-  category: string;
-  displayGroup: string;
-  evidenceRule: 'observed' | 'metadata' | 'inferred' | 'interpretive' | 'computed';
-  confidence: number;
-  requiresReview: boolean;
-  reasonForCreation: string;
-  distinctnessArgument: string;
-  existingTagsConsidered: string[];
-  similarButNotEquivalent: string[];
-  classifierAlternative?: {
-    entityTag: string;
-    classifierType: string;
-    classifierValue: string;
-  };
-  draftWiki: DraftWikiEntry;
-  exampleAssetId?: string;
-  region?: ImageRegion;
+	proposedSlug: string;
+	proposedLabel: string;
+	metadataKind: 'visual_tag' | 'entity' | 'claim' | 'classifier' | 'computed';
+	category: string;
+	displayGroup: string;
+	evidenceRule: 'observed' | 'metadata' | 'inferred' | 'interpretive' | 'computed';
+	confidence: number;
+	requiresReview: boolean;
+	reasonForCreation: string;
+	distinctnessArgument: string;
+	existingTagsConsidered: string[];
+	similarButNotEquivalent: string[];
+	classifierAlternative?: {
+		entityTag: string;
+		classifierType: string;
+		classifierValue: string;
+	};
+	draftWiki: DraftWikiEntry;
+	exampleAssetId?: string;
+	region?: ImageRegion;
 };
 ```
 

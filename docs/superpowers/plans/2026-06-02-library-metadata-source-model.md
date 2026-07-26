@@ -13,6 +13,7 @@
 ### Task 1: Add Canonical Library Types
 
 **Files:**
+
 - Modify: `src/lib/library/types.ts`
 
 - [x] **Step 1: Write the failing type/mapper tests first in Task 2**
@@ -22,6 +23,7 @@ Task 1 has no standalone runtime behavior. Its production code is introduced onl
 ### Task 2: Map Canonical Records On Read
 
 **Files:**
+
 - Modify: `src/lib/server/library/read.spec.ts`
 - Modify: `src/lib/server/library/read.ts`
 - Modify: `src/lib/library/types.ts`
@@ -49,6 +51,7 @@ Expected: Pass.
 ### Task 3: Wire Desktop Inspector To Canonical Fields
 
 **Files:**
+
 - Modify: `src/lib/components/inspector/AssetInspector.svelte`
 
 - [x] **Step 1: Add failing component-oriented expectations through typecheck**
@@ -68,6 +71,7 @@ Expected: Pass.
 ### Task 4: Final Verification
 
 **Files:**
+
 - No new files.
 
 - [x] **Step 1: Run focused unit tests**

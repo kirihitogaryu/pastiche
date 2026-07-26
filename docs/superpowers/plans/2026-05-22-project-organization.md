@@ -24,6 +24,7 @@
 ### Task 1: Create Documentation Skeleton
 
 **Files:**
+
 - Create: `/home/kristoph/Desktop/pastiche/README.md`
 - Create: `/home/kristoph/Desktop/pastiche/docs/project-organization.md`
 - Create: `/home/kristoph/Desktop/pastiche/docs/decisions/README.md`
@@ -111,7 +112,7 @@ Do not commit local archive contents, generated thumbnails, cache directories, r
 
 Create `/home/kristoph/Desktop/pastiche/docs/decisions/README.md` with:
 
-```markdown
+````markdown
 # Architecture Decisions
 
 Use this folder for durable project decisions that future contributors should not have to rediscover.
@@ -121,6 +122,7 @@ Decision files should use this naming pattern:
 ```text
 0001-short-decision-title.md
 ```
+````
 
 Each decision should include:
 
@@ -130,7 +132,8 @@ Each decision should include:
 - consequences
 
 Start a new decision record when the project chooses a framework, storage model, database ownership rule, capture protocol, or similarly durable technical direction.
-```
+
+````
 
 - [x] **Step 5: Preserve empty future folders**
 
@@ -138,13 +141,14 @@ Create empty marker files:
 
 ```bash
 touch docs/architecture/.gitkeep src/.gitkeep
-```
+````
 
 Expected: both files exist.
 
 ### Task 2: Add Ignore Rules And Move Existing Artifacts
 
 **Files:**
+
 - Create: `/home/kristoph/Desktop/pastiche/.gitignore`
 - Move: `/home/kristoph/Desktop/pastiche/pastiche-app-handoff.md`
 - Move: `/home/kristoph/Desktop/pastiche/pastiche_ui_v3.html`
@@ -214,6 +218,7 @@ Expected: the mockup exists only at `docs/design/mockups/pastiche_ui_v3.html`.
 ### Task 3: Verify And Commit Setup
 
 **Files:**
+
 - Verify all files created or moved in Tasks 1 and 2.
 
 - [x] **Step 1: Check expected file list**

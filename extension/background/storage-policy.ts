@@ -6,22 +6,15 @@ export type StoragePolicy = {
 };
 
 const SOURCE_POLICY: Record<string, StoragePolicy> = {
-	'metmuseum.org': { mode: 'url_reference', reason: 'Met permanent URL' },
-	'artic.edu': { mode: 'url_reference', reason: 'ARTIC IIIF permanent' },
-	'rijksmuseum.nl': { mode: 'url_reference', reason: 'Rijksmuseum permanent' },
-	'clevelandart.org': { mode: 'url_reference', reason: 'CMA permanent URL' },
-	'commons.wikimedia.org': { mode: 'url_reference', reason: 'Wikimedia permanent' },
-	'upload.wikimedia.org': { mode: 'url_reference', reason: 'Wikimedia permanent' },
-	'cloudfront.net': { mode: 'url_reference', reason: 'Stable CDN' },
-	'instagram.com': { mode: 'download', reason: 'Token-authenticated' },
-	'cdninstagram.com': { mode: 'download', reason: 'Token-authenticated' },
-	'pbs.twimg.com': { mode: 'download', reason: 'Ephemeral' },
-	'video.twimg.com': { mode: 'download', reason: 'Ephemeral' },
-	'toyhou.se': { mode: 'download', reason: 'May be taken down' },
-	'tumblr.com': { mode: 'download', reason: 'May be taken down' },
-	'media.tumblr.com': { mode: 'download', reason: 'May be taken down' },
-	'cara.app': { mode: 'download', reason: 'May be taken down' },
-	'wikiart.org': { mode: 'download', reason: 'Unstable CDN URLs' }
+	'instagram.com': { mode: 'download', reason: 'Original stored locally' },
+	'cdninstagram.com': { mode: 'download', reason: 'Original stored locally' },
+	'pbs.twimg.com': { mode: 'download', reason: 'Original stored locally' },
+	'video.twimg.com': { mode: 'download', reason: 'Original stored locally' },
+	'toyhou.se': { mode: 'download', reason: 'Original stored locally' },
+	'tumblr.com': { mode: 'download', reason: 'Original stored locally' },
+	'media.tumblr.com': { mode: 'download', reason: 'Original stored locally' },
+	'cara.app': { mode: 'download', reason: 'Original stored locally' },
+	'wikiart.org': { mode: 'download', reason: 'Original stored locally' }
 };
 
 export function policyForSource(url: string): StoragePolicy {
@@ -29,7 +22,7 @@ export function policyForSource(url: string): StoragePolicy {
 	for (const [suffix, policy] of Object.entries(SOURCE_POLICY)) {
 		if (hostname === suffix || hostname.endsWith(`.${suffix}`)) return policy;
 	}
-	return { mode: 'lazy_download', reason: 'Reference + background copy' };
+	return { mode: 'download', reason: 'Original stored locally' };
 }
 
 export function resolveArtsyImage(url: string) {

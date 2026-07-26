@@ -53,8 +53,7 @@
 			})
 			.catch((fetchError) => {
 				if (!cancelled) {
-					error =
-						fetchError instanceof Error ? fetchError.message : 'Related works failed to load';
+					error = fetchError instanceof Error ? fetchError.message : 'Related works failed to load';
 				}
 			})
 			.finally(() => {

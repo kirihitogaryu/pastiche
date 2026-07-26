@@ -32,6 +32,7 @@
 ### Task 1: Source-Aware Registry
 
 **Files:**
+
 - Modify: `src/lib/explore/types.ts`
 - Modify: `src/lib/explore/connectors/index.ts`
 - Test: `src/lib/explore/connectors/index.spec.ts`
@@ -115,7 +116,16 @@ import type { SourceConnector } from '../types';
 export const articConnector: SourceConnector = {
 	id: 'artic',
 	displayName: 'Art Institute of Chicago',
-	supportedFilters: ['keyword', 'artist', 'tag', 'year_range', 'medium', 'department', 'public_domain', 'has_image'],
+	supportedFilters: [
+		'keyword',
+		'artist',
+		'tag',
+		'year_range',
+		'medium',
+		'department',
+		'public_domain',
+		'has_image'
+	],
 	async getDepartments() {
 		return [];
 	},
@@ -139,6 +149,7 @@ Expected: PASS.
 ### Task 2: IIIF Helpers
 
 **Files:**
+
 - Create: `src/lib/explore/iiif.ts`
 - Test: `src/lib/explore/iiif.spec.ts`
 
@@ -192,6 +203,7 @@ Expected: PASS.
 ### Task 3: Art Institute Connector Mapping
 
 **Files:**
+
 - Modify: `src/lib/explore/connectors/artic.ts`
 - Test: `src/lib/explore/connectors/artic.spec.ts`
 
@@ -266,7 +278,9 @@ describe('Art Institute connector helpers', () => {
 	});
 
 	it('skips records without image ids', () => {
-		expect(normalizeArticArtwork({ ...baseArtwork, image_id: null }, 'https://www.artic.edu/iiif/2')).toBeNull();
+		expect(
+			normalizeArticArtwork({ ...baseArtwork, image_id: null }, 'https://www.artic.edu/iiif/2')
+		).toBeNull();
 	});
 });
 ```
@@ -296,7 +310,10 @@ export function buildArticIiifBaseUrl(iiifUrl: string, imageId: string): string 
 	return `${normalizeIiifBaseUrl(iiifUrl)}/${imageId}`;
 }
 
-export function normalizeArticArtwork(object: Record<string, unknown>, iiifUrl: string): ExploreItem | null {
+export function normalizeArticArtwork(
+	object: Record<string, unknown>,
+	iiifUrl: string
+): ExploreItem | null {
 	const id = numberOrNull(object.id);
 	const imageId = stringOrNull(object.image_id);
 	if (id === null || !imageId) return null;
@@ -349,7 +366,10 @@ export function normalizeArticArtwork(object: Record<string, unknown>, iiifUrl: 
 
 function splitArtistDisplay(value: string | null): { name: string | null; bio: string | null } {
 	if (!value) return { name: null, bio: null };
-	const [name, ...bioParts] = value.split('\n').map((part) => part.trim()).filter(Boolean);
+	const [name, ...bioParts] = value
+		.split('\n')
+		.map((part) => part.trim())
+		.filter(Boolean);
 	return { name: name ?? null, bio: bioParts.join(', ') || null };
 }
 
@@ -366,7 +386,9 @@ function booleanOrNull(value: unknown): boolean | null {
 }
 
 function stringArray(value: unknown): string[] {
-	return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.length > 0) : [];
+	return Array.isArray(value)
+		? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
+		: [];
 }
 
 function uniqueStrings(values: string[]): string[] {
@@ -385,6 +407,7 @@ Expected: PASS for helper tests.
 ### Task 4: Art Institute Search And Detail
 
 **Files:**
+
 - Modify: `src/lib/explore/connectors/artic.ts`
 - Test: `src/lib/explore/connectors/artic.spec.ts`
 
@@ -478,6 +501,7 @@ const ARTIC_FIELDS = [
 ```
 
 Build `/artworks/search` with:
+
 - `q` from `query.tag || query.artist || query.keyword || '*'`
 - `limit`
 - `page` from cursor, default `1`
@@ -507,6 +531,7 @@ Expected: PASS.
 ### Task 5: Source-Aware Routes
 
 **Files:**
+
 - Modify: `src/routes/explore/api/search/+server.ts`
 - Modify: `src/routes/explore/api/item/[id]/+server.ts`
 - Modify: `src/routes/explore/api/departments/+server.ts`
@@ -521,7 +546,8 @@ const search = vi.fn();
 const searchArtic = vi.fn();
 
 vi.mock('$lib/explore/connectors', () => ({
-	getExploreConnector: (source = 'met') => (source === 'artic' ? { search: searchArtic } : { search })
+	getExploreConnector: (source = 'met') =>
+		source === 'artic' ? { search: searchArtic } : { search }
 }));
 
 it('routes source-aware search requests to the requested connector', async () => {
@@ -584,6 +610,7 @@ Expected: PASS.
 ### Task 6: Minimal Source Selection UI
 
 **Files:**
+
 - Modify: `src/lib/components/explore/ExploreWorkspace.svelte`
 - Modify: `src/lib/components/explore/ExploreCard.svelte`
 - Modify: `tests/pastiche.e2e.ts`
@@ -623,7 +650,7 @@ Render source buttons near the department strip. When clicked, set `activeSource
 Change client fetch body to:
 
 ```ts
-body: JSON.stringify({ source: activeSource, query })
+body: JSON.stringify({ source: activeSource, query });
 ```
 
 Change cache key calls to use `activeSource` instead of hardcoded `'met'`.
@@ -649,6 +676,7 @@ Expected: PASS.
 ### Task 7: Final Verification And Cleanup
 
 **Files:**
+
 - Review all changed files
 - Update `agent-guidelines-explore2.md` only if implementation discovers a correction
 
@@ -673,6 +701,7 @@ Expected: all Playwright tests pass. The existing host dependency warning is acc
 - [ ] **Step 4: Manual smoke in the in-app browser**
 
 Use the current local app URL. Verify:
+
 - Met default browse still loads.
 - Typing does not search until Enter or the in-field search button.
 - Selecting Art Institute loads Art Institute results.

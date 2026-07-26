@@ -63,7 +63,9 @@ const ARTIC_FIELDS = [
 ].join(',');
 const ARTIC_HEADERS = {
 	accept: 'application/json',
-	'user-agent': 'Pastiche local development Explore client'
+	'accept-encoding': 'gzip',
+	'user-agent': 'Pastiche/0.0.1 (https://github.com/kirihitogaryu/pastiche)',
+	'aic-user-agent': 'Pastiche/0.0.1 (https://github.com/kirihitogaryu/pastiche)'
 };
 const DEFAULT_IIIF_BASE_URL = 'https://www.artic.edu/iiif/2';
 
@@ -72,8 +74,8 @@ export const articServerCache = new ServerCache(2000);
 export function createArticConnector(options: ArticConnectorOptions = {}): SourceConnector {
 	const fetcher = options.fetch ?? fetch;
 	const scheduler = new MetRequestScheduler({
-		concurrency: options.concurrency ?? 5,
-		requestsPerSecond: options.requestsPerSecond ?? 5
+		concurrency: options.concurrency ?? 1,
+		requestsPerSecond: options.requestsPerSecond ?? 1
 	});
 	const cache = options.cache ?? new ServerCache(2000);
 

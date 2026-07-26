@@ -1,5 +1,3 @@
-export const EXTENSION_CORS_HEADERS = {
-	'access-control-allow-origin': '*',
-	'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS',
-	'access-control-allow-headers': 'Content-Type'
-};
+export { trustedLocalCorsHeaders } from './localAccess';
+
+export const EXTENSION_CORS_HEADERS = {};

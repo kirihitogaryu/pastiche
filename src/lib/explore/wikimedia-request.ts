@@ -196,7 +196,14 @@ export async function requestWikimediaJson<T>({
 	try {
 		const data = await queue.schedule(async () => {
 			breaker.throwIfOpen();
-			const response = await fetchWithTimeout(fetcher, url, init, timeoutMs, timeoutMessage, upstream);
+			const response = await fetchWithTimeout(
+				fetcher,
+				url,
+				init,
+				timeoutMs,
+				timeoutMessage,
+				upstream
+			);
 			const data = await readJson(response);
 			if (!response.ok) {
 				const retryAfterSeconds = parseRetryAfter(response.headers.get('retry-after'));

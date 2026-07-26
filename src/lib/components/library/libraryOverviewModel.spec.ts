@@ -188,6 +188,50 @@ describe('libraryOverviewModel', () => {
 		]);
 	});
 
+	it('searches canonical Atlas concepts and classifier expressions with fuzzy corrections', () => {
+		const dragon = assetFixture('atlas-dragon', []);
+		dragon.record!.organization.atlasTags = [
+			{
+				id: 'atlas-concept-dragon',
+				slug: 'dragon',
+				label: 'Dragon',
+				expression: 'dragon',
+				kind: 'visual_tag',
+				category: 'object',
+				displayGroup: 'Objects',
+				status: 'active',
+				maturity: 'usable',
+				assignmentStatus: 'approved',
+				scope: 'annotation'
+			},
+			{
+				id: 'atlas-classifier-green-scales',
+				slug: 'scales.scale_color:green',
+				label: 'scales.scale_color:green',
+				expression: 'scales.scale_color:green',
+				kind: 'classifier',
+				category: 'scale_color',
+				displayGroup: 'Classifiers',
+				status: 'active',
+				maturity: 'usable',
+				assignmentStatus: 'approved',
+				scope: 'annotation'
+			}
+		];
+
+		expect(filterAssetsByLibraryQuery([dragon], 'dragn').map((asset) => asset.id)).toEqual([
+			'atlas-dragon'
+		]);
+		expect(
+			filterAssetsByLibraryQuery([dragon], 'green scales', ['scales.scale_color:green']).map(
+				(asset) => asset.id
+			)
+		).toEqual(['atlas-dragon']);
+		expect(
+			filterAssetsByLibraryQuery([dragon], 'dragon, scale color:green').map((asset) => asset.id)
+		).toEqual(['atlas-dragon']);
+	});
+
 	it('filters library assets by persisted organization and metadata fields', () => {
 		const tagged = {
 			...assetFixture('favorite-hands', [
@@ -263,7 +307,7 @@ describe('libraryOverviewModel', () => {
 		).toEqual(['favorite-hands']);
 	});
 
-	it('returns grouped search results for hub navigation', () => {
+	it('returns folder search results for library navigation', () => {
 		const results = searchLibrary({
 			library: {
 				assets: [assetFixture('hands-study', [])],
@@ -316,10 +360,8 @@ describe('libraryOverviewModel', () => {
 			query: 'figure'
 		});
 
-		expect(results.projects[0]?.id).toBe('project-study');
 		expect(results.folders[0]?.id).toBe('folder-figures');
-		expect(results.tags[0]?.id).toBe('tag-figure');
-		expect(results.total).toBe(3);
+		expect(results.total).toBe(1);
 	});
 
 	it('hides empty tag groups by default while keeping General', () => {

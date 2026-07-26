@@ -23,7 +23,9 @@ export function rankAtlasWikiEntries<T extends AtlasWikiSearchEntry>(
 	return entries
 		.map((entry) => ({ entry, score: scoreEntry(entry, clean) }))
 		.filter((item) => item.score > 0)
-		.sort((left, right) => right.score - left.score || left.entry.label.localeCompare(right.entry.label))
+		.sort(
+			(left, right) => right.score - left.score || left.entry.label.localeCompare(right.entry.label)
+		)
 		.map((item) => item.entry);
 }
 

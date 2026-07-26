@@ -1,9 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { searchWikidataEntities } from '$lib/explore/wikidata-entities';
-import {
-	WikimediaTemporaryError,
-	isWikimediaTemporaryError
-} from '$lib/explore/wikimedia-request';
+import { WikimediaTemporaryError, isWikimediaTemporaryError } from '$lib/explore/wikimedia-request';
 
 const ENTITY_CACHE_HEADERS = {
 	'cache-control': 'public, max-age=3600, stale-while-revalidate=86400'
@@ -25,7 +22,9 @@ export async function GET({ url }: { url: URL }) {
 
 	try {
 		const options =
-			context === 'reference' ? ({ limit: 8, mode, context: 'reference' } as const) : { limit: 8, mode };
+			context === 'reference'
+				? ({ limit: 8, mode, context: 'reference' } as const)
+				: { limit: 8, mode };
 		const entities = await searchWikidataEntities(search, options);
 		return json({ entities }, { headers: ENTITY_CACHE_HEADERS });
 	} catch (error) {

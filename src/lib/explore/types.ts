@@ -14,7 +14,29 @@ export type MediumCategory =
 	| 'mixed_media'
 	| 'other';
 
-export type SourceId = 'met' | 'artic' | 'wikidata';
+export type SourceId =
+	| 'met'
+	| 'artic'
+	| 'wikidata'
+	| 'danbooru'
+	| 'deviantart'
+	| 'bluesky'
+	| 'furaffinity';
+
+export type WebsiteSourceId = Extract<
+	SourceId,
+	'danbooru' | 'deviantart' | 'bluesky' | 'furaffinity'
+>;
+
+export type WebsiteSearchMode = 'artist' | 'tags';
+
+export type SavedExploreSearchMode = WebsiteSearchMode | WikimediaMode;
+
+export type ExploreContentSafety = 'hide' | 'blur' | 'show';
+
+export type ExploreSortMode = 'recent' | 'popular';
+
+export type ExploreContentRating = 'general' | 'sensitive' | 'questionable' | 'explicit';
 
 export type ExploreSubject = {
 	id: string;
@@ -142,12 +164,14 @@ export type ExploreItem = {
 	period: string | null;
 	thumbUrl: string | null;
 	imageUrl: string | null;
+	mimeType?: string | null;
 	additionalImages: string[];
 	isIIIF: boolean;
 	description: string | null;
 	tags: string[];
 	isHighlight: boolean;
 	isPublicDomain: boolean | null;
+	contentRating?: ExploreContentRating | null;
 	rawMetadata: Record<string, unknown>;
 };
 
@@ -174,8 +198,27 @@ export type ExploreQuery = {
 	wikidataMode?: WikidataSearchMode;
 	wikidataEntities?: ExploreSubject[];
 	workType?: 'painting';
+	contentSafety?: ExploreContentSafety;
+	blacklist?: string;
+	dateFrom?: string;
+	dateTo?: string;
+	sort?: ExploreSortMode;
 	cursor?: string;
 	limit: number;
+};
+
+export type SavedExploreSearch = {
+	id: string;
+	source: SourceId;
+	mode: SavedExploreSearchMode;
+	query: string;
+	label: string;
+	filters: Record<string, unknown>;
+	createdAt: string;
+	updatedAt: string;
+	lastOpenedAt: string | null;
+	lastSeenItemId: string | null;
+	lastSeenPublishedAt: string | null;
 };
 
 export type ExplorePage = {
@@ -200,7 +243,8 @@ export type FilterCapability =
 	| 'has_image'
 	| 'depicts'
 	| 'color'
-	| 'is_highlight';
+	| 'is_highlight'
+	| 'sort';
 
 export type SourceDepartment = {
 	id: string;

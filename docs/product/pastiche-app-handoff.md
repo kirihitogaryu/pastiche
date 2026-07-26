@@ -393,33 +393,33 @@ Early image record shape:
 
 ```ts
 type ImageAsset = {
-  id: string;
-  workspaceId: string;
-  filePath: string;
-  thumbnailPath?: string;
-  sourceUrl?: string;
-  sourceName?: string;
-  sourceProvider?: string;
-  sourceId?: string;
-  title?: string;
-  creator?: string;
-  year?: string;
-  medium?: string;
-  description?: string;
-  notes?: string;
-  tags: string[];
-  rating?: number;
-  favorite?: boolean;
-  nsfw?: boolean;
-  colorLabel?: string;
-  width?: number;
-  height?: number;
-  mimeType?: string;
-  fileSize?: number;
-  checksum?: string;
-  palette?: PaletteSummary;
-  dateAdded: string;
-  dateModified: string;
+	id: string;
+	workspaceId: string;
+	filePath: string;
+	thumbnailPath?: string;
+	sourceUrl?: string;
+	sourceName?: string;
+	sourceProvider?: string;
+	sourceId?: string;
+	title?: string;
+	creator?: string;
+	year?: string;
+	medium?: string;
+	description?: string;
+	notes?: string;
+	tags: string[];
+	rating?: number;
+	favorite?: boolean;
+	nsfw?: boolean;
+	colorLabel?: string;
+	width?: number;
+	height?: number;
+	mimeType?: string;
+	fileSize?: number;
+	checksum?: string;
+	palette?: PaletteSummary;
+	dateAdded: string;
+	dateModified: string;
 };
 ```
 
@@ -554,4 +554,3 @@ The most important design decision is preserving the core loop:
 ```text
 save image -> understand it -> organize it -> reuse it
 ```
-

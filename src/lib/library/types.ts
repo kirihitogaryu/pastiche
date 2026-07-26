@@ -1,4 +1,10 @@
 import type { Asset, LibraryFolder } from '$lib/types';
+import type {
+	AtlasAssignmentStatus,
+	AtlasConceptKind,
+	AtlasConceptMaturity,
+	AtlasConceptStatus
+} from '$lib/atlas/types';
 
 export type StorageMode = 'download' | 'url_reference' | 'lazy_download';
 
@@ -7,6 +13,7 @@ export type LibrarySourceType =
 	| 'artist_site'
 	| 'social'
 	| 'gallery'
+	| 'booru'
 	| 'ai_generator'
 	| 'cdn'
 	| 'local'
@@ -23,6 +30,7 @@ export type LibraryAssetSource = {
 };
 
 export type LibraryAssetImage = {
+	mimeType?: string | null;
 	previewUrl: string | null;
 	originalUrl: string | null;
 	sourceImageUrl: string | null;
@@ -71,6 +79,20 @@ export type SourceTagSuggestion = {
 	useful: boolean;
 };
 
+export type LibraryAtlasTag = {
+	id: string;
+	slug: string;
+	label: string;
+	expression: string;
+	kind: AtlasConceptKind | 'classifier';
+	category: string;
+	displayGroup: string;
+	status: AtlasConceptStatus;
+	maturity: AtlasConceptMaturity;
+	assignmentStatus: AtlasAssignmentStatus;
+	scope: 'asset' | 'annotation';
+};
+
 export type LibraryProject = {
 	id: string;
 	name: string;
@@ -95,10 +117,34 @@ export type AiGenerationMetadata = {
 	cfgScale: number | null;
 	rawParameters: Record<string, unknown>;
 	promptTagSuggestions: string[];
+	promptTokens?: PromptToken[];
+	characterPrompts?: Array<{
+		label: string | null;
+		prompt: string;
+		negativePrompt: string | null;
+	}>;
+	settings?: Record<string, string | number | boolean | null>;
+};
+
+export type PromptTokenScope =
+	| 'positive'
+	| 'negative'
+	| 'character_positive'
+	| 'character_negative';
+
+export type PromptTokenRole = 'tag' | 'artist_style_reference';
+
+export type PromptToken = {
+	text: string;
+	normalized: string;
+	scope: PromptTokenScope;
+	role: PromptTokenRole;
+	weight: number | null;
 };
 
 export type LibraryAssetRecord = {
 	id: string;
+	filename?: string;
 	title: string;
 	artist: string | null;
 	description: string | null;
@@ -119,6 +165,7 @@ export type LibraryAssetRecord = {
 		folderId: string | null;
 		folderPath: string[];
 		tags: LibraryTag[];
+		atlasTags?: LibraryAtlasTag[];
 		sourceTagSuggestions: SourceTagSuggestion[];
 		projects: string[];
 		favorite: boolean;

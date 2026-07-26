@@ -19,7 +19,8 @@ export function mockLibrarySnapshot(): LibraryResponse {
 			description: project.description,
 			pinned: project.pinned,
 			coverAssetId: project.coverAssetIds[0] ?? null,
-			coverPreviewUrl: savedAssets.find((asset) => asset.id === project.coverAssetIds[0])?.imageUrl ?? null,
+			coverPreviewUrl:
+				savedAssets.find((asset) => asset.id === project.coverAssetIds[0])?.imageUrl ?? null,
 			assetCount: project.assetIds.length,
 			folderCount: 0,
 			createdAt: '2026-05-27T12:00:00.000Z',

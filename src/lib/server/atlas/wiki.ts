@@ -1,9 +1,13 @@
 import { existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import type { AtlasWikiEntrySummary } from '$lib/atlas/types';
 import { resolveLibraryPaths } from '$lib/server/library/paths';
 import { ATLAS_WIKI_SEED_CONCEPTS } from './wikiSeed';
+import { migrateAtlasOntologyData } from './governance';
+
+const ATLAS_WIKI_SEED_VERSION = 1;
 
 type WikiRow = {
 	id: string;
@@ -15,6 +19,7 @@ type WikiRow = {
 	status: AtlasWikiEntrySummary['status'];
 	maturity: AtlasWikiEntrySummary['maturity'];
 	short_definition: string;
+	needs_classification: number;
 	long_description: string | null;
 	use_when_json: string;
 	do_not_use_when_json: string;
@@ -41,6 +46,7 @@ type ExampleAssetRow = {
 	height: number;
 	original_path: string | null;
 	thumbnail_path: string | null;
+	mime_type: string | null;
 	source_image_url: string | null;
 	source_url: string;
 	page_title: string | null;
@@ -50,6 +56,7 @@ export type AtlasWikiExampleAsset = {
 	id: string;
 	title: string;
 	thumbnailUrl: string | null;
+	mimeType: string | null;
 	width: number;
 	height: number;
 	sourceUrl: string;
@@ -78,19 +85,53 @@ export function applyAtlasWikiSeed(db: Database.Database, now = new Date().toISO
 	const insertConcept = db.prepare(`
 		insert into atlas_concepts (
 			id, slug, label, kind, category, display_group, status, maturity,
-			short_definition, created_by, created_at, updated_at
-		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, 'seed', ?, ?)
-		on conflict(slug) do update set
-			label = excluded.label,
-			kind = excluded.kind,
-			category = excluded.category,
-			display_group = excluded.display_group,
-			status = excluded.status,
-			maturity = excluded.maturity,
-			short_definition = excluded.short_definition,
-			updated_at = excluded.updated_at
+			short_definition, created_by, seed_version, seed_fingerprint, created_at, updated_at
+		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, 'seed', ?, ?, ?, ?)
 	`);
-	const selectConcept = db.prepare('select id from atlas_concepts where slug = ?');
+	const selectConcept = db.prepare(`
+		select
+			atlas_concepts.id,
+			atlas_concepts.label,
+			atlas_concepts.kind,
+			atlas_concepts.category,
+			atlas_concepts.display_group,
+			atlas_concepts.status,
+			atlas_concepts.maturity,
+			atlas_concepts.short_definition,
+			atlas_concepts.created_by,
+			atlas_concepts.seed_version,
+			atlas_concepts.seed_fingerprint,
+			atlas_wiki_entries.long_description,
+			atlas_wiki_entries.use_when_json,
+			atlas_wiki_entries.do_not_use_when_json,
+			atlas_wiki_entries.aliases_json,
+			atlas_wiki_entries.broader_json,
+			atlas_wiki_entries.narrower_json,
+			atlas_wiki_entries.related_json,
+			atlas_wiki_entries.confusable_json,
+			atlas_wiki_entries.automatic_implications_json,
+			atlas_wiki_entries.suggested_implications_json,
+			atlas_wiki_entries.allowed_classifiers_json,
+			atlas_wiki_entries.examples_json,
+			atlas_wiki_entries.counterexamples_json,
+			atlas_wiki_entries.ai_guidance,
+			atlas_wiki_entries.citations_json
+		from atlas_concepts
+		left join atlas_wiki_entries on atlas_wiki_entries.concept_id = atlas_concepts.id
+		where atlas_concepts.slug = ?
+	`);
+	const selectTombstone = db.prepare('select slug from atlas_concept_tombstones where slug = ?');
+	const markLegacySeed = db.prepare(`
+		update atlas_concepts
+		set seed_version = ?, seed_fingerprint = ?
+		where id = ?
+	`);
+	const updateSeedConcept = db.prepare(`
+		update atlas_concepts set
+			label = ?, kind = ?, category = ?, display_group = ?, status = ?, maturity = ?,
+			short_definition = ?, seed_version = ?, seed_fingerprint = ?, updated_at = ?
+		where id = ?
+	`);
 	const insertWiki = db.prepare(`
 		insert into atlas_wiki_entries (
 			concept_id, long_description, use_when_json, do_not_use_when_json,
@@ -119,9 +160,48 @@ export function applyAtlasWikiSeed(db: Database.Database, now = new Date().toISO
 
 	const apply = db.transaction(() => {
 		for (const concept of ATLAS_WIKI_SEED_CONCEPTS) {
-			insertConcept.run(
-				`atlas-concept-${concept.slug}`,
-				concept.slug,
+			if (selectTombstone.get(concept.slug)) continue;
+			const fingerprint = seedConceptFingerprint(concept);
+			let row = selectConcept.get(concept.slug) as SeedOwnershipRow | undefined;
+			if (!row) {
+				insertConcept.run(
+					`atlas-concept-${concept.slug}`,
+					concept.slug,
+					concept.label,
+					concept.kind,
+					concept.category,
+					concept.displayGroup,
+					concept.status,
+					concept.maturity,
+					concept.shortDefinition,
+					ATLAS_WIKI_SEED_VERSION,
+					fingerprint,
+					now,
+					now
+				);
+				row = selectConcept.get(concept.slug) as SeedOwnershipRow;
+				writeSeedWiki(insertWiki, row.id, concept, now);
+				continue;
+			}
+
+			const currentFingerprint = storedSeedFingerprint(row);
+			const unchangedLegacySeed =
+				row.created_by === 'seed' && !row.seed_fingerprint && currentFingerprint === fingerprint;
+			if (unchangedLegacySeed) {
+				markLegacySeed.run(ATLAS_WIKI_SEED_VERSION, fingerprint, row.id);
+				continue;
+			}
+
+			const untouchedSeed =
+				row.created_by === 'seed' &&
+				Boolean(row.seed_fingerprint) &&
+				currentFingerprint === row.seed_fingerprint;
+			if (!untouchedSeed) continue;
+			if (row.seed_version === ATLAS_WIKI_SEED_VERSION && row.seed_fingerprint === fingerprint) {
+				continue;
+			}
+
+			updateSeedConcept.run(
 				concept.label,
 				concept.kind,
 				concept.category,
@@ -129,33 +209,132 @@ export function applyAtlasWikiSeed(db: Database.Database, now = new Date().toISO
 				concept.status,
 				concept.maturity,
 				concept.shortDefinition,
+				ATLAS_WIKI_SEED_VERSION,
+				fingerprint,
 				now,
-				now
+				row.id
 			);
-			const row = selectConcept.get(concept.slug) as { id: string };
-			insertWiki.run(
-				row.id,
-				concept.longDescription,
-				JSON.stringify(concept.useWhen),
-				JSON.stringify(concept.doNotUseWhen),
-				JSON.stringify(concept.aliases),
-				JSON.stringify(concept.broader),
-				JSON.stringify(concept.narrower),
-				JSON.stringify(concept.related),
-				JSON.stringify(concept.confusable),
-				JSON.stringify(concept.automaticImplications),
-				JSON.stringify(concept.suggestedImplications),
-				JSON.stringify(concept.allowedClassifiers),
-				JSON.stringify(concept.examples),
-				JSON.stringify(concept.counterexamples),
-				concept.aiGuidance,
-				JSON.stringify(concept.citations),
-				now
-			);
+			writeSeedWiki(insertWiki, row.id, concept, now);
 		}
 	});
 
 	apply();
+	migrateAtlasOntologyData(db, now);
+}
+
+type SeedOwnershipRow = {
+	id: string;
+	label: string;
+	kind: string;
+	category: string;
+	display_group: string;
+	status: string;
+	maturity: string;
+	short_definition: string;
+	created_by: string;
+	seed_version: number | null;
+	seed_fingerprint: string | null;
+	long_description: string | null;
+	use_when_json: string | null;
+	do_not_use_when_json: string | null;
+	aliases_json: string | null;
+	broader_json: string | null;
+	narrower_json: string | null;
+	related_json: string | null;
+	confusable_json: string | null;
+	automatic_implications_json: string | null;
+	suggested_implications_json: string | null;
+	allowed_classifiers_json: string | null;
+	examples_json: string | null;
+	counterexamples_json: string | null;
+	ai_guidance: string | null;
+	citations_json: string | null;
+};
+
+function writeSeedWiki(
+	statement: Database.Statement,
+	conceptId: string,
+	concept: (typeof ATLAS_WIKI_SEED_CONCEPTS)[number],
+	now: string
+) {
+	statement.run(
+		conceptId,
+		concept.longDescription,
+		JSON.stringify(concept.useWhen),
+		JSON.stringify(concept.doNotUseWhen),
+		JSON.stringify(concept.aliases),
+		JSON.stringify(concept.broader),
+		JSON.stringify(concept.narrower),
+		JSON.stringify(concept.related),
+		JSON.stringify(concept.confusable),
+		JSON.stringify(concept.automaticImplications),
+		JSON.stringify(concept.suggestedImplications),
+		JSON.stringify(concept.allowedClassifiers),
+		JSON.stringify(concept.examples),
+		JSON.stringify(concept.counterexamples),
+		concept.aiGuidance,
+		JSON.stringify(concept.citations),
+		now
+	);
+}
+
+function seedConceptFingerprint(concept: (typeof ATLAS_WIKI_SEED_CONCEPTS)[number]) {
+	return hashSeedFields({
+		label: concept.label,
+		kind: concept.kind,
+		category: concept.category,
+		displayGroup: concept.displayGroup,
+		status: concept.status,
+		maturity: concept.maturity,
+		shortDefinition: concept.shortDefinition,
+		longDescription: concept.longDescription,
+		useWhen: concept.useWhen,
+		doNotUseWhen: concept.doNotUseWhen,
+		aliases: concept.aliases,
+		broader: concept.broader,
+		narrower: concept.narrower,
+		related: concept.related,
+		confusable: concept.confusable,
+		automaticImplications: concept.automaticImplications,
+		suggestedImplications: concept.suggestedImplications,
+		allowedClassifiers: concept.allowedClassifiers,
+		examples: concept.examples,
+		counterexamples: concept.counterexamples,
+		aiGuidance: concept.aiGuidance,
+		citations: concept.citations
+	});
+}
+
+function storedSeedFingerprint(row: SeedOwnershipRow) {
+	if (!row.long_description) return null;
+	return hashSeedFields({
+		label: row.label,
+		kind: row.kind,
+		category: row.category,
+		displayGroup: row.display_group,
+		status: row.status,
+		maturity: row.maturity,
+		shortDefinition: row.short_definition,
+		longDescription: row.long_description,
+		useWhen: parseJsonList(row.use_when_json),
+		doNotUseWhen: parseJsonList(row.do_not_use_when_json),
+		aliases: parseJsonList(row.aliases_json),
+		broader: parseJsonList(row.broader_json),
+		narrower: parseJsonList(row.narrower_json),
+		related: parseJsonList(row.related_json),
+		confusable: parseJsonList(row.confusable_json),
+		automaticImplications: parseJsonList(row.automatic_implications_json),
+		suggestedImplications: parseJsonList(row.suggested_implications_json),
+		allowedClassifiers: parseJsonList(row.allowed_classifiers_json),
+		examples: parseJsonList(row.examples_json),
+		counterexamples: parseJsonList(row.counterexamples_json),
+		aiGuidance: row.ai_guidance ?? '',
+		citations: parseJsonList(row.citations_json)
+	});
+}
+
+function hashSeedFields(value: Record<string, unknown>) {
+	return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
 export function readAtlasWikiEntries(db: Database.Database): AtlasWikiEntry[] {
@@ -229,6 +408,7 @@ function wikiSelectColumns() {
 		atlas_concepts.status,
 		atlas_concepts.maturity,
 		atlas_concepts.short_definition,
+		atlas_concepts.needs_classification,
 		atlas_wiki_entries.long_description,
 		atlas_wiki_entries.use_when_json,
 		atlas_wiki_entries.do_not_use_when_json,
@@ -256,6 +436,7 @@ function mapWikiRow(row: WikiRow, db: Database.Database): AtlasWikiEntry {
 	const exampleAssetIds = normalizeAssetIds([...manualExampleAssetIds, ...derivedExampleAssetIds]);
 	const examples = resolveExampleAssets(db, exampleAssetIds, roleByAssetId);
 	const counterexamples = resolveExampleAssets(db, counterexampleAssetIds);
+	const metadata = relationalMetadata(db, row.id);
 
 	return {
 		id: row.id,
@@ -267,16 +448,17 @@ function mapWikiRow(row: WikiRow, db: Database.Database): AtlasWikiEntry {
 		status: row.status,
 		maturity: row.maturity,
 		shortDefinition: row.short_definition,
+		needsClassification: Boolean(row.needs_classification),
 		longDescription: row.long_description,
 		useWhen: parseJsonList(row.use_when_json),
 		doNotUseWhen: parseJsonList(row.do_not_use_when_json),
-		aliases: parseJsonList(row.aliases_json),
-		broader: parseJsonList(row.broader_json),
-		narrower: parseJsonList(row.narrower_json),
-		related: parseJsonList(row.related_json),
-		confusable: parseJsonList(row.confusable_json),
-		automaticImplications: parseJsonList(row.automatic_implications_json),
-		suggestedImplications: parseJsonList(row.suggested_implications_json),
+		aliases: metadata.aliases,
+		broader: metadata.broader,
+		narrower: metadata.narrower,
+		related: metadata.related,
+		confusable: metadata.confusable,
+		automaticImplications: metadata.automaticImplications,
+		suggestedImplications: metadata.suggestedImplications,
 		allowedClassifiers: parseJsonList(row.allowed_classifiers_json),
 		examples: exampleAssetIds,
 		counterexamples: counterexampleAssetIds,
@@ -288,6 +470,52 @@ function mapWikiRow(row: WikiRow, db: Database.Database): AtlasWikiEntry {
 		missingCounterexampleAssetIds: counterexamples.missingAssetIds,
 		aiGuidance: row.ai_guidance,
 		citations: parseJsonList(row.citations_json)
+	};
+}
+
+function relationalMetadata(db: Database.Database, conceptId: string) {
+	const aliases = (
+		db
+			.prepare(
+				`select alias from atlas_concept_aliases
+				 where concept_id = ? and status != 'rejected'
+				 order by alias`
+			)
+			.all(conceptId) as Array<{ alias: string }>
+	).map((row) => row.alias);
+	const outgoing = db
+		.prepare(
+			`select atlas_concept_relations.relation_type, atlas_concepts.slug
+			 from atlas_concept_relations
+			 join atlas_concepts on atlas_concepts.id = atlas_concept_relations.target_concept_id
+			 where atlas_concept_relations.source_concept_id = ?
+				and atlas_concept_relations.status != 'rejected'
+			 order by atlas_concepts.slug`
+		)
+		.all(conceptId) as Array<{ relation_type: string; slug: string }>;
+	const narrower = (
+		db
+			.prepare(
+				`select atlas_concepts.slug
+				 from atlas_concept_relations
+				 join atlas_concepts on atlas_concepts.id = atlas_concept_relations.source_concept_id
+				 where atlas_concept_relations.target_concept_id = ?
+					and atlas_concept_relations.relation_type = 'broader'
+					and atlas_concept_relations.status != 'rejected'
+				 order by atlas_concepts.slug`
+			)
+			.all(conceptId) as Array<{ slug: string }>
+	).map((row) => row.slug);
+	const slugs = (type: string) =>
+		outgoing.filter((row) => row.relation_type === type).map((row) => row.slug);
+	return {
+		aliases,
+		broader: slugs('broader'),
+		narrower,
+		related: slugs('related'),
+		confusable: slugs('confusable'),
+		automaticImplications: slugs('automatic_implication'),
+		suggestedImplications: slugs('suggested_implication')
 	};
 }
 
@@ -308,6 +536,7 @@ function resolveExampleAssets(
 			height,
 			original_path,
 			thumbnail_path,
+			mime_type,
 			source_image_url,
 			source_url,
 			page_title
@@ -447,6 +676,7 @@ function mapExampleAsset(row: ExampleAssetRow, visualRole: string | null): Atlas
 		id: row.id,
 		title: row.page_title?.trim() || row.title?.trim() || row.filename,
 		thumbnailUrl: exampleThumbnailUrl(row),
+		mimeType: row.mime_type,
 		width: row.width,
 		height: row.height,
 		sourceUrl: row.source_url,
@@ -475,7 +705,8 @@ function imageApiUrl(id: string, variant: 'thumb' | 'original') {
 	return `/api/library/assets/${encodeURIComponent(id)}/image?variant=${variant}`;
 }
 
-function parseJsonList(value: string): string[] {
+function parseJsonList(value: string | null): string[] {
+	if (!value) return [];
 	const parsed = JSON.parse(value) as unknown;
 	return Array.isArray(parsed)
 		? parsed.filter((item): item is string => typeof item === 'string')

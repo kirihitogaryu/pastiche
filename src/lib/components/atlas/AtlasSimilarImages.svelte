@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { openAtlasAsset } from '$lib/state/app-state.svelte';
+	import { isGifMedia } from '$lib/library/media';
 
 	type SimilarAsset = {
 		id: string;
 		title: string;
 		thumbnailUrl: string | null;
+		mimeType: string | null;
 		sourceUrl: string;
 		subtitle: string;
 		score: number;
@@ -19,6 +21,22 @@
 	let loading = $state(false);
 	let assets = $state<SimilarAsset[]>([]);
 	let error = $state<string | null>(null);
+	let animatedAssetId = $state<string | null>(null);
+
+	function assetIsGif(asset: SimilarAsset) {
+		return isGifMedia(asset.mimeType, asset.title, asset.thumbnailUrl);
+	}
+
+	function startPreview(asset: SimilarAsset) {
+		if (!assetIsGif(asset) || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+			return;
+		}
+		animatedAssetId = asset.id;
+	}
+
+	function stopPreview(asset: SimilarAsset) {
+		if (animatedAssetId === asset.id) animatedAssetId = null;
+	}
 
 	$effect(() => {
 		if (!assetId) return;
@@ -31,7 +49,8 @@
 				assets = body.assets ?? [];
 			})
 			.catch((loadError) => {
-				error = loadError instanceof Error ? loadError.message : 'Similar images could not be loaded.';
+				error =
+					loadError instanceof Error ? loadError.message : 'Similar images could not be loaded.';
 				assets = [];
 			})
 			.finally(() => {
@@ -60,12 +79,37 @@
 				<button
 					type="button"
 					class="similar-card"
-					aria-label={`Open ${asset.title}`}
+					aria-label={`${assetIsGif(asset) ? 'Animated GIF. ' : ''}Open ${asset.title}`}
 					onclick={() => openAtlasAsset(asset.id)}
+					onpointerenter={() => startPreview(asset)}
+					onpointerleave={() => stopPreview(asset)}
+					onfocus={() => startPreview(asset)}
+					onblur={() => stopPreview(asset)}
 				>
 					<span class="thumb">
 						{#if asset.thumbnailUrl}
-							<img src={asset.thumbnailUrl} alt="" loading="lazy" />
+							<img
+								class:static-hidden={assetIsGif(asset) && animatedAssetId === asset.id}
+								src={asset.thumbnailUrl}
+								alt=""
+								loading="lazy"
+							/>
+							{#if assetIsGif(asset) && animatedAssetId === asset.id}
+								<img
+									class="animated-preview"
+									src={`/api/library/assets/${encodeURIComponent(asset.id)}/image?variant=original`}
+									alt=""
+									aria-hidden="true"
+									onerror={() => stopPreview(asset)}
+								/>
+							{/if}
+							{#if assetIsGif(asset)}
+								<span
+									class="gif-badge"
+									aria-hidden="true"
+									title="Animated GIF; hover or focus to preview">GIF</span
+								>
+							{/if}
 						{/if}
 					</span>
 					<span class="body">
@@ -162,11 +206,41 @@
 	}
 
 	.thumb {
+		position: relative;
 		display: grid;
 		place-items: center;
 		overflow: hidden;
 		border-radius: var(--radius-sm);
 		background: oklch(8.5% 0.007 70);
+	}
+
+	.thumb .animated-preview {
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+	}
+
+	.thumb img.static-hidden {
+		opacity: 0;
+	}
+
+	.gif-badge {
+		position: absolute;
+		right: var(--space-2);
+		bottom: var(--space-2);
+		z-index: 2;
+		min-width: 2.2rem;
+		min-height: 1.55rem;
+		display: inline-grid;
+		place-items: center;
+		padding: 0 0.45rem;
+		border: 1px solid oklch(82% 0.012 75 / 0.26);
+		border-radius: var(--radius-sm);
+		background: oklch(8% 0.006 70 / 0.86);
+		color: var(--color-text);
+		font-size: 0.66rem;
+		font-weight: 800;
+		letter-spacing: 0.08em;
 	}
 
 	img {

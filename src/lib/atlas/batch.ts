@@ -56,6 +56,12 @@ export type AtlasBatchAnnotationInput = {
 	action?: 'upsert' | 'remove';
 };
 
+export type AtlasBatchTagSuggestionInput = {
+	id: string;
+	action: 'accept' | 'reject';
+	expression?: string;
+};
+
 export type AtlasWikiDraftInput = {
 	slug: string;
 	label: string;
@@ -88,6 +94,7 @@ export type AtlasBatchInput = {
 	entities?: AtlasBatchEntityInput[];
 	claims?: AtlasBatchClaimInput[];
 	annotations?: AtlasBatchAnnotationInput[];
+	tagSuggestions?: AtlasBatchTagSuggestionInput[];
 };
 
 export type AtlasBatchPreview = {
@@ -177,8 +184,38 @@ export function normalizeAtlasBatchInput(value: unknown): AtlasBatchPreview {
 			.map((item, index) => normalizeAnnotation(item, index, errors, canonicalizations))
 			.filter((item): item is AtlasBatchAnnotationInput => Boolean(item));
 	}
+	if ('tagSuggestions' in value) {
+		input.tagSuggestions = normalizeArray(value.tagSuggestions, 'tagSuggestions', errors)
+			.map((item, index) => normalizeTagSuggestion(item, index, errors))
+			.filter((item): item is AtlasBatchTagSuggestionInput => Boolean(item));
+	}
 
 	return { input, canonicalizations, errors };
+}
+
+function normalizeTagSuggestion(
+	value: unknown,
+	index: number,
+	errors: string[]
+): AtlasBatchTagSuggestionInput | null {
+	if (!isRecord(value)) {
+		errors.push(`tagSuggestions[${index}] must be an object.`);
+		return null;
+	}
+	const id = requiredString(value.id, `tagSuggestions[${index}].id`, errors);
+	const action = optionalEnum(
+		value.action,
+		new Set<AtlasBatchTagSuggestionInput['action']>(['accept', 'reject']),
+		`tagSuggestions[${index}].action`,
+		errors
+	);
+	const expression = optionalString(
+		value.expression,
+		`tagSuggestions[${index}].expression`,
+		errors
+	);
+	if (!id || !action) return null;
+	return { id, action, expression };
 }
 
 function normalizeIdentity(value: unknown, errors: string[]): AtlasBatchIdentityInput {
@@ -217,7 +254,12 @@ function normalizeConcept(
 	if (!rawSlug) return null;
 	const slug = normalizeAtlasSlug(rawSlug);
 	if (slug !== rawSlug) canonicalizations.push({ from: rawSlug, to: slug });
-	const evidence = optionalEnum(value.evidence, EVIDENCE_VALUES, `concepts[${index}].evidence`, errors);
+	const evidence = optionalEnum(
+		value.evidence,
+		EVIDENCE_VALUES,
+		`concepts[${index}].evidence`,
+		errors
+	);
 	const status = optionalEnum(value.status, STATUS_VALUES, `concepts[${index}].status`, errors);
 	const action = optionalAction(value.action, `concepts[${index}].action`, errors);
 	return {
@@ -228,7 +270,11 @@ function normalizeConcept(
 	} satisfies AtlasBatchConceptInput;
 }
 
-function normalizeEntity(value: unknown, index: number, errors: string[]): AtlasBatchEntityInput | null {
+function normalizeEntity(
+	value: unknown,
+	index: number,
+	errors: string[]
+): AtlasBatchEntityInput | null {
 	if (!isRecord(value)) {
 		errors.push(`entities[${index}] must be an object.`);
 		return null;
@@ -243,7 +289,11 @@ function normalizeEntity(value: unknown, index: number, errors: string[]): Atlas
 	} satisfies AtlasBatchEntityInput;
 }
 
-function normalizeClaim(value: unknown, index: number, errors: string[]): AtlasBatchClaimInput | null {
+function normalizeClaim(
+	value: unknown,
+	index: number,
+	errors: string[]
+): AtlasBatchClaimInput | null {
 	if (!isRecord(value)) {
 		errors.push(`claims[${index}] must be an object.`);
 		return null;
@@ -297,7 +347,11 @@ function normalizeAnnotation(
 			return slug;
 		})
 		.filter((item): item is string => Boolean(item));
-	const classifiers = normalizeClassifiers(value.classifiers, `annotations[${index}].classifiers`, errors);
+	const classifiers = normalizeClassifiers(
+		value.classifiers,
+		`annotations[${index}].classifiers`,
+		errors
+	);
 	return {
 		id: optionalString(value.id, `annotations[${index}].id`, errors),
 		label,

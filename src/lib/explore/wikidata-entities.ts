@@ -127,7 +127,9 @@ function rankEntityCandidates(
 		.map((entity, index) => ({
 			entity,
 			index,
-			score: entitySearchScore(entity, search, mode, context) + Math.min(24, usageById.get(entity.id) ?? 0)
+			score:
+				entitySearchScore(entity, search, mode, context) +
+				Math.min(24, usageById.get(entity.id) ?? 0)
 		}))
 		.sort((left, right) => right.score - left.score || left.index - right.index);
 }
@@ -267,10 +269,18 @@ function entitySearchScore(
 			score += 14;
 		}
 		if (context === 'reference') {
-			if (/(taxon|species|subspecies|genus|family|reptile|snake|animal|mammal|bird|plant)/i.test(description)) {
+			if (
+				/(taxon|species|subspecies|genus|family|reptile|snake|animal|mammal|bird|plant)/i.test(
+					description
+				)
+			) {
 				score += 28;
 			}
-			if (/(programming language|software|software library|computer|ship|missile|family name|given name)/i.test(description)) {
+			if (
+				/(programming language|software|software library|computer|ship|missile|family name|given name)/i.test(
+					description
+				)
+			) {
 				score -= 34;
 			}
 		}

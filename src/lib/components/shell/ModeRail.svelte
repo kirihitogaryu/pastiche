@@ -49,6 +49,7 @@
 		display: none;
 		width: var(--rail-width);
 		height: 100vh;
+		height: 100dvh;
 		border-right: 1px solid var(--color-border);
 		background: oklch(11% 0.008 70 / 0.96);
 		padding: var(--space-4) var(--space-3);

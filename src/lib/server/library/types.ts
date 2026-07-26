@@ -1,6 +1,7 @@
 import type {
 	AiGenerationMetadata,
 	LibraryAsset,
+	LibraryAtlasTag,
 	LibraryAssetFacts,
 	LibraryAssetImage,
 	LibraryAssetRecord,
@@ -15,6 +16,7 @@ import type {
 } from '$lib/library/types';
 
 export type ImportRequest = {
+	import_job_id?: string;
 	destination_folder_id: string | null;
 	create_folder_name?: string;
 	items: ImportItem[];
@@ -38,9 +40,21 @@ export type ImportItem = {
 export type LibraryImportMetadata = {
 	sourceId?: string | null;
 	sourceName?: string | null;
-	sourceType?: 'local' | 'web' | 'museum' | 'collection' | null;
+	sourceType?:
+		| 'local'
+		| 'web'
+		| 'social'
+		| 'gallery'
+		| 'booru'
+		| 'museum'
+		| 'collection'
+		| 'cdn'
+		| 'unknown'
+		| null;
 	detailUrl?: string | null;
 	creator?: string | null;
+	artistProfileUrl?: string | null;
+	artistUsername?: string | null;
 	dateDisplay?: string | null;
 	medium?: string | null;
 	objectName?: string | null;
@@ -49,6 +63,12 @@ export type LibraryImportMetadata = {
 	period?: string | null;
 	rights?: string | null;
 	tags?: string[];
+	acceptedConceptSlugs?: string[];
+	acceptedAnnotations?: Array<{
+		label: string;
+		concepts: string[];
+		classifiers: Record<string, string>;
+	}>;
 	rawMetadata?: Record<string, unknown>;
 };
 
@@ -71,11 +91,18 @@ export type ImportResponse = {
 
 export type StatusResponse = {
 	connected: true;
+	status_cursor: string;
 	unassigned_count: number;
 	recent_folders: Array<{
 		id: string;
 		name: string;
 		last_used: string;
+	}>;
+	folders: Array<{
+		id: string;
+		name: string;
+		parent_id: string | null;
+		path: string;
 	}>;
 	imported_sources: Array<{
 		source_hash: string;
@@ -87,6 +114,7 @@ export type StatusResponse = {
 export type {
 	AiGenerationMetadata,
 	LibraryAsset,
+	LibraryAtlasTag,
 	LibraryAssetFacts,
 	LibraryAssetImage,
 	LibraryAssetRecord,

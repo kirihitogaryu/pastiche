@@ -24,7 +24,7 @@ describe('GET /api/atlas/wiki', () => {
 		const response = await GET();
 		const body = await response.json();
 
-		expect(response.status).toBe(200);
+		expect(response.status, JSON.stringify(body)).toBe(200);
 		expect(body.entries).toEqual(
 			expect.arrayContaining([expect.objectContaining({ slug: 'serpent' })])
 		);
@@ -122,6 +122,33 @@ describe('GET /api/atlas/wiki', () => {
 		);
 	});
 
+	it('creates missing Wiki relation targets as review stubs only when the draft is saved', async () => {
+		const { PATCH, GET } = await import('./[slug]/+server');
+
+		const response = await PATCH({
+			params: { slug: 'serpent' },
+			request: new Request('http://localhost/api/atlas/wiki/serpent', {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ related: ['newly_observed_serpentine_trait'] })
+			})
+		});
+		const body = await response.json();
+		const stubResponse = await GET({ params: { slug: 'newly_observed_serpentine_trait' } });
+		const stubBody = await stubResponse.json();
+
+		expect(response.status, JSON.stringify(body)).toBe(200);
+		expect(body.createdConceptSlugs).toEqual(['newly_observed_serpentine_trait']);
+		expect(body.entry.related).toContain('newly_observed_serpentine_trait');
+		expect(stubResponse.status).toBe(200);
+		expect(stubBody.entry).toMatchObject({
+			slug: 'newly_observed_serpentine_trait',
+			status: 'needs_review',
+			maturity: 'stub',
+			needsClassification: true
+		});
+	});
+
 	it('creates draft wiki tags with required guidance', async () => {
 		const { POST } = await import('./+server');
 
@@ -146,6 +173,113 @@ describe('GET /api/atlas/wiki', () => {
 
 		expect(response.status).toBe(201);
 		expect(body.entry).toMatchObject({ slug: 'test_visible_object', maturity: 'draft' });
+	});
+
+	it('rejects malformed wiki drafts before they reach SQLite', async () => {
+		const { POST } = await import('./+server');
+
+		const response = await POST({
+			request: new Request('http://localhost/api/atlas/wiki', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					slug: 'invalid_entry',
+					label: 'Invalid Entry',
+					kind: 'not-a-kind',
+					category: 'object',
+					displayGroup: 'Objects',
+					shortDefinition: 'Invalid on purpose.',
+					useWhen: ['Visible'],
+					doNotUseWhen: [42],
+					aiGuidance: 'None',
+					unexpected: true
+				})
+			})
+		});
+		const body = await response.json();
+
+		expect(response.status).toBe(400);
+		expect(body.error).toContain('Unknown wiki fields');
+	});
+
+	it('rejects invalid partial wiki updates without changing the entry', async () => {
+		const { PATCH, GET } = await import('./[slug]/+server');
+
+		const response = await PATCH({
+			params: { slug: 'serpent' },
+			request: new Request('http://localhost/api/atlas/wiki/serpent', {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ status: 'published', aliases: ['snake', 42] })
+			})
+		});
+		const current = await GET({ params: { slug: 'serpent' } });
+		const body = await current.json();
+
+		expect(response.status).toBe(400);
+		expect(body.entry.status).not.toBe('published');
+	});
+
+	it('allows a human to save an intentionally incomplete draft entry', async () => {
+		const { PATCH, GET } = await import('./[slug]/+server');
+
+		const response = await PATCH({
+			params: { slug: 'serpent' },
+			request: new Request('http://localhost/api/atlas/wiki/serpent', {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					shortDefinition: '',
+					useWhen: [],
+					doNotUseWhen: [],
+					aiGuidance: '',
+					longDescription: 'A human-authored work in progress.'
+				})
+			})
+		});
+		const current = await GET({ params: { slug: 'serpent' } });
+		const body = await current.json();
+
+		expect(response.status).toBe(200);
+		expect(body.entry).toMatchObject({
+			shortDefinition: '',
+			useWhen: [],
+			doNotUseWhen: [],
+			aiGuidance: '',
+			longDescription: 'A human-authored work in progress.'
+		});
+	});
+
+	it('allows a human to create a classified tag before writing AI guidance', async () => {
+		const { POST } = await import('./+server');
+		const response = await POST({
+			request: new Request('http://localhost/api/atlas/wiki', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					slug: 'human_work_in_progress',
+					label: 'Human work in progress',
+					kind: 'visual_tag',
+					category: 'object',
+					displayGroup: 'Objects',
+					shortDefinition: '',
+					useWhen: [],
+					doNotUseWhen: [],
+					aiGuidance: '',
+					status: 'needs_review',
+					maturity: 'draft'
+				})
+			})
+		});
+		const body = await response.json();
+
+		expect(response.status).toBe(201);
+		expect(body.entry).toMatchObject({
+			slug: 'human_work_in_progress',
+			shortDefinition: '',
+			status: 'needs_review',
+			maturity: 'draft'
+		});
 	});
 
 	it('returns example candidates for assets tagged with a concept', async () => {
@@ -201,39 +335,24 @@ describe('GET /api/atlas/wiki', () => {
 
 		expect(response.status).toBe(200);
 		expect(body.items).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ slug: 'serpent', reason: 'needs_review' })
-			])
+			expect.arrayContaining([expect.objectContaining({ slug: 'serpent', reason: 'needs_review' })])
 		);
 	});
 
 	it('deletes accidental reviewable tags from the review queue', async () => {
-		const imported = await importLibraryItems({
-			destination_folder_id: null,
-			items: [
-				{
-					filename: 'Accidental Tag Ref',
-					storage_mode: 'url_reference',
-					image_data: null,
-					source_image_url: 'https://example.com/accidental.jpg',
-					mime_type: 'image/jpeg',
-					natural_width: 1200,
-					natural_height: 800,
-					source_url: 'https://example.com/accidental',
-					page_title: 'Accidental Tag Ref',
-					alt_text: null,
-					captured_at: '2026-05-27T12:00:00.000Z',
-					metadata: { sourceName: 'Manual', tags: [] }
-				}
-			]
-		});
-		const { PATCH } = await import('../../library/assets/[id]/atlas/+server');
-		await PATCH({
-			params: { id: imported.imported[0].asset_id },
-			request: new Request('http://localhost/api/library/assets/id/atlas', {
-				method: 'PATCH',
+		const conceptRoute = await import('../concepts/+server');
+		await conceptRoute.POST({
+			request: new Request('http://localhost/api/atlas/concepts', {
+				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ concepts: [{ slug: 'the' }] })
+				body: JSON.stringify({
+					slug: 'the',
+					label: 'The',
+					kind: 'visual_tag',
+					category: 'text',
+					displayGroup: 'Text and Inscriptions',
+					shortDefinition: 'Accidental test tag.'
+				})
 			})
 		});
 		const reviewRoute = await import('./review/+server');

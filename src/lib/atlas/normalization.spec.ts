@@ -25,10 +25,12 @@ describe('Atlas normalization', () => {
 			label: 'Wikimedia Commons',
 			slug: 'wikimedia_commons'
 		});
-		expect(normalizeKnownAtlasValue('rights', 'Public domain image according to The Met.')).toEqual({
-			label: 'Public Domain',
-			slug: 'public_domain'
-		});
+		expect(normalizeKnownAtlasValue('rights', 'Public domain image according to The Met.')).toEqual(
+			{
+				label: 'Public Domain',
+				slug: 'public_domain'
+			}
+		);
 		expect(normalizeKnownAtlasValue('medium', 'Oil on canvas')).toEqual({
 			label: 'Oil on canvas',
 			slug: 'oil_on_canvas'

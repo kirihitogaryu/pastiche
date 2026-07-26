@@ -3,19 +3,19 @@ import type { AtlasAssetSummary, AtlasConceptAssignment } from '$lib/atlas/types
 import { mockLibrarySnapshot } from '$lib/library/mock';
 import { patchAtlasAsset } from '$lib/server/atlas/mutate';
 import { getAtlasAssetSummary } from '$lib/server/atlas/read';
-import { getLibrarySnapshot } from '$lib/server/library/read';
+import { getLibraryAssetById } from '$lib/server/library/read';
 import type { Asset } from '$lib/types';
-import { EXTENSION_CORS_HEADERS } from '../../../../cors';
+import { requireTrustedLocalAccess } from '../../../../localAccess';
 
-export function GET({ params }: { params: { id: string } }) {
+export function GET({ params, request }: { params: { id: string }; request?: Request }) {
+	const access = requireTrustedLocalAccess(request);
+	if (!access.ok) return access.response;
 	const usingMockFallback = process.env.PASTICHE_MOCK_LIBRARY_FALLBACK === '1';
-	const snapshot = usingMockFallback ? mockLibrarySnapshot() : getLibrarySnapshot();
-	const asset = snapshot.assets.find((item) => item.id === params.id);
+	const asset = usingMockFallback
+		? mockLibrarySnapshot().assets.find((item) => item.id === params.id)
+		: getLibraryAssetById(params.id);
 	if (!asset) {
-		return Response.json(
-			{ error: 'Asset not found' },
-			{ status: 404, headers: EXTENSION_CORS_HEADERS }
-		);
+		return Response.json({ error: 'Asset not found' }, { status: 404, headers: access.headers });
 	}
 
 	return Response.json(
@@ -23,36 +23,38 @@ export function GET({ params }: { params: { id: string } }) {
 			asset,
 			atlas: usingMockFallback ? mockAtlasAssetSummary(asset) : getAtlasAssetSummary(params.id)
 		},
-		{ headers: EXTENSION_CORS_HEADERS }
+		{ headers: access.headers }
 	);
 }
 
 export async function PATCH({ params, request }: { params: { id: string }; request: Request }) {
+	const access = requireTrustedLocalAccess(request);
+	if (!access.ok) return access.response;
+
 	let body: unknown;
 	try {
 		body = await request.json();
 	} catch {
-		return Response.json({ error: 'JSON body is required' }, { status: 400 });
+		return Response.json(
+			{ error: 'JSON body is required' },
+			{ status: 400, headers: access.headers }
+		);
 	}
 
 	try {
 		const preview = patchAtlasAsset(params.id, body);
-		const snapshot = getLibrarySnapshot();
-		const asset = snapshot.assets.find((item) => item.id === params.id);
+		const asset = getLibraryAssetById(params.id);
 		if (!asset) {
-			return Response.json(
-				{ error: 'Asset not found' },
-				{ status: 404, headers: EXTENSION_CORS_HEADERS }
-			);
+			return Response.json({ error: 'Asset not found' }, { status: 404, headers: access.headers });
 		}
 		return Response.json(
 			{ asset, atlas: getAtlasAssetSummary(params.id), preview },
-			{ headers: EXTENSION_CORS_HEADERS }
+			{ headers: access.headers }
 		);
 	} catch (error) {
 		return Response.json(
 			{ error: error instanceof Error ? error.message : 'Atlas metadata could not be updated.' },
-			{ status: 400, headers: EXTENSION_CORS_HEADERS }
+			{ status: 400, headers: access.headers }
 		);
 	}
 }

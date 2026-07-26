@@ -60,14 +60,14 @@
 				{#if expanded.has(group.slug)}
 					<div class="tag-pills">
 						{#if tagPreview.visible.length}
-						{#each tagPreview.visible as tag (tag.id)}
-							<button type="button" onclick={() => onOpenTag?.(tag)}>{tag.value}</button>
-						{/each}
-						{#if tagPreview.hiddenCount}
-							<button class="overflow" type="button" onclick={() => onToggle(group.slug)}>
-								+{tagPreview.hiddenCount}
-							</button>
-						{/if}
+							{#each tagPreview.visible as tag (tag.id)}
+								<button type="button" onclick={() => onOpenTag?.(tag)}>{tag.value}</button>
+							{/each}
+							{#if tagPreview.hiddenCount}
+								<button class="overflow" type="button" onclick={() => onToggle(group.slug)}>
+									+{tagPreview.hiddenCount}
+								</button>
+							{/if}
 						{/if}
 					</div>
 				{/if}

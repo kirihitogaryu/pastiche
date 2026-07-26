@@ -74,8 +74,10 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 8px;
-		padding: 10px 12px;
-		border-bottom: 1px solid rgb(255 255 255 / 8%);
+		min-height: 36px;
+		padding: 7px 10px;
+		border-bottom: 1px solid var(--ext-border-soft);
+		background: var(--ext-panel);
 		flex-shrink: 0;
 	}
 
@@ -98,7 +100,7 @@
 	}
 
 	.status-btn:hover .label {
-		color: #eee7dc;
+		color: var(--ext-text);
 	}
 
 	.dot {
@@ -106,17 +108,17 @@
 		height: 8px;
 		border-radius: 50%;
 		flex-shrink: 0;
-		background: #8f7765;
+		background: var(--ext-dim);
 	}
 
 	.dot.online {
-		background: #98c379;
+		background: var(--ext-success);
 	}
 	.dot.offline {
-		background: #e06c75;
+		background: var(--ext-danger);
 	}
 	.dot.checking {
-		background: #8f7765;
+		background: var(--ext-dim);
 		animation: pulse 1s ease-in-out infinite;
 	}
 
@@ -132,17 +134,16 @@
 
 	.label {
 		font-size: 11px;
-		color: #8f7765;
-		letter-spacing: 0.02em;
+		color: var(--ext-muted);
 	}
 
 	.queued,
 	.unassigned {
 		font-size: 11px;
-		color: #8f7765;
-		padding: 1px 5px;
-		border-radius: 3px;
-		background: rgb(255 255 255 / 6%);
+		color: var(--ext-muted);
+		padding: 2px 5px;
+		border-radius: var(--ext-radius-sm);
+		background: var(--ext-control);
 		white-space: nowrap;
 	}
 
@@ -150,19 +151,19 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 28px;
-		height: 28px;
-		border-radius: 5px;
+		width: 26px;
+		height: 26px;
+		border-radius: var(--ext-radius-sm);
 		border: none;
 		background: none;
-		color: #8f7765;
+		color: var(--ext-muted);
 		cursor: pointer;
 		flex-shrink: 0;
 		padding: 0;
 	}
 
 	.icon-btn:hover {
-		background: rgb(255 255 255 / 7%);
-		color: #eee7dc;
+		background: var(--ext-control-hover);
+		color: var(--ext-text);
 	}
 </style>

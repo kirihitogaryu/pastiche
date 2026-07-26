@@ -23,7 +23,7 @@
 				<button class="sweep-btn" type="button" disabled={!connected} onclick={onsweep}
 					>Sweep this page</button
 				>
-				— collects all images above 300 × 300 px at once.
+				: collects all images above 300 × 300 px at once.
 			</span>
 		</li>
 		<li>
@@ -40,15 +40,15 @@
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
-		gap: 14px;
-		padding: 20px 12px;
+		gap: 13px;
+		padding: 18px 12px;
 		flex: 1;
 	}
 
 	.intro {
 		margin: 0;
 		font-size: 13px;
-		color: #8f7765;
+		color: var(--ext-muted);
 	}
 
 	.modes {
@@ -70,25 +70,25 @@
 	.mode-name {
 		font-size: 11px;
 		font-weight: 600;
-		color: #aaa196;
-		letter-spacing: 0.04em;
+		color: var(--ext-text);
+		letter-spacing: 0.03em;
 		text-transform: uppercase;
 	}
 
 	.mode-desc {
 		font-size: 12px;
-		color: #6b6258;
+		color: var(--ext-muted);
 		line-height: 1.45;
 	}
 
 	kbd {
 		font-size: 10px;
 		font-family: inherit;
-		background: rgb(255 255 255 / 8%);
-		border: 1px solid rgb(255 255 255 / 14%);
-		border-radius: 3px;
+		background: var(--ext-control);
+		border: 1px solid var(--ext-border);
+		border-radius: var(--ext-radius-sm);
 		padding: 1px 4px;
-		color: #aaa196;
+		color: var(--ext-muted);
 	}
 
 	.sweep-btn {
@@ -96,7 +96,7 @@
 		background: none;
 		border: none;
 		padding: 0;
-		color: #b67aff;
+		color: var(--ext-accent);
 		font-size: 12px;
 		font-family: inherit;
 		cursor: pointer;
@@ -105,7 +105,7 @@
 	}
 
 	.sweep-btn:disabled {
-		color: #6b6258;
+		color: var(--ext-dim);
 		cursor: not-allowed;
 		text-decoration: none;
 	}

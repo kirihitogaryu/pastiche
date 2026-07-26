@@ -332,9 +332,9 @@ describe('Met connector', () => {
 		await connector.search({ keyword: 'wheat', limit: 20 });
 
 		expect(fetchMock).toHaveBeenCalledTimes(5);
-		expect(fetchMock.mock.calls.filter(([input]) => input.toString().includes('/search?'))).toHaveLength(
-			4
-		);
+		expect(
+			fetchMock.mock.calls.filter(([input]) => input.toString().includes('/search?'))
+		).toHaveLength(4);
 		expect(
 			fetchMock.mock.calls.filter(([input]) => input.toString().endsWith('/objects/437133'))
 		).toHaveLength(1);

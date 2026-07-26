@@ -1,11 +1,13 @@
 <script lang="ts">
 	import AtlasAssetInspect from './AtlasAssetInspect.svelte';
 	import AtlasHome from './AtlasHome.svelte';
+	import AtlasSearch from './AtlasSearch.svelte';
+	import AtlasSearchHeader from './AtlasSearchHeader.svelte';
 	import AtlasWiki from './AtlasWiki.svelte';
 	import type { AtlasAssetSummary } from '$lib/atlas/types';
 	import FocusedAssetPreview from '$lib/components/inspector/FocusedAssetPreview.svelte';
 	import { loadLibrarySnapshot } from '$lib/library/client';
-	import { appState, openAtlasHome } from '$lib/state/app-state.svelte';
+	import { appState, returnFromAtlasAsset } from '$lib/state/app-state.svelte';
 	import { libraryState, setLibrarySnapshot } from '$lib/state/library-state.svelte';
 	import type { Asset } from '$lib/types';
 
@@ -82,37 +84,82 @@
 			)
 		};
 	}
+
+	async function deleteAtlasAsset(assetToDelete: Asset) {
+		error = null;
+		const response = await fetch(
+			`/api/library/assets/${encodeURIComponent(assetToDelete.id)}`,
+			{ method: 'DELETE' }
+		);
+		if (!response.ok && response.status !== 404) {
+			const body = (await response.json().catch(() => null)) as { error?: string } | null;
+			throw new Error(body?.error ?? 'The image could not be deleted.');
+		}
+
+		const snapshot = await loadLibrarySnapshot();
+		setLibrarySnapshot(snapshot);
+		if (previewAsset?.id === assetToDelete.id) previewAsset = null;
+		atlas = null;
+		returnFromAtlasAsset();
+	}
 </script>
 
-{#if appState.atlasView === 'home'}
-	<AtlasHome assets={libraryState.snapshot.assets} loading={libraryLoading} error={libraryError} />
-{:else if appState.atlasView === 'wiki'}
-	<AtlasWiki />
-{:else if asset}
-	<AtlasAssetInspect
-		{asset}
-		{atlas}
-		{loading}
-		{error}
-		onBack={openAtlasHome}
-		onPreview={(item) => (previewAsset = item)}
-		onUpdated={updateLoadedAtlas}
-	/>
-{:else if libraryLoading}
-	<section class="empty" aria-label="Atlas loading state">
-		<p>Loading library assets...</p>
-	</section>
-{:else}
-	<section class="empty" aria-label="Atlas empty state">
-		<p>{libraryError ?? 'No library assets are available yet.'}</p>
-	</section>
-{/if}
+<section class="atlas-workspace" aria-label="Atlas workspace">
+	{#if appState.atlasView !== 'asset'}
+		<AtlasSearchHeader />
+	{/if}
+	<div class="atlas-content">
+		{#if appState.atlasView === 'home'}
+			<AtlasHome
+				assets={libraryState.snapshot.assets}
+				loading={libraryLoading}
+				error={libraryError}
+			/>
+		{:else if appState.atlasView === 'wiki'}
+			<AtlasWiki />
+		{:else if appState.atlasView === 'search'}
+			<AtlasSearch />
+		{:else if asset}
+			<AtlasAssetInspect
+				{asset}
+				{atlas}
+				{loading}
+				{error}
+				onBack={returnFromAtlasAsset}
+				onPreview={(item) => (previewAsset = item)}
+				onUpdated={updateLoadedAtlas}
+				onDelete={deleteAtlasAsset}
+			/>
+		{:else if libraryLoading}
+			<section class="empty" aria-label="Atlas loading state">
+				<p>Loading library assets...</p>
+			</section>
+		{:else}
+			<section class="empty" aria-label="Atlas empty state">
+				<p>{libraryError ?? 'No library assets are available yet.'}</p>
+			</section>
+		{/if}
+	</div>
+</section>
 
 {#if previewAsset}
 	<FocusedAssetPreview asset={previewAsset} onClose={() => (previewAsset = null)} />
 {/if}
 
 <style>
+	.atlas-workspace {
+		height: 100%;
+		min-height: 0;
+		display: grid;
+		grid-template-rows: auto minmax(0, 1fr);
+		background: var(--color-bg);
+	}
+
+	.atlas-content {
+		min-height: 0;
+		overflow: hidden;
+	}
+
 	.empty {
 		height: 100%;
 		display: grid;

@@ -1,14 +1,16 @@
 <script lang="ts">
 	import ArrowLeftIcon from 'phosphor-svelte/lib/ArrowLeftIcon';
 	import ArrowSquareOutIcon from 'phosphor-svelte/lib/ArrowSquareOutIcon';
-	import FolderPlusIcon from 'phosphor-svelte/lib/FolderPlusIcon';
+	import BookmarkSimpleIcon from 'phosphor-svelte/lib/BookmarkSimpleIcon';
+	import DownloadSimpleIcon from 'phosphor-svelte/lib/DownloadSimpleIcon';
 	import PaletteIcon from 'phosphor-svelte/lib/PaletteIcon';
 	import XIcon from 'phosphor-svelte/lib/XIcon';
 	import WikidataRelatedStrip from '$lib/components/explore/WikidataRelatedStrip.svelte';
+	import FolderDestinationPicker from '$lib/components/ui/FolderDestinationPicker.svelte';
 	import { getExploreDisplayImageUrl } from '$lib/explore/image-url';
 	import { exploreSourceLabel } from '$lib/explore/source-display';
 	import { loadLibrarySnapshot } from '$lib/library/client';
-	import { setLibrarySnapshot } from '$lib/state/library-state.svelte';
+	import { libraryState, setLibrarySnapshot } from '$lib/state/library-state.svelte';
 	import type { ExploreItem } from '$lib/explore/types';
 
 	type Props = {
@@ -28,10 +30,35 @@
 		onOpenRelated,
 		onOpenRelatedItem
 	}: Props = $props();
-	let displayImageUrl = $derived(item ? getExploreDisplayImageUrl(item) : '');
+	let selectedImageIndex = $state(0);
+	let imageUrls = $derived(
+		item
+			? [item.imageUrl ?? item.thumbUrl, ...item.additionalImages].filter((url): url is string =>
+					Boolean(url)
+				)
+			: []
+	);
+	let selectedImageUrl = $derived(imageUrls[selectedImageIndex] ?? '');
+	let displayImageUrl = $derived(
+		item && selectedImageIndex === 0 ? getExploreDisplayImageUrl(item) : selectedImageUrl
+	);
+	let selectedPreviewItem = $derived(
+		item && selectedImageUrl
+			? {
+					...item,
+					imageUrl: selectedImageUrl,
+					thumbUrl: selectedImageUrl,
+					additionalImages: []
+				}
+			: item
+	);
 	let saving = $state(false);
-	let saved = $state(false);
+	let savedSelections = $state<string[]>([]);
 	let saveError = $state<string | null>(null);
+	let choosingDestination = $state(false);
+	let savedDestination = $state<string | null>(null);
+	let pendingStorageMode = $state<'download' | 'url_reference'>('download');
+	let savedStorageMode = $state<'download' | 'url_reference' | null>(null);
 
 	function sourceLabel(item: ExploreItem) {
 		return exploreSourceLabel(item);
@@ -39,12 +66,28 @@
 
 	$effect(() => {
 		if (!item) return;
+		void item.id;
+		selectedImageIndex = 0;
 		saving = false;
-		saved = false;
+		savedSelections = [];
 		saveError = null;
+		choosingDestination = false;
+		savedDestination = null;
+		pendingStorageMode = 'download';
+		savedStorageMode = null;
 	});
 
-	async function saveToLibrary() {
+	function chooseDestination(storageMode: 'download' | 'url_reference') {
+		if (saving || isSaved(storageMode)) return;
+		if (choosingDestination && pendingStorageMode === storageMode) {
+			choosingDestination = false;
+			return;
+		}
+		pendingStorageMode = storageMode;
+		choosingDestination = true;
+	}
+
+	async function saveToLibrary(destinationFolderId: string | null, destinationLabel: string) {
 		if (!item || saving) return;
 		saving = true;
 		saveError = null;
@@ -52,7 +95,12 @@
 			const response = await fetch('/api/library/save-explore', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ item_id: item.id, destination_folder_id: null })
+				body: JSON.stringify({
+					item_id: item.id,
+					image_index: selectedImageIndex,
+					destination_folder_id: destinationFolderId,
+					storage_mode: pendingStorageMode
+				})
 			});
 			const result = (await response.json()) as {
 				imported?: Array<{ asset_id: string }>;
@@ -61,13 +109,31 @@
 			};
 			if (!response.ok) throw new Error(result.error ?? 'Explore item could not be saved.');
 			if (result.failed?.length) throw new Error(result.failed[0].error);
-			saved = true;
+			savedSelections = [...savedSelections, saveKey(selectedImageIndex, pendingStorageMode)];
+			savedStorageMode = pendingStorageMode;
+			savedDestination = destinationLabel;
+			choosingDestination = false;
 			setLibrarySnapshot(await loadLibrarySnapshot());
 		} catch (error) {
 			saveError = error instanceof Error ? error.message : 'Explore item could not be saved.';
 		} finally {
 			saving = false;
 		}
+	}
+
+	function saveKey(index: number, mode: 'download' | 'url_reference') {
+		return `${index}:${mode}`;
+	}
+
+	function isSaved(mode: 'download' | 'url_reference') {
+		return savedSelections.includes(saveKey(selectedImageIndex, mode));
+	}
+
+	function selectImage(index: number) {
+		if (saving || index === selectedImageIndex) return;
+		selectedImageIndex = index;
+		choosingDestination = false;
+		saveError = null;
 	}
 </script>
 
@@ -95,10 +161,27 @@
 				class="preview-button"
 				type="button"
 				aria-label={`Open focused preview for ${item.title}`}
-				onclick={() => onPreview?.(item)}
+				onclick={() => selectedPreviewItem && onPreview?.(selectedPreviewItem)}
 			>
 				<img src={displayImageUrl} alt={item.title} />
 			</button>
+			{#if imageUrls.length > 1}
+				<div class="image-selector" aria-label={`${imageUrls.length} images in this post`}>
+					{#each imageUrls as imageUrl, index (`${item.id}:${index}`)}
+						<button
+							class:active={selectedImageIndex === index}
+							type="button"
+							aria-label={`View image ${index + 1} of ${imageUrls.length}`}
+							aria-pressed={selectedImageIndex === index}
+							onclick={() => selectImage(index)}
+						>
+							<img src={imageUrl} alt="" />
+							<span>{index + 1}</span>
+						</button>
+					{/each}
+				</div>
+				<p class="image-position">Image {selectedImageIndex + 1} of {imageUrls.length}</p>
+			{/if}
 		{:else}
 			<div class="preview-button metadata-only" aria-label={`${item.title} has no Commons image`}>
 				<strong>No Commons image attached</strong>
@@ -162,10 +245,42 @@
 		{/if}
 
 		<div class="actions">
-			<button type="button" disabled={saving || saved} onclick={saveToLibrary}>
-				<FolderPlusIcon size={19} />
-				{saving ? 'Saving...' : saved ? 'Saved to Library' : 'Add to Library'}
+			<button
+				type="button"
+				disabled={saving || isSaved('download')}
+				onclick={() => chooseDestination('download')}
+			>
+				<DownloadSimpleIcon size={19} />
+				{saving && pendingStorageMode === 'download'
+					? 'Saving...'
+					: isSaved('download') && savedStorageMode === 'download'
+						? `Saved to ${savedDestination ?? 'Library'}`
+						: choosingDestination && pendingStorageMode === 'download'
+							? 'Choose a folder'
+							: 'Save original'}
 			</button>
+			<button
+				type="button"
+				disabled={saving || isSaved('url_reference')}
+				onclick={() => chooseDestination('url_reference')}
+			>
+				<BookmarkSimpleIcon size={19} />
+				{saving && pendingStorageMode === 'url_reference'
+					? 'Bookmarking...'
+					: isSaved('url_reference') && savedStorageMode === 'url_reference'
+						? `Bookmarked in ${savedDestination ?? 'Library'}`
+						: choosingDestination && pendingStorageMode === 'url_reference'
+							? 'Choose a folder'
+							: 'Bookmark'}
+			</button>
+			{#if choosingDestination}
+				<FolderDestinationPicker
+					folders={libraryState.snapshot.folders}
+					busy={saving}
+					onChoose={saveToLibrary}
+					onCancel={() => (choosingDestination = false)}
+				/>
+			{/if}
 			{#if saveError}
 				<p class="save-error">{saveError}</p>
 			{/if}
@@ -295,6 +410,64 @@
 		border: 0;
 		border-radius: 0;
 		background: transparent;
+	}
+
+	.image-selector {
+		min-height: 3.5rem;
+		flex: 0 0 auto;
+		display: flex;
+		gap: var(--space-2);
+		margin-top: calc(var(--space-2) * -1);
+		padding: 0.15rem 0 var(--space-1);
+		overflow-x: auto;
+		scrollbar-width: thin;
+	}
+
+	.image-selector button {
+		position: relative;
+		width: 3.25rem;
+		height: 3.25rem;
+		flex: 0 0 3.25rem;
+		min-width: 3.25rem;
+		min-height: 3.25rem;
+		padding: 0;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		background: var(--color-surface);
+		overflow: hidden;
+	}
+
+	.image-selector button.active {
+		border-color: var(--color-accent);
+		box-shadow: inset 0 0 0 1px var(--color-accent);
+	}
+
+	.image-selector img {
+		width: 100%;
+		height: 100%;
+		max-height: none;
+		object-fit: cover;
+	}
+
+	.image-selector span {
+		position: absolute;
+		right: 0.2rem;
+		bottom: 0.2rem;
+		min-width: 1.1rem;
+		padding: 0.12rem 0.25rem;
+		border-radius: var(--radius-pill);
+		background: oklch(10% 0.008 70 / 0.82);
+		color: var(--color-text);
+		font-size: 0.66rem;
+		line-height: 1;
+		text-align: center;
+	}
+
+	.image-position {
+		flex: 0 0 auto;
+		margin-top: calc(var(--space-3) * -1);
+		color: var(--color-muted);
+		font-size: 0.76rem;
 	}
 
 	.facts {

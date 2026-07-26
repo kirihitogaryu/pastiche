@@ -1,19 +1,24 @@
 import { json } from '@sveltejs/kit';
 import { createTag } from '$lib/server/library/organization';
-import { getLibrarySnapshot } from '$lib/server/library/read';
+import { requireTrustedLocalAccess } from '../../localAccess';
 
 export async function POST({ request }: { request: Request }) {
+	const access = requireTrustedLocalAccess(request);
+	if (!access.ok) return access.response;
+
 	const body = await readJson(request);
-	if (!isRecord(body)) return json({ error: 'Tag value is required' }, { status: 400 });
+	if (!isRecord(body)) {
+		return json({ error: 'Tag value is required' }, { status: 400, headers: access.headers });
+	}
 	try {
 		const tag = createTag({
 			label: typeof body.label === 'string' ? body.label : null,
 			facet: typeof body.facet === 'string' ? body.facet : null,
 			value: typeof body.value === 'string' ? body.value : null
 		});
-		return json({ tag, snapshot: getLibrarySnapshot() });
+		return json({ tag }, { status: 201, headers: access.headers });
 	} catch (error) {
-		return json({ error: errorMessage(error) }, { status: 400 });
+		return json({ error: errorMessage(error) }, { status: 400, headers: access.headers });
 	}
 }
 

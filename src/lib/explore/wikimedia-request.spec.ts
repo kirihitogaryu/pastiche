@@ -40,7 +40,9 @@ describe('Wikimedia request policy', () => {
 	});
 
 	it('turns retryable statuses into temporary Wikimedia errors', async () => {
-		const fetcher = vi.fn(async () => new Response('{}', { status: 429, headers: { 'retry-after': '4' } }));
+		const fetcher = vi.fn(
+			async () => new Response('{}', { status: 429, headers: { 'retry-after': '4' } })
+		);
 		const queue = new WikimediaRequestQueue({ requestsPerSecond: 1000 });
 		const breaker = new WikimediaCircuitBreaker({ upstream: 'action' });
 

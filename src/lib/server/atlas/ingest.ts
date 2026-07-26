@@ -9,13 +9,18 @@ import type {
 	AtlasIngestionProposal,
 	AtlasTagSuggestionProposal
 } from '$lib/atlas/types';
+import { resolveOrCreateArtistEntity } from './entityIdentity';
 
 export function createAtlasIngestionProposal(input: AtlasIngestionInput): AtlasIngestionProposal {
 	const entities: AtlasEntityProposal[] = [];
 	const claims: AtlasClaimProposal[] = [];
 	const tagSuggestions: AtlasTagSuggestionProposal[] = [];
 
-	addEntity(entities, 'artist', input.creator, 'metadata.creator');
+	addEntity(entities, 'artist', input.creator, 'metadata.creator', {
+		profileUrl: input.artistProfileUrl ?? null,
+		username: input.artistUsername ?? null,
+		sourceLabel: input.sourceName
+	});
 	addEntity(entities, 'source', input.sourceName, 'metadata.sourceName');
 
 	addClaim(claims, 'date', input.dateDisplay, 'metadata.dateDisplay');
@@ -101,16 +106,29 @@ export function applyAtlasIngestionProposal(
 
 	const apply = db.transaction(() => {
 		for (const entity of proposal.entities) {
-			insertEntity.run(
-				`atlas-entity-${crypto.randomUUID()}`,
-				entity.kind,
-				entity.slug,
-				entity.label,
-				now,
-				now
-			);
-			const row = entityByKey.get(entity.kind, entity.slug) as { id: string };
-			insertAssetEntity.run(proposal.assetId, row.id, entity.provenance, now);
+			if (entity.kind === 'artist') {
+				const artist = resolveOrCreateArtistEntity(db, {
+					label: entity.label,
+					profileUrl: entity.profileUrl ?? null,
+					username: entity.username ?? null,
+					sourceLabel: entity.sourceLabel ?? null,
+					assetId: proposal.assetId,
+					provenance: entity.provenance,
+					now
+				});
+				if (artist) insertAssetEntity.run(proposal.assetId, artist.id, entity.provenance, now);
+			} else {
+				insertEntity.run(
+					`atlas-entity-${crypto.randomUUID()}`,
+					entity.kind,
+					entity.slug,
+					entity.label,
+					now,
+					now
+				);
+				const row = entityByKey.get(entity.kind, entity.slug) as { id: string };
+				insertAssetEntity.run(proposal.assetId, row.id, entity.provenance, now);
+			}
 		}
 
 		for (const claim of proposal.claims) {
@@ -159,7 +177,8 @@ function addEntity(
 	entities: AtlasEntityProposal[],
 	kind: AtlasEntityKind,
 	value: string | null,
-	provenance: string
+	provenance: string,
+	extras: Pick<AtlasEntityProposal, 'profileUrl' | 'username' | 'sourceLabel'> = {}
 ) {
 	if (!value?.trim()) return;
 	const normalized = normalizeKnownAtlasValue(kind, value);
@@ -169,7 +188,8 @@ function addEntity(
 		label: normalized.label,
 		slug: normalized.slug,
 		sourceText: value,
-		provenance
+		provenance,
+		...extras
 	});
 }
 

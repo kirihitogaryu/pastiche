@@ -201,9 +201,9 @@ export function openAtlasAsset(assetId: string) {
 In `setMode`, preserve the selected Atlas asset when switching into Atlas:
 
 ```ts
-	if (mode === 'atlas' && !appState.activeAtlasAssetId && appState.selectedAssetId) {
-		appState.activeAtlasAssetId = appState.selectedAssetId;
-	}
+if (mode === 'atlas' && !appState.activeAtlasAssetId && appState.selectedAssetId) {
+	appState.activeAtlasAssetId = appState.selectedAssetId;
+}
 ```
 
 Place that block after `appState.mode = mode;`.
@@ -219,15 +219,15 @@ import DatabaseIcon from 'phosphor-svelte/lib/DatabaseIcon';
 Update `icons`:
 
 ```ts
-	const icons = {
-		home: HouseIcon,
-		library: BookOpenIcon,
-		explore: CompassIcon,
-		atlas: DatabaseIcon,
-		canvas: ScribbleIcon,
-		colors: PaletteIcon,
-		resources: FolderIcon
-	};
+const icons = {
+	home: HouseIcon,
+	library: BookOpenIcon,
+	explore: CompassIcon,
+	atlas: DatabaseIcon,
+	canvas: ScribbleIcon,
+	colors: PaletteIcon,
+	resources: FolderIcon
+};
 ```
 
 - [ ] **Step 3: Verify check passes**
@@ -514,8 +514,10 @@ export function atlasRowTone(value: { kind?: string; status?: string }): AtlasRo
 	if (value.status === 'suggested' || value.status === 'needs_review') return 'prompt';
 	if (value.kind === 'artist') return 'artist';
 	if (value.kind === 'work' || value.kind === 'ip' || value.kind === 'character') return 'work';
-	if (value.kind === 'institution' || value.kind === 'source' || value.kind === 'rights') return 'source';
-	if (value.kind === 'medium' || value.kind === 'date' || value.kind === 'source_metadata') return 'source';
+	if (value.kind === 'institution' || value.kind === 'source' || value.kind === 'rights')
+		return 'source';
+	if (value.kind === 'medium' || value.kind === 'date' || value.kind === 'source_metadata')
+		return 'source';
 	if (value.kind === 'species' || value.kind === 'place') return 'entity';
 	return 'visual';
 }
@@ -576,7 +578,10 @@ Create `src/lib/components/atlas/AtlasAiMetadataSection.svelte`:
 		<span aria-hidden="true">{open ? '⌄' : '›'}</span>
 	</summary>
 	<div class="empty">
-		<p>NovelAI and other generator metadata will appear here as parsed settings, prompt tokens, prompt-derived suggestions, prompt text, and raw payloads.</p>
+		<p>
+			NovelAI and other generator metadata will appear here as parsed settings, prompt tokens,
+			prompt-derived suggestions, prompt text, and raw payloads.
+		</p>
 	</div>
 </details>
 
@@ -662,7 +667,11 @@ Create `src/lib/components/atlas/AtlasImageStage.svelte`:
 		<button type="button" onclick={() => (zoom = Math.min(160, zoom + 10))}>+</button>
 		<button type="button" onclick={() => (zoom = 100)}>Fit</button>
 		<button type="button" onclick={() => (zoom = 135)}>Actual Size</button>
-		<button type="button" aria-pressed={annotationsOn} onclick={() => (annotationsOn = !annotationsOn)}>
+		<button
+			type="button"
+			aria-pressed={annotationsOn}
+			onclick={() => (annotationsOn = !annotationsOn)}
+		>
 			{annotationsOn ? 'Annotations: On' : 'Annotations: Off'}
 		</button>
 		<button type="button" disabled>Palette analysis</button>
@@ -675,7 +684,12 @@ Create `src/lib/components/atlas/AtlasImageStage.svelte`:
 		onclick={() => onPreview?.(asset)}
 	>
 		{#if !imageFailed}
-			<img src={imageUrl} alt={title} style={`transform: ${transform}`} onerror={() => (imageFailed = true)} />
+			<img
+				src={imageUrl}
+				alt={title}
+				style={`transform: ${transform}`}
+				onerror={() => (imageFailed = true)}
+			/>
 			<span><ArrowsOutSimpleIcon size={18} /> Open large preview</span>
 		{:else}
 			<strong>Image unavailable</strong>
@@ -763,7 +777,11 @@ Create `src/lib/components/atlas/AtlasMetadataPanel.svelte`:
 	let rows = $derived(buildRows(asset, atlas));
 	let filteredRows = $derived(
 		filter.trim()
-			? rows.filter((row) => `${row.label} ${row.value} ${row.meta ?? ''}`.toLowerCase().includes(filter.trim().toLowerCase()))
+			? rows.filter((row) =>
+					`${row.label} ${row.value} ${row.meta ?? ''}`
+						.toLowerCase()
+						.includes(filter.trim().toLowerCase())
+				)
 			: rows
 	);
 	let groups = $derived(groupAtlasRows(filteredRows));
@@ -818,7 +836,12 @@ Create `src/lib/components/atlas/AtlasMetadataPanel.svelte`:
 
 <aside class="metadata-panel" aria-label="Atlas asset metadata">
 	<div class="filter">
-		<input bind:value={filter} type="search" placeholder="Filter metadata..." aria-label="Filter metadata" />
+		<input
+			bind:value={filter}
+			type="search"
+			placeholder="Filter metadata..."
+			aria-label="Filter metadata"
+		/>
 	</div>
 
 	{#each groups as group (group.name)}
@@ -902,15 +925,33 @@ Create `src/lib/components/atlas/AtlasMetadataPanel.svelte`:
 		color: var(--color-dim);
 	}
 
-	.tone-artist .value { color: oklch(76% 0.075 295); }
-	.tone-work .value { color: oklch(76% 0.07 320); }
-	.tone-entity .value { color: oklch(76% 0.07 230); }
-	.tone-visual .value { color: oklch(74% 0.07 245); }
-	.tone-classifier .value { color: oklch(72% 0.055 130); }
-	.tone-source .value { color: oklch(70% 0.025 235); }
-	.tone-prompt .value { color: oklch(76% 0.07 78); }
-	.tone-review .value { color: oklch(76% 0.1 65); }
-	.tone-muted .value { color: var(--color-muted); }
+	.tone-artist .value {
+		color: oklch(76% 0.075 295);
+	}
+	.tone-work .value {
+		color: oklch(76% 0.07 320);
+	}
+	.tone-entity .value {
+		color: oklch(76% 0.07 230);
+	}
+	.tone-visual .value {
+		color: oklch(74% 0.07 245);
+	}
+	.tone-classifier .value {
+		color: oklch(72% 0.055 130);
+	}
+	.tone-source .value {
+		color: oklch(70% 0.025 235);
+	}
+	.tone-prompt .value {
+		color: oklch(76% 0.07 78);
+	}
+	.tone-review .value {
+		color: oklch(76% 0.1 65);
+	}
+	.tone-muted .value {
+		color: var(--color-muted);
+	}
 </style>
 ```
 
@@ -1056,8 +1097,12 @@ Create `src/lib/components/atlas/AtlasWorkspace.svelte`:
 	let previewAsset = $state<Asset | null>(null);
 
 	let fallbackAsset = $derived(libraryState.snapshot.assets[0] ?? null);
-	let activeAssetId = $derived(appState.activeAtlasAssetId ?? appState.selectedAssetId ?? fallbackAsset?.id ?? null);
-	let asset = $derived(libraryState.snapshot.assets.find((item) => item.id === activeAssetId) ?? fallbackAsset);
+	let activeAssetId = $derived(
+		appState.activeAtlasAssetId ?? appState.selectedAssetId ?? fallbackAsset?.id ?? null
+	);
+	let asset = $derived(
+		libraryState.snapshot.assets.find((item) => item.id === activeAssetId) ?? fallbackAsset
+	);
 
 	$effect(() => {
 		if (asset && appState.activeAtlasAssetId !== asset.id) {
@@ -1077,12 +1122,15 @@ Create `src/lib/components/atlas/AtlasWorkspace.svelte`:
 			const response = await fetch(`/api/library/assets/${encodeURIComponent(assetId)}/atlas`);
 			const body = (await response.json()) as AtlasResponse | { error?: string };
 			if (!response.ok || !('atlas' in body)) {
-				throw new Error('error' in body && body.error ? body.error : 'Atlas metadata could not be loaded.');
+				throw new Error(
+					'error' in body && body.error ? body.error : 'Atlas metadata could not be loaded.'
+				);
 			}
 			atlas = body.atlas;
 		} catch (loadError) {
 			atlas = null;
-			error = loadError instanceof Error ? loadError.message : 'Atlas metadata could not be loaded.';
+			error =
+				loadError instanceof Error ? loadError.message : 'Atlas metadata could not be loaded.';
 		} finally {
 			loading = false;
 		}
@@ -1090,7 +1138,13 @@ Create `src/lib/components/atlas/AtlasWorkspace.svelte`:
 </script>
 
 {#if asset}
-	<AtlasAssetInspect {asset} {atlas} {loading} {error} onPreview={(item) => (previewAsset = item)} />
+	<AtlasAssetInspect
+		{asset}
+		{atlas}
+		{loading}
+		{error}
+		onPreview={(item) => (previewAsset = item)}
+	/>
 {:else}
 	<section class="empty" aria-label="Atlas empty state">
 		<p>No library assets are available yet.</p>
@@ -1164,9 +1218,9 @@ import { openAtlasAsset } from '$lib/state/app-state.svelte';
 Add this button inside the existing `.actions` block before `Open Source`:
 
 ```svelte
-			<button type="button" onclick={() => asset && openAtlasAsset(asset.id)}>
-				<GridFourIcon size={19} /> Open in Atlas
-			</button>
+<button type="button" onclick={() => asset && openAtlasAsset(asset.id)}>
+	<GridFourIcon size={19} /> Open in Atlas
+</button>
 ```
 
 - [ ] **Step 3: Run check**
@@ -1199,14 +1253,16 @@ git commit -m "Link library inspector to Atlas"
 In `tests/pastiche.e2e.ts`, find the desktop library/explore test after it opens `Crimson Horizon` in the image inspector. Add:
 
 ```ts
-	await page.getByRole('button', { name: 'Open in Atlas' }).click();
-	await expect(page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'Atlas' })).toHaveClass(/active/);
-	await expect(page.getByRole('region', { name: /Atlas inspect Crimson Horizon/ })).toBeVisible();
-	await expect(page.getByRole('complementary', { name: 'Atlas asset metadata' })).toBeVisible();
-	await expect(page.getByLabel('Filter metadata')).toBeVisible();
-	await page.getByLabel('Filter metadata').fill('source');
-	await expect(page.getByText('Source Claims')).toBeVisible();
-	await expect(page.getByText('AI Generation Metadata')).toBeVisible();
+await page.getByRole('button', { name: 'Open in Atlas' }).click();
+await expect(
+	page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'Atlas' })
+).toHaveClass(/active/);
+await expect(page.getByRole('region', { name: /Atlas inspect Crimson Horizon/ })).toBeVisible();
+await expect(page.getByRole('complementary', { name: 'Atlas asset metadata' })).toBeVisible();
+await expect(page.getByLabel('Filter metadata')).toBeVisible();
+await page.getByLabel('Filter metadata').fill('source');
+await expect(page.getByText('Source Claims')).toBeVisible();
+await expect(page.getByText('AI Generation Metadata')).toBeVisible();
 ```
 
 If the exact selected test asset differs, use the asset already inspected in that test.

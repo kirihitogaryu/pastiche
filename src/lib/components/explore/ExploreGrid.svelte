@@ -1,12 +1,13 @@
 <script lang="ts">
 	import ExploreCard from '$lib/components/explore/ExploreCard.svelte';
-	import type { ExploreItem } from '$lib/explore/types';
+	import type { ExploreContentSafety, ExploreItem } from '$lib/explore/types';
 
 	type Props = {
 		items: ExploreItem[];
 		activeId?: string | null;
 		loading?: boolean;
 		sourceLabel?: string;
+		contentSafety?: ExploreContentSafety;
 		onOpen: (item: ExploreItem) => void;
 		onPrefetch?: (item: ExploreItem) => void;
 	};
@@ -16,6 +17,7 @@
 		activeId = null,
 		loading = false,
 		sourceLabel = 'Explore',
+		contentSafety = 'show',
 		onOpen,
 		onPrefetch
 	}: Props = $props();
@@ -35,6 +37,7 @@
 				priority={index < 6 ? 'high' : 'auto'}
 				{onOpen}
 				{onPrefetch}
+				blurSensitive={contentSafety === 'blur' && item.contentRating !== 'general'}
 			/>
 		{/each}
 	{/if}

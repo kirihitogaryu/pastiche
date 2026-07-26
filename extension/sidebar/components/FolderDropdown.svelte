@@ -1,8 +1,8 @@
 <script lang="ts">
-	import type { RecentFolder } from '../../shared/types';
+	import type { DestinationFolder } from '../../shared/types';
 
 	type Props = {
-		folders: RecentFolder[];
+		folders: DestinationFolder[];
 		selected: string | null; // folder id, null = Unassigned
 		createName: string; // two-way: the "new folder" input value
 		onselect: (id: string | null) => void;
@@ -12,6 +12,26 @@
 	let { folders, selected, createName, onselect, oncreatenamechange }: Props = $props();
 
 	let showCreate = $state(false);
+	let query = $state('');
+	let visibleFolders = $derived(filteredFolders(folders, query, selected));
+
+	function filteredFolders(
+		allFolders: DestinationFolder[],
+		value: string,
+		selectedId: string | null
+	) {
+		const clean = value.trim().toLowerCase();
+		if (!clean) return allFolders;
+		const matches = allFolders.filter((folder) =>
+			`${folder.name} ${folder.path}`.toLowerCase().includes(clean)
+		);
+		const selectedFolder = selectedId
+			? allFolders.find((folder) => folder.id === selectedId)
+			: undefined;
+		return selectedFolder && !matches.some((folder) => folder.id === selectedFolder.id)
+			? [selectedFolder, ...matches]
+			: matches;
+	}
 
 	function pickFolder(id: string | null) {
 		onselect(id);
@@ -22,7 +42,19 @@
 		showCreate = !showCreate;
 		if (!showCreate) oncreatenamechange('');
 	}
+
+	function folderLabel(folder: DestinationFolder) {
+		const path = folder.path
+			.split('/')
+			.slice(1, -1)
+			.map((part) => part.replace(/-/g, ' '));
+		return path.length ? `${path.join(' / ')} / ${folder.name}` : folder.name;
+	}
 </script>
+
+<div class="folder-search">
+	<input type="search" placeholder="Find a folder…" bind:value={query} aria-label="Find a folder" />
+</div>
 
 <div class="folder-row">
 	<span class="label">Import to</span>
@@ -46,10 +78,10 @@
 			}}
 		>
 			<option value="__unassigned__">Unassigned</option>
-			{#if folders.length}
-				<optgroup label="Recent">
-					{#each folders as folder (folder.id)}
-						<option value={folder.id}>{folder.name}</option>
+			{#if visibleFolders.length}
+				<optgroup label={query.trim() ? 'Matches' : 'Folders'}>
+					{#each visibleFolders as folder (folder.id)}
+						<option value={folder.id}>{folderLabel(folder)}</option>
 					{/each}
 				</optgroup>
 			{/if}
@@ -83,9 +115,29 @@
 		flex-shrink: 0;
 	}
 
+	.folder-search {
+		padding: 0 12px;
+	}
+
+	.folder-search input {
+		width: 100%;
+		min-height: 2rem;
+		border: 1px solid var(--ext-border);
+		border-radius: var(--ext-radius-sm);
+		background: var(--ext-control);
+		color: var(--ext-text);
+		font: inherit;
+		font-size: 12px;
+		padding: 0 8px;
+	}
+
+	.folder-search input::placeholder {
+		color: var(--ext-dim);
+	}
+
 	.label {
 		font-size: 11px;
-		color: #8f7765;
+		color: var(--ext-muted);
 		white-space: nowrap;
 		flex-shrink: 0;
 	}
@@ -97,21 +149,22 @@
 
 	.select {
 		width: 100%;
-		background: #28231d;
-		border: 1px solid rgb(255 255 255 / 14%);
-		border-radius: 5px;
-		color: #eee7dc;
+		background: var(--ext-control);
+		border: 1px solid var(--ext-border);
+		border-radius: var(--ext-radius-sm);
+		color: var(--ext-text);
 		font-size: 12px;
 		font-family: inherit;
 		padding: 5px 8px;
 		cursor: pointer;
 		appearance: auto;
+		color-scheme: dark;
 	}
 
 	.select option,
 	.select optgroup {
-		background: #28231d;
-		color: #eee7dc;
+		background: var(--ext-control);
+		color: var(--ext-text);
 	}
 
 	.create-row {
@@ -125,10 +178,10 @@
 	.create-input {
 		flex: 1;
 		min-width: 0;
-		background: #28231d;
-		border: 1px solid #b67aff;
-		border-radius: 5px;
-		color: #eee7dc;
+		background: var(--ext-control);
+		border: 1px solid var(--ext-accent);
+		border-radius: var(--ext-radius-sm);
+		color: var(--ext-text);
 		font-size: 12px;
 		font-family: inherit;
 		padding: 5px 8px;
@@ -136,13 +189,13 @@
 	}
 
 	.create-input::placeholder {
-		color: #6b6258;
+		color: var(--ext-dim);
 	}
 
 	.cancel-btn {
 		background: none;
 		border: none;
-		color: #6b6258;
+		color: var(--ext-dim);
 		font-size: 12px;
 		cursor: pointer;
 		padding: 4px;
@@ -150,6 +203,6 @@
 	}
 
 	.cancel-btn:hover {
-		color: #aaa196;
+		color: var(--ext-muted);
 	}
 </style>

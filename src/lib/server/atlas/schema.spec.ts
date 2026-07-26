@@ -31,6 +31,9 @@ describe('Atlas schema', () => {
 		expect(tables).toEqual(
 			expect.arrayContaining([
 				'atlas_entities',
+				'atlas_entity_aliases',
+				'atlas_entity_links',
+				'atlas_entity_profiles',
 				'atlas_claims',
 				'atlas_tag_suggestions',
 				'atlas_ingestion_runs',
@@ -39,7 +42,9 @@ describe('Atlas schema', () => {
 				'atlas_asset_concepts',
 				'atlas_annotations',
 				'atlas_annotation_concepts',
-				'atlas_annotation_classifiers'
+				'atlas_annotation_classifiers',
+				'atlas_agent_runs',
+				'atlas_agent_applied_suggestions'
 			])
 		);
 	});

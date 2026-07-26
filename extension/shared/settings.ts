@@ -4,7 +4,9 @@ import type { ExtensionSettings } from './types';
 
 export const DEFAULT_SETTINGS: ExtensionSettings = {
 	pastichePort: DEFAULT_PASTICHE_PORT,
+	localApiToken: '',
 	sizeThreshold: DEFAULT_SIZE_THRESHOLD,
+	dragCaptureEnabled: true,
 	defaultDestinationId: DEFAULT_DESTINATION_ID
 };
 
@@ -13,15 +15,24 @@ export function normalizeSettings(value: Partial<ExtensionSettings> = {}): Exten
 		pastichePort: validPort(value.pastichePort)
 			? value.pastichePort
 			: DEFAULT_SETTINGS.pastichePort,
+		localApiToken: typeof value.localApiToken === 'string' ? value.localApiToken.trim() : '',
 		sizeThreshold:
 			typeof value.sizeThreshold === 'number' && value.sizeThreshold > 0
 				? Math.round(value.sizeThreshold)
 				: DEFAULT_SETTINGS.sizeThreshold,
+		dragCaptureEnabled:
+			typeof value.dragCaptureEnabled === 'boolean'
+				? value.dragCaptureEnabled
+				: DEFAULT_SETTINGS.dragCaptureEnabled,
 		defaultDestinationId:
 			value.defaultDestinationId === null || typeof value.defaultDestinationId === 'string'
 				? value.defaultDestinationId
 				: DEFAULT_SETTINGS.defaultDestinationId
 	};
+}
+
+export function localApiHeaders(settings: ExtensionSettings): Record<string, string> {
+	return settings.localApiToken ? { 'x-pastiche-local-client': settings.localApiToken } : {};
 }
 
 export async function getSettings(): Promise<ExtensionSettings> {

@@ -5,13 +5,13 @@
 	import PaletteIcon from 'phosphor-svelte/lib/PaletteIcon';
 	import ScribbleIcon from 'phosphor-svelte/lib/ScribbleIcon';
 	import { pinnedProjects } from '$lib/data/mock-navigation';
-	import { setShellScrolled } from '$lib/state/app-state.svelte';
+	import { updateMobileNavFromScroll } from '$lib/state/app-state.svelte';
 </script>
 
 <section
 	class="home"
 	aria-labelledby="home-title"
-	onscroll={(event) => setShellScrolled(event.currentTarget.scrollTop > 12)}
+	onscroll={(event) => updateMobileNavFromScroll(event.currentTarget.scrollTop, 'home')}
 >
 	<div class="intro">
 		<p class="eyebrow">Studio hub</p>

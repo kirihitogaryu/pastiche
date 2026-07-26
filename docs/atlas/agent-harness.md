@@ -300,14 +300,14 @@ Use:
 
 ```json
 {
-  "label": "background",
-  "concepts": ["background"],
-  "classifiers": {
-    "visual_role": "setting_context",
-    "color": "black",
-    "value": "dark",
-    "state": "shadowed"
-  }
+	"label": "background",
+	"concepts": ["background"],
+	"classifiers": {
+		"visual_role": "setting_context",
+		"color": "black",
+		"value": "dark",
+		"state": "shadowed"
+	}
 }
 ```
 
@@ -317,11 +317,11 @@ Every annotation should have a concept and classifier object.
 
 ```json
 {
-  "label": "winged creature",
-  "concepts": ["mythological_creature"],
-  "classifiers": {
-    "visual_role": "focal_point",
-    "position": "right"
-  }
+	"label": "winged creature",
+	"concepts": ["mythological_creature"],
+	"classifiers": {
+		"visual_role": "focal_point",
+		"position": "right"
+	}
 }
 ```

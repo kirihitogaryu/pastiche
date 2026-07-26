@@ -5,20 +5,20 @@
 		mode: StorageMode;
 		reason: string;
 		fetchState?: 'idle' | 'fetching' | 'done' | 'error';
-		/** For commercial gallery sites — show a gentle provenance note. */
+		/** For commercial gallery sites, show a gentle provenance note. */
 		commercial?: boolean;
 	};
 
 	let { mode, reason, fetchState = 'idle', commercial = false }: Props = $props();
 
 	const modeLabel = $derived(() => {
-		if (mode === 'url_reference') return 'Stored as reference link';
+		if (mode === 'url_reference') return 'Linked reference';
 		if (mode === 'download') {
 			if (fetchState === 'fetching') return 'Downloading…';
 			if (fetchState === 'error') return 'Download failed';
-			return 'Downloaded';
+			return 'Original ready';
 		}
-		if (mode === 'lazy_download') return 'Reference + background copy';
+		if (mode === 'lazy_download') return 'Bookmarked';
 		return '';
 	});
 </script>
@@ -26,7 +26,7 @@
 <span class="wrap">
 	<span class="mode">{modeLabel()}</span>
 	{#if reason}
-		<span class="reason">— {reason}</span>
+		<span class="reason">· {reason}</span>
 	{/if}
 	{#if commercial}
 		<span class="commercial">Artwork may be sold or removed.</span>
@@ -46,6 +46,6 @@
 	.reason,
 	.commercial {
 		font-size: 10px;
-		color: #6b6258;
+		color: var(--ext-dim);
 	}
 </style>

@@ -121,6 +121,52 @@ bed + position:left
 
 If the agent drafts a new tag because the asset needs it, it should use that tag in the batch JSON with `status: needs_review`, unless it explicitly explains why the tag was deferred.
 
+## External Vocabulary Conversion Gate
+
+Agents must not automatically canonize external vocabulary from Danbooru, e621, museum keyword lists, model labels, scraped pages, or other source tag systems.
+
+External tags are raw vocabulary hints. They can be preserved in source metadata, but conversion into Atlas concepts, entities, classifiers, aliases, or implications requires review.
+
+Agents may propose conversions with `status: needs_review`, but they must not approve them or create automatic implications.
+
+High-risk examples:
+
+```txt
+anthro_dog -> dog
+furry -> animal
+pokemon -> anime_style
+artist_name -> visible_style
+```
+
+These examples affect broad retrieval, so they must stay rejected, related, suggested, or needs-review until a human-reviewed wiki rule approves the boundary.
+
+## Sex, Gender, And Identity Gate
+
+Agents must separate visible appearance from known identity.
+
+Allowed observed appearance proposals:
+
+```txt
+female_subject
+male_subject
+androgynous_subject
+```
+
+Use `androgynous_subject` only for visible presentation where sex characteristics or gendered signifiers do not clearly indicate male or female.
+
+Identity tags require trusted context:
+
+```txt
+nonbinary_subject
+intersex_subject
+```
+
+Do not infer `nonbinary_subject` from androgynous appearance. Do not infer `intersex_subject` from mixed or ambiguous visible sex characteristics.
+
+If source context says a subject is nonbinary or intersex, preserve that identity and describe visible characteristics separately when useful.
+
+For ordinary non-anthro animals, do not add gender or sex tags unless source-confirmed, unusually clear, or directly useful for the task.
+
 ## Entity Relevance Gate
 
 Do not convert every named person, artwork, event, institution, or movement in source prose into an entity.

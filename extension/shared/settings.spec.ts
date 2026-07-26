@@ -7,9 +7,17 @@ describe('extension settings', () => {
 	});
 
 	it('rejects invalid ports and rounds positive thresholds', () => {
-		expect(normalizeSettings({ pastichePort: 99999, sizeThreshold: 320.6 })).toMatchObject({
+		expect(
+			normalizeSettings({
+				pastichePort: 99999,
+				sizeThreshold: 320.6,
+				dragCaptureEnabled: false
+			})
+		).toMatchObject({
 			pastichePort: 5173,
-			sizeThreshold: 321
+			sizeThreshold: 321,
+			localApiToken: '',
+			dragCaptureEnabled: false
 		});
 	});
 });

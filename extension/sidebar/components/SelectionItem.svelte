@@ -4,12 +4,25 @@
 
 	type Props = {
 		item: EnrichedItem;
+		imageDataUrl: string | null;
+		selected: boolean;
+		onselect: (id: string) => void;
 		onremove: (id: string) => void;
 		onrename: (id: string, name: string) => void;
-		onoverridemodetoggle: (id: string) => void;
+		onbookmark: (id: string) => void;
+		onimportoriginal: (id: string) => void;
 	};
 
-	let { item, onremove, onrename, onoverridemodetoggle }: Props = $props();
+	let {
+		item,
+		imageDataUrl,
+		selected,
+		onselect,
+		onremove,
+		onrename,
+		onbookmark,
+		onimportoriginal
+	}: Props = $props();
 
 	let editingName = $state(false);
 	let nameInput = $state('');
@@ -21,9 +34,7 @@
 	// Thumbnail source: for url_reference/lazy_download use the URL directly.
 	// For download mode, use the base64 blob when available.
 	const thumbSrc = $derived(() => {
-		if (item.fetchStatus.state === 'done') {
-			return `data:${item.fetchStatus.mimeType};base64,${item.fetchStatus.base64}`;
-		}
+		if (imageDataUrl) return imageDataUrl;
 		if (item.storageMode !== 'download') return item.previewUrl ?? item.url;
 		return null; // Still fetching
 	});
@@ -62,7 +73,7 @@
 	});
 </script>
 
-<li class="item" class:duplicate={item.alreadyInLibrary}>
+<li class="item" class:selected class:duplicate={item.alreadyInLibrary}>
 	<!-- Thumbnail -->
 	<div class="thumb-wrap">
 		{#if thumbSrc()}
@@ -118,6 +129,7 @@
 				type="button"
 				title="Click to rename"
 				onclick={() => {
+					onselect(item.id);
 					editingName = true;
 					nameInput = item.suggestedName;
 				}}>{item.suggestedName}</button
@@ -134,14 +146,20 @@
 				fetchState={fetchState()}
 				commercial={isCommercial()}
 			/>
-			<button
-				class="mode-toggle"
-				type="button"
-				title="Toggle storage mode"
-				onclick={() => onoverridemodetoggle(item.id)}
-			>
-				{item.storageMode === 'url_reference' ? 'Force download' : 'Use reference'}
-			</button>
+			{#if item.storageMode === 'download'}
+				{#if fetchState() === 'error'}
+					<button class="mode-toggle" type="button" onclick={() => onimportoriginal(item.id)}>
+						Retry
+					</button>
+				{/if}
+				<button class="mode-toggle" type="button" onclick={() => onbookmark(item.id)}>
+					Bookmark instead
+				</button>
+			{:else}
+				<button class="mode-toggle" type="button" onclick={() => onimportoriginal(item.id)}>
+					Import original
+				</button>
+			{/if}
 		</div>
 
 		{#if item.alreadyInLibrary}
@@ -149,7 +167,7 @@
 		{/if}
 
 		{#if fetchState() === 'error'}
-			<span class="fetch-error">Download failed — will send as reference</span>
+			<span class="fetch-error">Original not stored. Retry or bookmark this source.</span>
 		{/if}
 	</div>
 
@@ -174,15 +192,21 @@
 			<line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
 		</svg>
 	</button>
+	<button
+		class="select-hit"
+		type="button"
+		aria-label="Select {item.suggestedName}"
+		onclick={() => onselect(item.id)}
+	></button>
 </li>
 
 <style>
 	.item {
 		display: flex;
 		align-items: flex-start;
-		gap: 9px;
-		padding: 9px 12px;
-		border-bottom: 1px solid rgb(255 255 255 / 6%);
+		gap: 8px;
+		padding: 8px 10px;
+		border-bottom: 1px solid var(--ext-border-soft);
 		position: relative;
 	}
 
@@ -191,7 +215,12 @@
 	}
 
 	.item.duplicate {
-		background: rgb(183 121 255 / 4%);
+		background: var(--ext-accent-soft);
+	}
+
+	.item.selected {
+		background: var(--ext-selected);
+		box-shadow: inset 2px 0 0 var(--ext-accent);
 	}
 
 	/* Thumbnail */
@@ -201,35 +230,35 @@
 	}
 
 	.thumb {
-		width: 48px;
-		height: 48px;
+		width: 44px;
+		height: 44px;
 		border-radius: 4px;
 		object-fit: cover;
 		display: block;
-		background: #28231d;
+		background: var(--ext-control);
 	}
 
 	.thumb-loading,
 	.thumb-error,
 	.thumb-placeholder {
-		width: 48px;
-		height: 48px;
+		width: 44px;
+		height: 44px;
 		border-radius: 4px;
-		background: #28231d;
+		background: var(--ext-control);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 	}
 
 	.thumb-error {
-		color: #e06c75;
+		color: var(--ext-danger);
 	}
 
 	.spinner {
 		width: 14px;
 		height: 14px;
-		border: 2px solid rgb(255 255 255 / 12%);
-		border-top-color: #b67aff;
+		border: 2px solid oklch(100% 0 0 / 0.12);
+		border-top-color: var(--ext-accent);
 		border-radius: 50%;
 		animation: spin 0.7s linear infinite;
 		display: block;
@@ -248,8 +277,8 @@
 		width: 14px;
 		height: 14px;
 		border-radius: 50%;
-		background: #b67aff;
-		color: #fff;
+		background: var(--ext-accent);
+		color: var(--ext-bg);
 		font-size: 9px;
 		display: flex;
 		align-items: center;
@@ -274,7 +303,7 @@
 		cursor: text;
 		font-size: 12px;
 		font-family: inherit;
-		color: #eee7dc;
+		color: var(--ext-text);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -283,15 +312,15 @@
 	}
 
 	.name:hover {
-		color: #b67aff;
+		color: var(--ext-accent);
 	}
 
 	.name-input {
 		width: 100%;
-		background: #28231d;
-		border: 1px solid #b67aff;
-		border-radius: 3px;
-		color: #eee7dc;
+		background: var(--ext-control);
+		border: 1px solid var(--ext-accent);
+		border-radius: var(--ext-radius-sm);
+		color: var(--ext-text);
 		font-size: 12px;
 		font-family: inherit;
 		padding: 1px 4px;
@@ -302,7 +331,7 @@
 	.dims,
 	.source {
 		font-size: 10px;
-		color: #6b6258;
+		color: var(--ext-dim);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -322,7 +351,7 @@
 		padding: 0;
 		font-size: 10px;
 		font-family: inherit;
-		color: #6b6258;
+		color: var(--ext-dim);
 		cursor: pointer;
 		text-decoration: underline;
 		text-underline-offset: 2px;
@@ -330,13 +359,13 @@
 	}
 
 	.mode-toggle:hover {
-		color: #aaa196;
+		color: var(--ext-muted);
 	}
 
 	.already,
 	.fetch-error {
 		font-size: 10px;
-		color: #8f7765;
+		color: var(--ext-muted);
 	}
 
 	/* Remove button */
@@ -349,8 +378,8 @@
 		height: 24px;
 		background: none;
 		border: none;
-		border-radius: 4px;
-		color: #6b6258;
+		border-radius: var(--ext-radius-sm);
+		color: var(--ext-dim);
 		cursor: pointer;
 		padding: 0;
 		margin-top: 2px;
@@ -358,7 +387,23 @@
 	}
 
 	.remove-btn:hover {
-		background: rgb(224 108 117 / 14%);
-		color: #e06c75;
+		background: var(--ext-danger-soft);
+		color: var(--ext-danger);
+	}
+
+	.select-hit {
+		position: absolute;
+		inset: 0;
+		z-index: 0;
+		border: 0;
+		background: transparent;
+		cursor: pointer;
+	}
+
+	.thumb-wrap,
+	.meta,
+	.remove-btn {
+		position: relative;
+		z-index: 1;
 	}
 </style>

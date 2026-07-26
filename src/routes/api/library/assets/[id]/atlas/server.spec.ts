@@ -3,6 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { importLibraryItems } from '$lib/server/library/import';
+import { openLibraryDatabase } from '$lib/server/library/schema';
+import { applyAtlasWikiSeed } from '$lib/server/atlas/wiki';
 
 describe('GET /api/library/assets/[id]/atlas', () => {
 	let archiveRoot: string;
@@ -100,6 +102,22 @@ describe('GET /api/library/assets/[id]/atlas', () => {
 		);
 	});
 
+	it('rejects untrusted cross-origin Atlas patches', async () => {
+		const { PATCH } = await import('./+server');
+
+		const response = await PATCH({
+			params: { id: 'asset-test' },
+			request: new Request('http://localhost/api/library/assets/asset-test/atlas', {
+				method: 'PATCH',
+				headers: { origin: 'https://hostile.example', 'content-type': 'application/json' },
+				body: JSON.stringify({ concepts: [{ slug: 'serpent' }] })
+			})
+		});
+
+		expect(response.status).toBe(403);
+		await expect(response.json()).resolves.toEqual({ error: 'Untrusted local API origin' });
+	});
+
 	it('patches Atlas metadata and returns similar assets from shared concepts', async () => {
 		const imported = await importLibraryItems({
 			destination_folder_id: null,
@@ -142,7 +160,9 @@ describe('GET /api/library/assets/[id]/atlas', () => {
 					method: 'PATCH',
 					headers: { 'content-type': 'application/json' },
 					body: JSON.stringify({
-						identity: { title: item.asset_id === imported.imported[0].asset_id ? 'Renamed One' : undefined },
+						identity: {
+							title: item.asset_id === imported.imported[0].asset_id ? 'Renamed One' : undefined
+						},
 						concepts: [{ slug: 'serpent', evidence: 'observed', status: 'approved' }],
 						annotations: [
 							{
@@ -170,7 +190,7 @@ describe('GET /api/library/assets/[id]/atlas', () => {
 		);
 	});
 
-	it('allows user-created concepts without wiki entries as reviewable stubs', async () => {
+	it('requires unknown annotation concepts to be classified before assignment', async () => {
 		const imported = await importLibraryItems({
 			destination_folder_id: null,
 			items: [
@@ -210,17 +230,8 @@ describe('GET /api/library/assets/[id]/atlas', () => {
 		});
 		const body = await response.json();
 
-		expect(response.status).toBe(200);
-		expect(body.atlas.annotations[0].concepts).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({
-					slug: 'apollo_deity',
-					status: 'needs_review',
-					maturity: 'stub'
-				})
-			])
-		);
-		expect(body.atlas.wikiHints.map((entry: { slug: string }) => entry.slug)).not.toContain('apollo_deity');
+		expect(response.status).toBe(400);
+		expect(body.error).toContain('Classify and create it before assigning it');
 	});
 
 	it('resolves aliases and appends concepts when editing an existing annotation', async () => {
@@ -244,6 +255,17 @@ describe('GET /api/library/assets/[id]/atlas', () => {
 			]
 		});
 		const { PATCH } = await import('./+server');
+		const db = openLibraryDatabase();
+		applyAtlasWikiSeed(db);
+		db.prepare(
+			`update atlas_concepts set status = 'active', maturity = 'usable' where slug = 'wing'`
+		).run();
+		db.prepare(
+			`update atlas_concept_aliases set status = 'approved'
+			 where concept_id = (select id from atlas_concepts where slug = 'wing')
+				and normalized_alias = 'wings'`
+		).run();
+		db.close();
 		const assetId = imported.imported[0].asset_id;
 		await PATCH({
 			params: { id: assetId },
@@ -286,7 +308,9 @@ describe('GET /api/library/assets/[id]/atlas', () => {
 		expect(annotation.concepts.map((concept: { slug: string }) => concept.slug)).toEqual(
 			expect.arrayContaining(['dragon', 'wing'])
 		);
-		expect(annotation.concepts.map((concept: { slug: string }) => concept.slug)).not.toContain('wings');
+		expect(annotation.concepts.map((concept: { slug: string }) => concept.slug)).not.toContain(
+			'wings'
+		);
 
 		const removeResponse = await PATCH({
 			params: { id: assetId },
@@ -309,7 +333,9 @@ describe('GET /api/library/assets/[id]/atlas', () => {
 		);
 
 		expect(removeResponse.status).toBe(200);
-		expect(updatedAnnotation.concepts.map((concept: { slug: string }) => concept.slug)).toEqual(['wing']);
+		expect(updatedAnnotation.concepts.map((concept: { slug: string }) => concept.slug)).toEqual([
+			'wing'
+		]);
 	});
 
 	it('exports a scoped Atlas context packet for outside AI agents', async () => {

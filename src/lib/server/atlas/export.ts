@@ -175,7 +175,11 @@ export function buildAtlasVocabularyExport(
 		canonical[concept.slug] = concept;
 		for (const alias of concept.aliases) aliases[alias] = concept.slug;
 		if (!concept.hasWiki) missingWiki.push(concept.slug);
-		if (concept.status === 'deprecated' || concept.status === 'blocked' || concept.status === 'merged') {
+		if (
+			concept.status === 'deprecated' ||
+			concept.status === 'blocked' ||
+			concept.status === 'merged'
+		) {
 			deprecatedOrBlocked[concept.slug] = {
 				label: concept.label,
 				status: concept.status,
@@ -229,7 +233,8 @@ export function buildAtlasAssetContextExport(assetId: string, vocabulary: AtlasV
 			...concept.automaticImplications,
 			...concept.suggestedImplications
 		]) {
-			if (vocabulary.canonical[related]) relevantVocabulary[related] = vocabulary.canonical[related];
+			if (vocabulary.canonical[related])
+				relevantVocabulary[related] = vocabulary.canonical[related];
 		}
 	}
 
@@ -247,7 +252,12 @@ export function buildAtlasAssetContextExport(assetId: string, vocabulary: AtlasV
 		batchJsonContract: {
 			returnOnlyJson: true,
 			topLevelKeys: ['identity', 'concepts', 'entities', 'claims', 'annotations'],
-			visualRoleValues: ['focal_point', 'supporting_subject', 'background_detail', 'setting_context']
+			visualRoleValues: [
+				'focal_point',
+				'supporting_subject',
+				'background_detail',
+				'setting_context'
+			]
 		}
 	} satisfies AtlasAssetContextExport;
 }
@@ -276,7 +286,8 @@ export function vocabularyExportToMarkdown(exportData: AtlasVocabularyExport) {
 		'',
 		'## Nearby Concepts To Compare Before Creating New Tags',
 		...exportData.nearbyConcepts.map(
-			(cluster) => `- ${cluster.slug}: compare with ${cluster.nearby.join(', ')} (${cluster.reason})`
+			(cluster) =>
+				`- ${cluster.slug}: compare with ${cluster.nearby.join(', ')} (${cluster.reason})`
 		),
 		exportData.nearbyConcepts.length ? '' : '- None generated.',
 		'',
@@ -308,7 +319,9 @@ export function assetContextExportToMarkdown(exportData: AtlasAssetContextExport
 		`- source URL: ${exportData.asset.sourceUrl || 'unknown'}`,
 		`- image URL: ${exportData.asset.image.originalUrl || exportData.asset.image.previewUrl || exportData.asset.image.sourceImageUrl || 'unknown'}`,
 		`- dimensions: ${exportData.asset.dimensions}`,
-		exportData.asset.description ? `- description: ${exportData.asset.description}` : '- description: none',
+		exportData.asset.description
+			? `- description: ${exportData.asset.description}`
+			: '- description: none',
 		'',
 		'## Current Atlas Metadata',
 		'```json',
@@ -316,7 +329,9 @@ export function assetContextExportToMarkdown(exportData: AtlasAssetContextExport
 		'```',
 		'',
 		'## Missing Wiki Entries',
-		exportData.missingWiki.length ? exportData.missingWiki.map((slug) => `- ${slug}`).join('\n') : '- None',
+		exportData.missingWiki.length
+			? exportData.missingWiki.map((slug) => `- ${slug}`).join('\n')
+			: '- None',
 		'',
 		'## Relevant Vocabulary',
 		...Object.values(exportData.relevantVocabulary).map(markdownConcept),
@@ -356,7 +371,9 @@ function parseList(value: string | null) {
 	if (!value) return [];
 	try {
 		const parsed = JSON.parse(value) as unknown;
-		return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+		return Array.isArray(parsed)
+			? parsed.filter((item): item is string => typeof item === 'string')
+			: [];
 	} catch {
 		return [];
 	}
@@ -380,7 +397,8 @@ function buildNearbyConcepts(concepts: AtlasVocabularyConcept[]): AtlasNearbyCon
 			clusters.push({
 				slug: concept.slug,
 				nearby: filtered,
-				reason: 'nearby concepts are not necessarily duplicates; compare definitions before creating a new tag'
+				reason:
+					'nearby concepts are not necessarily duplicates; compare definitions before creating a new tag'
 			});
 		}
 	}

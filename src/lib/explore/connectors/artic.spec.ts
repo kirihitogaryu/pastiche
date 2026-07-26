@@ -93,9 +93,13 @@ describe('Art Institute connector helpers', () => {
 	});
 
 	it('searches Art Institute artworks with image and public domain filters', async () => {
-		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+		const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
 			const url = new URL(input.toString());
 			if (url.pathname.endsWith('/artworks/search')) {
+				expect(init?.headers).toMatchObject({
+					'aic-user-agent': expect.stringContaining('Pastiche'),
+					'accept-encoding': 'gzip'
+				});
 				expect(url.searchParams.get('q')).toBe('seurat');
 				expect(url.searchParams.get('fields')).toContain('image_id');
 				expect(url.searchParams.get('query[exists][field]')).toBe('image_id');

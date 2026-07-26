@@ -2,6 +2,7 @@
 
 import { spawn } from 'node:child_process';
 import { realpathSync } from 'node:fs';
+import { delimiter } from 'node:path';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -57,7 +58,112 @@ export function devWorkingDirectory(modulePath = fileURLToPath(import.meta.url))
 	return resolve(dirname(modulePath), '..');
 }
 
-function run() {
+/**
+ * @param {unknown} error
+ * @returns {boolean}
+ */
+export function needsNativeDependencyRebuild(error) {
+	const message = error instanceof Error ? error.message : String(error);
+	return (
+		message.includes('NODE_MODULE_VERSION') ||
+		message.includes('Module did not self-register') ||
+		message.includes('was compiled against a different Node.js version')
+	);
+}
+
+/**
+ * @param {string} nodePath
+ * @param {NodeJS.ProcessEnv} [baseEnv]
+ * @returns {NodeJS.ProcessEnv}
+ */
+export function childEnvForCurrentNode(nodePath = process.execPath, baseEnv = process.env) {
+	const nodeDir = dirname(nodePath);
+	const currentPath = baseEnv.PATH ?? '';
+	return {
+		...baseEnv,
+		PATH: currentPath ? `${nodeDir}${delimiter}${currentPath}` : nodeDir
+	};
+}
+
+/**
+ * @typedef {{
+ *   checkBetterSqlite?: (cwd: string) => Promise<void>;
+ *   rebuildBetterSqlite?: (cwd: string) => Promise<void>;
+ *   log?: (message: string) => void;
+ * }} NativeDependencyOptions
+ */
+
+/**
+ * @param {string} cwd
+ * @param {NativeDependencyOptions} [options]
+ */
+export async function ensureNativeDependencies(cwd, options = {}) {
+	const checkBetterSqlite = options.checkBetterSqlite ?? defaultCheckBetterSqlite;
+	const rebuildBetterSqlite = options.rebuildBetterSqlite ?? defaultRebuildBetterSqlite;
+	const log = options.log ?? console.log;
+
+	try {
+		await checkBetterSqlite(cwd);
+		return;
+	} catch (error) {
+		if (!needsNativeDependencyRebuild(error)) throw error;
+		log(
+			`Rebuilding better-sqlite3 for ${process.version} (${process.execPath}) because the native module was built for a different Node runtime...`
+		);
+	}
+
+	await rebuildBetterSqlite(cwd);
+	await checkBetterSqlite(cwd);
+}
+
+/** @param {string} cwd */
+async function defaultCheckBetterSqlite(cwd) {
+	await runCommand(
+		process.execPath,
+		[
+			'-e',
+			"const Database=require('better-sqlite3'); const db=new Database(':memory:'); db.prepare('select 1').get(); db.close();"
+		],
+		{ cwd }
+	);
+}
+
+/** @param {string} cwd */
+function defaultRebuildBetterSqlite(cwd) {
+	return runCommand('npm', ['rebuild', 'better-sqlite3'], { cwd, stdio: 'inherit' });
+}
+
+/**
+ * @param {string} command
+ * @param {string[]} args
+ * @param {{ cwd?: string; stdio?: 'pipe' | 'inherit' }} [options]
+ */
+function runCommand(command, args, options = {}) {
+	return new Promise((resolvePromise, reject) => {
+		let stderr = '';
+		const child = spawn(command, args, {
+			cwd: options.cwd,
+			env: childEnvForCurrentNode(),
+			stdio: options.stdio ?? ['ignore', 'ignore', 'pipe']
+		});
+		if (child.stderr) {
+			child.stderr.on('data', (chunk) => {
+				stderr += chunk.toString();
+			});
+		}
+		child.on('error', reject);
+		child.on('exit', (code, signal) => {
+			if (code === 0) {
+				resolvePromise(undefined);
+				return;
+			}
+			const reason = signal ?? `exit code ${code}`;
+			reject(new Error(stderr.trim() || `${command} ${args.join(' ')} failed with ${reason}`));
+		});
+	});
+}
+
+async function run() {
 	const options = parseArgs(process.argv.slice(2));
 	const commands = buildDevCommands(options);
 	const cwd = devWorkingDirectory();
@@ -70,10 +176,12 @@ function run() {
 	console.log(`Extension: ${extensionPath}`);
 	console.log('Press Ctrl-C to stop both processes.\n');
 
+	await ensureNativeDependencies(cwd);
+
 	for (const command of commands) {
 		const child = spawn(command.command, command.args, {
 			cwd,
-			env: process.env,
+			env: childEnvForCurrentNode(),
 			stdio: ['inherit', 'pipe', 'pipe']
 		});
 		children.add(child);
@@ -130,5 +238,8 @@ function stopChildren(children) {
 }
 
 if (process.argv[1] && isExecutedScript(process.argv[1], fileURLToPath(import.meta.url))) {
-	run();
+	run().catch((error) => {
+		console.error(error instanceof Error ? error.message : error);
+		process.exit(1);
+	});
 }

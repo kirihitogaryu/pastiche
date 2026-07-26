@@ -78,7 +78,11 @@ describe('Wikidata entity search ranking', () => {
 	it('uses the requested mode to rank entity suggestions by category', async () => {
 		const fetchMock = entitySearchFetch(
 			[
-				{ id: 'Q131785633', label: 'Pablo', description: 'fictional character created by Meneses Monroy' },
+				{
+					id: 'Q131785633',
+					label: 'Pablo',
+					description: 'fictional character created by Meneses Monroy'
+				},
 				{ id: 'Q1', label: 'Leonardo', description: 'fictional character in a film' },
 				{ id: 'Q762', label: 'Leonardo da Vinci', description: 'Italian artist and painter' }
 			],

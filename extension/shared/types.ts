@@ -14,6 +14,14 @@
 // If the main app adds a fourth mode, add it here too.
 // ---------------------------------------------------------------------------
 
+import type {
+	CaptureMetadata,
+	CaptureSource,
+	ImageCandidate,
+	MetadataEnrichmentState,
+	SourceCaptureRecord
+} from './candidates';
+
 export type StorageMode = 'url_reference' | 'download' | 'lazy_download';
 
 // ---------------------------------------------------------------------------
@@ -30,6 +38,13 @@ export type RecentFolder = {
 	last_used: string;
 };
 
+export type DestinationFolder = {
+	id: string;
+	name: string;
+	parent_id: string | null;
+	path: string;
+};
+
 export type ImportedSource = {
 	source_hash: string;
 	source_image_url: string | null;
@@ -38,8 +53,10 @@ export type ImportedSource = {
 
 export type StatusApiResponse = {
 	connected: true;
+	status_cursor?: string;
 	unassigned_count: number;
 	recent_folders: RecentFolder[];
+	folders: DestinationFolder[];
 	imported_sources: ImportedSource[];
 };
 
@@ -50,7 +67,15 @@ export type ConnectionState = {
 	queuedCount: number;
 	unassignedCount: number;
 	recentFolders: RecentFolder[];
+	folders: DestinationFolder[];
 	importedSources: ImportedSource[];
+	statusCursor?: string;
+};
+
+export type CaptureTrayResponse = {
+	ok: true;
+	items: EnrichedItem[];
+	updatedAt: string | null;
 };
 
 export type SmokeImportResponse = {
@@ -69,6 +94,14 @@ export type SmokeImportResponse = {
 export type CapturedItemPayload = {
 	/** Resolved image URL (already Artsy-upsized). */
 	url: string;
+	/** Candidate selected by the content scanner, when richer candidate data is available. */
+	selectedCandidateId?: string;
+	/** Candidate set discovered on the page, including alternates. */
+	candidates?: ImageCandidate[];
+	/** Human-readable source/provenance context. */
+	source?: CaptureSource;
+	/** Editable import metadata inferred from page and candidate context. */
+	metadata?: CaptureMetadata;
 	/** Linked detail/canonical page for gallery thumbnails, when one is available. */
 	detailUrl: string | null;
 	naturalWidth: number;
@@ -80,6 +113,8 @@ export type CapturedItemPayload = {
 	 * data URL. The SW uses this directly and skips the fetch step.
 	 */
 	inlineData: string | null;
+	/** Image bytes already persisted in extension IndexedDB, for large dropped files. */
+	storedBlobKey?: string;
 	altText: string | null;
 	sourceUrl: string;
 	pageTitle: string;
@@ -93,7 +128,7 @@ export type CapturedItemPayload = {
 export type FetchStatus =
 	| { state: 'idle' }
 	| { state: 'fetching' }
-	| { state: 'done'; base64: string; mimeType: string }
+	| { state: 'done'; base64?: string; blobKey?: string; mimeType: string }
 	| { state: 'error'; error: string };
 
 /**
@@ -104,8 +139,20 @@ export type FetchStatus =
 export type EnrichedItem = {
 	/** Stable identity — hash of the resolved image URL. */
 	id: string;
+	/** Original content-script badge key. Preserved even when the selected candidate URL changes. */
+	captureKey?: string;
+	/** Monotonic item revision used to ignore stale asynchronous updates. */
+	revision: number;
 	/** Resolved image URL. For url_reference/lazy_download this is what gets stored. */
 	url: string;
+	/** Candidate selected for import. */
+	selectedCandidateId: string;
+	/** Candidate set discovered on the page, including alternates. */
+	candidates: ImageCandidate[];
+	/** Human-readable source/provenance context. */
+	source: CaptureSource;
+	/** Editable import metadata inferred from page and candidate context. */
+	metadata: CaptureMetadata;
 	/** Visible image captured on the page. Used as a sidebar preview when canonical URL differs. */
 	previewUrl: string | null;
 	naturalWidth: number;
@@ -126,6 +173,8 @@ export type EnrichedItem = {
 	destinationFolderId: string | null;
 	/** True when this URL is already present in the Pastiche library. */
 	alreadyInLibrary: boolean;
+	/** Optional live-page enrichment. Idle until the user presses Add metadata. */
+	enrichment: MetadataEnrichmentState;
 };
 
 // ---------------------------------------------------------------------------
@@ -136,6 +185,8 @@ export type EnrichedItem = {
  * The payload the sidebar sends to the service worker to trigger import.
  */
 export type ImportJobPayload = {
+	/** Stable across retries so the local server can return the original result without importing twice. */
+	jobId?: string;
 	/** null = Unassigned inbox */
 	destinationFolderId: string | null;
 	/** Optional: create a new folder with this name on import */
@@ -186,11 +237,46 @@ export type QueuedJob = {
  */
 export type ExtensionMessage =
 	| { type: 'PASTICHE_GET_STATUS' }
+	| { type: 'PASTICHE_GET_CAPTURE_TRAY' }
+	| { type: 'PASTICHE_REMOVE_CAPTURE_TRAY_ITEM'; itemId: string }
+	| { type: 'PASTICHE_CLEAR_CAPTURE_TRAY' }
+	| { type: 'PASTICHE_SAVE_CAPTURE_TRAY_ITEMS'; items: EnrichedItem[] }
 	| { type: 'PASTICHE_SMOKE_IMPORT' }
 	| { type: 'PASTICHE_CAPTURE_TAB_IMAGE'; url: string; pageTitle: string | null }
+	| {
+			type: 'PASTICHE_CAPTURE_VISIBLE_TAB';
+			pageUrl: string;
+			pageTitle: string | null;
+			windowId?: number;
+	  }
 	| { type: 'PASTICHE_ITEM_CAPTURED'; item: CapturedItemPayload }
+	| {
+			type: 'PASTICHE_STAGE_DROPPED_URL';
+			imageUrl: string;
+			sourceUrl: string;
+			pageTitle: string | null;
+	  }
+	| {
+			type: 'PASTICHE_OPEN_CAPTURE_PANEL_FOR_DRAG';
+			item?: CapturedItemPayload;
+	  }
+	| { type: 'PASTICHE_STAGE_PENDING_DRAG'; sourceUrl?: string }
+	| { type: 'PASTICHE_FETCH_IMAGE'; url: string }
+	| {
+			type: 'PASTICHE_SET_CAPTURE_STORAGE_MODE';
+			itemId: string;
+			storageMode: 'download' | 'lazy_download';
+	  }
+	| { type: 'PASTICHE_ENRICH_CAPTURE_METADATA'; itemId: string; tabId?: number }
+	| {
+			type: 'PASTICHE_APPLY_CAPTURE_METADATA';
+			itemId: string;
+			requestId: string;
+			record: SourceCaptureRecord;
+	  }
 	| { type: 'PASTICHE_SWEEP_RESULTS'; items: CapturedItemPayload[] }
 	| { type: 'PASTICHE_LASSO_RESULTS'; items: CapturedItemPayload[] }
+	| { type: 'PASTICHE_CAPTURE_FAILED'; error: string }
 	| { type: 'PASTICHE_DO_IMPORT'; payload: ImportJobPayload }
 	| { type: 'PASTICHE_RETRY_ITEM'; item: EnrichedItem; destinationFolderId: string | null };
 
@@ -205,8 +291,12 @@ export type ExtensionMessage =
 export type ExtensionSettings = {
 	/** Port the local Pastiche server is listening on. Default: 5173. */
 	pastichePort: number;
+	/** Optional token configured on the local Pastiche server. */
+	localApiToken: string;
 	/** Minimum natural dimension (px) for page-sweep image candidates. Default: 300. */
 	sizeThreshold: number;
+	/** Whether dragging a page image opens the capture panel. Default: true. */
+	dragCaptureEnabled: boolean;
 	/** Default destination folder id. null = Unassigned inbox. */
 	defaultDestinationId: string | null;
 };

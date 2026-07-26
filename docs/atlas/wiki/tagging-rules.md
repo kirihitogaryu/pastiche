@@ -19,6 +19,40 @@ Every assignment needs an evidence basis.
 
 Do not treat these as equivalent.
 
+## External Vocabulary Review Gate
+
+Source tags from Danbooru, museum keywords, model labels, scraped page tags, and other external vocabularies are raw source vocabulary.
+
+They are not Atlas-approved tags.
+
+Before creating canonical Atlas tags from an external vocabulary list, manually review the proposed conversions.
+
+For each source tag, choose one of these outcomes:
+
+- visual tag
+- entity
+- claim
+- classifier type or classifier value
+- alias
+- related/confusable note
+- rejected source vocabulary
+- preserve only in raw source metadata
+
+Do not automatically create implications from external tags.
+
+High-risk implications require explicit human review, especially when they affect broad retrieval categories.
+
+Examples:
+
+```txt
+anthro_dog -> dog
+furry -> animal
+pokemon -> anime_style
+artist_name -> visible_style
+```
+
+These should not be automatic implications by default. They may become related, confusable, source-context, or reviewed specialist relations if the wiki page explains the boundary.
+
 ## Tagging Priority
 
 ### Level 0: Identity and Source
@@ -157,6 +191,26 @@ artist = Hendrik Goltzius (after)
 date = 1589
 medium = engraving
 ```
+
+## Subject Sex, Gender, And Identity
+
+Atlas separates visible appearance from known identity.
+
+Use appearance tags for what is visually supported. Use identity entities or claims only when metadata, creator commentary, source text, user context, or another trusted source supports them.
+
+Recommended distinction:
+
+- `androgynous_subject`: observed appearance where visible sex characteristics or gendered signifiers do not clearly indicate male or female.
+- `nonbinary_subject`: known identity, not inferred from appearance.
+- `intersex_subject`: known intersex status, not inferred from mixed or ambiguous visible sex characteristics.
+- `female_subject`: observed female sex characteristics or typical female gendered signifiers, unless source context contradicts that reading.
+- `male_subject`: observed male sex characteristics or typical male gendered signifiers, unless source context contradicts that reading.
+
+`androgynous_subject` can be neutral or positive and may later need sub-tags or classifiers for different presentation types. Do not use `nonbinary_subject` or `intersex_subject` as a visual guess.
+
+If a reference model, character, or depicted subject is known to be nonbinary, do not override that identity from visible characteristics. It is still acceptable to describe visible traits separately as visual tags or classifiers.
+
+For ordinary non-anthro animals, do not add gender or sex tags unless the trait is unusually clear, source-confirmed, or materially useful for retrieval.
 
 ## Tags vs. Classifiers
 

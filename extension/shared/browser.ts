@@ -42,6 +42,23 @@ type RuntimeApi = {
 type StorageArea = {
 	get(keys?: string[] | Record<string, unknown> | string | null): Promise<Record<string, unknown>>;
 	set(items: Record<string, unknown>): Promise<void>;
+	remove(keys: string | string[]): Promise<void>;
+};
+
+type StorageChange = {
+	oldValue?: unknown;
+	newValue?: unknown;
+};
+
+type StorageApi = {
+	local: StorageArea;
+	session?: StorageArea;
+	onChanged?: {
+		addListener(listener: (changes: Record<string, StorageChange>, areaName: string) => void): void;
+		removeListener(
+			listener: (changes: Record<string, StorageChange>, areaName: string) => void
+		): void;
+	};
 };
 
 /**
@@ -53,8 +70,10 @@ type StorageArea = {
  */
 export type TabInfo = {
 	id?: number;
+	windowId?: number;
 	url?: string;
 	title?: string;
+	active?: boolean;
 };
 
 type TabsApi = {
@@ -72,11 +91,25 @@ type TabsApi = {
 	 * Resolves with the content script's sendResponse value.
 	 */
 	sendMessage(tabId: number, message: unknown): Promise<unknown>;
+
+	/**
+	 * Capture the visible area of a browser window as a data URL.
+	 */
+	captureVisibleTab(
+		windowId?: number,
+		options?: { format?: 'jpeg' | 'png'; quality?: number }
+	): Promise<string>;
 };
 
 type CommandsApi = {
 	onCommand: {
 		addListener(listener: (command: string) => void): void;
+	};
+};
+
+type ActionApi = {
+	onClicked: {
+		addListener(listener: (tab: TabInfo) => void): void;
 	};
 };
 
@@ -102,14 +135,12 @@ type ScriptingApi = {
 
 type ExtensionApi = {
 	runtime: RuntimeApi;
-	storage: { local: StorageArea };
+	storage: StorageApi;
 	tabs: TabsApi;
 	commands: CommandsApi;
+	action?: ActionApi;
 	contextMenus?: ContextMenusApi;
 	scripting?: ScriptingApi;
-	sidePanel?: {
-		setPanelBehavior(options: { openPanelOnActionClick: boolean }): Promise<void>;
-	};
 };
 
 // ---------------------------------------------------------------------------

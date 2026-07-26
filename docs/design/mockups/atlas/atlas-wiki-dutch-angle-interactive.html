@@ -1,937 +1,1102 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Pastiche Atlas Wiki — Dutch Angle</title>
-<style>
-  :root {
-    color-scheme: dark;
-    --bg: #090908;
-    --surface-0: #0d0d0c;
-    --surface-1: #11100f;
-    --surface-2: #171615;
-    --surface-3: #1f1d1b;
-    --line: rgba(238,232,220,.105);
-    --line-strong: rgba(238,232,220,.18);
-    --text: #e9e2d8;
-    --text-soft: #c7c0b6;
-    --text-muted: #908980;
-    --heading-muted: #bbb3a8;
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Pastiche Atlas Wiki — Dutch Angle</title>
+		<style>
+			:root {
+				color-scheme: dark;
+				--bg: #090908;
+				--surface-0: #0d0d0c;
+				--surface-1: #11100f;
+				--surface-2: #171615;
+				--surface-3: #1f1d1b;
+				--line: rgba(238, 232, 220, 0.105);
+				--line-strong: rgba(238, 232, 220, 0.18);
+				--text: #e9e2d8;
+				--text-soft: #c7c0b6;
+				--text-muted: #908980;
+				--heading-muted: #bbb3a8;
 
-    --accent: #c79a52;
-    --accent-soft: #dfbd78;
-    --positive: #9fb27b;
-    --warning: #d4a35a;
+				--accent: #c79a52;
+				--accent-soft: #dfbd78;
+				--positive: #9fb27b;
+				--warning: #d4a35a;
 
-    --visual: #75a6d9;
-    --classifier: #a5ad78;
-    --source: #98a7b1;
-    --artist: #9da0e6;
-    --work: #b895dc;
-    --theme: #69bdc3;
+				--visual: #75a6d9;
+				--classifier: #a5ad78;
+				--source: #98a7b1;
+				--artist: #9da0e6;
+				--work: #b895dc;
+				--theme: #69bdc3;
 
-    --rail: 74px;
-    --wiki-nav: 330px;
-    --max-entry: 1260px;
+				--rail: 74px;
+				--wiki-nav: 330px;
+				--max-entry: 1260px;
 
-    --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --serif: Georgia, "Times New Roman", serif;
-    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  }
+				--sans:
+					Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+				--serif: Georgia, 'Times New Roman', serif;
+				--mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+			}
 
-  * { box-sizing: border-box; }
-  html, body { height: 100%; }
-  body {
-    margin: 0;
-    overflow: hidden;
-    background:
-      radial-gradient(circle at 72% -16%, rgba(164,139,94,.12), transparent 35%),
-      radial-gradient(circle at 18% 22%, rgba(117,166,217,.04), transparent 32%),
-      linear-gradient(135deg, #080807 0%, #10100f 45%, #090908 100%);
-    color: var(--text);
-    font-family: var(--sans);
-    font-size: 14px;
-    letter-spacing: .01em;
-  }
+			* {
+				box-sizing: border-box;
+			}
+			html,
+			body {
+				height: 100%;
+			}
+			body {
+				margin: 0;
+				overflow: hidden;
+				background:
+					radial-gradient(circle at 72% -16%, rgba(164, 139, 94, 0.12), transparent 35%),
+					radial-gradient(circle at 18% 22%, rgba(117, 166, 217, 0.04), transparent 32%),
+					linear-gradient(135deg, #080807 0%, #10100f 45%, #090908 100%);
+				color: var(--text);
+				font-family: var(--sans);
+				font-size: 14px;
+				letter-spacing: 0.01em;
+			}
 
-  a {
-    color: inherit;
-    text-decoration: none;
-  }
+			a {
+				color: inherit;
+				text-decoration: none;
+			}
 
-  button, input {
-    font: inherit;
-    color: inherit;
-  }
+			button,
+			input {
+				font: inherit;
+				color: inherit;
+			}
 
-  button {
-    border: 1px solid var(--line-strong);
-    background: rgba(255,255,255,.025);
-    border-radius: 8px;
-    min-height: 34px;
-    padding: 0 11px;
-    cursor: pointer;
-    transition: background .16s ease, border-color .16s ease, transform .16s ease;
-  }
-  button:hover {
-    background: rgba(255,255,255,.055);
-    border-color: rgba(238,232,220,.32);
-    transform: translateY(-1px);
-  }
-  button:focus-visible,
-  input:focus-visible,
-  summary:focus-visible,
-  .nav-item:focus-visible,
-  .wiki-link:focus-visible,
-  .entry-link:focus-visible,
-  .example-card:focus-visible,
-  .tag-ref:focus-visible {
-    outline: 2px solid rgba(199,154,82,.75);
-    outline-offset: 2px;
-  }
+			button {
+				border: 1px solid var(--line-strong);
+				background: rgba(255, 255, 255, 0.025);
+				border-radius: 8px;
+				min-height: 34px;
+				padding: 0 11px;
+				cursor: pointer;
+				transition:
+					background 0.16s ease,
+					border-color 0.16s ease,
+					transform 0.16s ease;
+			}
+			button:hover {
+				background: rgba(255, 255, 255, 0.055);
+				border-color: rgba(238, 232, 220, 0.32);
+				transform: translateY(-1px);
+			}
+			button:focus-visible,
+			input:focus-visible,
+			summary:focus-visible,
+			.nav-item:focus-visible,
+			.wiki-link:focus-visible,
+			.entry-link:focus-visible,
+			.example-card:focus-visible,
+			.tag-ref:focus-visible {
+				outline: 2px solid rgba(199, 154, 82, 0.75);
+				outline-offset: 2px;
+			}
 
-  .app {
-    height: 100vh;
-    display: grid;
-    grid-template-columns: var(--rail) var(--wiki-nav) minmax(0, 1fr);
-  }
+			.app {
+				height: 100vh;
+				display: grid;
+				grid-template-columns: var(--rail) var(--wiki-nav) minmax(0, 1fr);
+			}
 
-  /* Global rail */
-  .rail {
-    background: rgba(9,9,8,.94);
-    border-right: 1px solid var(--line);
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 16px 8px;
-  }
-  .rail a {
-    height: 46px;
-    border-radius: 12px;
-    display: grid;
-    place-items: center;
-    color: var(--text-soft);
-    transition: background .16s ease, color .16s ease, transform .16s ease;
-  }
-  .rail a:hover {
-    background: rgba(255,255,255,.045);
-    color: var(--text);
-    transform: translateX(1px);
-  }
-  .rail a.active {
-    color: var(--accent-soft);
-    background: rgba(199,154,82,.11);
-    box-shadow: inset 3px 0 0 var(--accent);
-  }
-  .rail-spacer { flex: 1; }
-  .rail svg { width: 22px; height: 22px; }
+			/* Global rail */
+			.rail {
+				background: rgba(9, 9, 8, 0.94);
+				border-right: 1px solid var(--line);
+				display: flex;
+				flex-direction: column;
+				gap: 12px;
+				padding: 16px 8px;
+			}
+			.rail a {
+				height: 46px;
+				border-radius: 12px;
+				display: grid;
+				place-items: center;
+				color: var(--text-soft);
+				transition:
+					background 0.16s ease,
+					color 0.16s ease,
+					transform 0.16s ease;
+			}
+			.rail a:hover {
+				background: rgba(255, 255, 255, 0.045);
+				color: var(--text);
+				transform: translateX(1px);
+			}
+			.rail a.active {
+				color: var(--accent-soft);
+				background: rgba(199, 154, 82, 0.11);
+				box-shadow: inset 3px 0 0 var(--accent);
+			}
+			.rail-spacer {
+				flex: 1;
+			}
+			.rail svg {
+				width: 22px;
+				height: 22px;
+			}
 
-  /* Wiki navigation */
-  .wiki-nav {
-    min-width: 0;
-    background: rgba(13,13,12,.78);
-    border-right: 1px solid var(--line-strong);
-    display: grid;
-    grid-template-rows: auto auto 1fr;
-    overflow: hidden;
-  }
+			/* Wiki navigation */
+			.wiki-nav {
+				min-width: 0;
+				background: rgba(13, 13, 12, 0.78);
+				border-right: 1px solid var(--line-strong);
+				display: grid;
+				grid-template-rows: auto auto 1fr;
+				overflow: hidden;
+			}
 
-  .nav-top {
-    padding: 22px 18px 14px;
-    border-bottom: 1px solid var(--line);
-  }
-  .brand {
-    font-family: var(--serif);
-    font-size: 22px;
-    font-style: italic;
-    margin-bottom: 26px;
-    color: var(--text);
-  }
-  .wiki-title {
-    font-family: var(--serif);
-    font-size: 24px;
-    margin-bottom: 16px;
-    color: var(--text);
-  }
-  .doc-links {
-    display: grid;
-    gap: 7px;
-  }
-  .doc-links a {
-    color: var(--text-soft);
-    border-radius: 6px;
-    padding: 3px 0;
-    transition: color .14s ease, transform .14s ease;
-  }
-  .doc-links a:hover {
-    color: var(--text);
-    transform: translateX(2px);
-  }
+			.nav-top {
+				padding: 22px 18px 14px;
+				border-bottom: 1px solid var(--line);
+			}
+			.brand {
+				font-family: var(--serif);
+				font-size: 22px;
+				font-style: italic;
+				margin-bottom: 26px;
+				color: var(--text);
+			}
+			.wiki-title {
+				font-family: var(--serif);
+				font-size: 24px;
+				margin-bottom: 16px;
+				color: var(--text);
+			}
+			.doc-links {
+				display: grid;
+				gap: 7px;
+			}
+			.doc-links a {
+				color: var(--text-soft);
+				border-radius: 6px;
+				padding: 3px 0;
+				transition:
+					color 0.14s ease,
+					transform 0.14s ease;
+			}
+			.doc-links a:hover {
+				color: var(--text);
+				transform: translateX(2px);
+			}
 
-  .search-wrap {
-    position: sticky;
-    top: 0;
-    z-index: 3;
-    background: rgba(13,13,12,.94);
-    padding: 14px 18px 12px;
-    border-bottom: 1px solid var(--line);
-    backdrop-filter: blur(10px);
-  }
-  .search-box {
-    position: relative;
-  }
-  .search-box input {
-    width: 100%;
-    min-height: 38px;
-    border-radius: 8px;
-    border: 1px solid var(--line-strong);
-    background: var(--surface-1);
-    padding: 0 36px 0 34px;
-    outline: none;
-    color: var(--text);
-    transition: border-color .16s ease, box-shadow .16s ease;
-  }
-  .search-box input:focus {
-    border-color: rgba(199,154,82,.6);
-    box-shadow: 0 0 0 3px rgba(199,154,82,.12);
-  }
-  .search-icon,
-  .kbd {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--text-muted);
-    pointer-events: none;
-  }
-  .search-icon { left: 11px; }
-  .kbd {
-    right: 10px;
-    font-family: var(--mono);
-    font-size: 11px;
-  }
+			.search-wrap {
+				position: sticky;
+				top: 0;
+				z-index: 3;
+				background: rgba(13, 13, 12, 0.94);
+				padding: 14px 18px 12px;
+				border-bottom: 1px solid var(--line);
+				backdrop-filter: blur(10px);
+			}
+			.search-box {
+				position: relative;
+			}
+			.search-box input {
+				width: 100%;
+				min-height: 38px;
+				border-radius: 8px;
+				border: 1px solid var(--line-strong);
+				background: var(--surface-1);
+				padding: 0 36px 0 34px;
+				outline: none;
+				color: var(--text);
+				transition:
+					border-color 0.16s ease,
+					box-shadow 0.16s ease;
+			}
+			.search-box input:focus {
+				border-color: rgba(199, 154, 82, 0.6);
+				box-shadow: 0 0 0 3px rgba(199, 154, 82, 0.12);
+			}
+			.search-icon,
+			.kbd {
+				position: absolute;
+				top: 50%;
+				transform: translateY(-50%);
+				color: var(--text-muted);
+				pointer-events: none;
+			}
+			.search-icon {
+				left: 11px;
+			}
+			.kbd {
+				right: 10px;
+				font-family: var(--mono);
+				font-size: 11px;
+			}
 
-  .nav-scroll {
-    overflow-y: auto;
-    padding: 12px 18px 28px;
-    scrollbar-color: rgba(238,232,220,.28) transparent;
-  }
+			.nav-scroll {
+				overflow-y: auto;
+				padding: 12px 18px 28px;
+				scrollbar-color: rgba(238, 232, 220, 0.28) transparent;
+			}
 
-  .nav-label {
-    color: var(--heading-muted);
-    font-size: 11px;
-    font-weight: 740;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    margin: 6px 0 10px;
-  }
+			.nav-label {
+				color: var(--heading-muted);
+				font-size: 11px;
+				font-weight: 740;
+				letter-spacing: 0.12em;
+				text-transform: uppercase;
+				margin: 6px 0 10px;
+			}
 
-  .group {
-    border-top: 1px solid rgba(238,232,220,.075);
-  }
-  .group summary {
-    min-height: 34px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    list-style: none;
-    cursor: pointer;
-    color: var(--text-soft);
-    border-radius: 6px;
-    transition: background .14s ease, color .14s ease;
-  }
-  .group summary::-webkit-details-marker { display: none; }
-  .group summary:hover {
-    background: rgba(255,255,255,.035);
-    color: var(--text);
-  }
-  .chev {
-    color: var(--text-muted);
-    display: inline-block;
-    transition: transform .18s ease;
-  }
-  .group:not([open]) .chev {
-    transform: rotate(-90deg);
-  }
-  .branch {
-    margin: 0 0 9px 8px;
-    padding-left: 13px;
-    border-left: 1px solid rgba(238,232,220,.13);
-  }
-  .branch-title {
-    color: var(--heading-muted);
-    font-size: 13px;
-    margin: 6px 0;
-  }
-  .wiki-link {
-    display: block;
-    color: var(--text-soft);
-    padding: 6px 8px 6px 12px;
-    margin: 1px 0;
-    border-radius: 7px;
-    transition: background .14s ease, color .14s ease, transform .14s ease;
-  }
-  .wiki-link:hover {
-    background: rgba(255,255,255,.04);
-    color: var(--text);
-    transform: translateX(2px);
-  }
-  .wiki-link.active {
-    color: var(--text);
-    background: rgba(255,255,255,.06);
-    box-shadow: inset 3px 0 0 var(--accent);
-  }
-  .wiki-link.hidden,
-  .group.hidden {
-    display: none;
-  }
+			.group {
+				border-top: 1px solid rgba(238, 232, 220, 0.075);
+			}
+			.group summary {
+				min-height: 34px;
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				list-style: none;
+				cursor: pointer;
+				color: var(--text-soft);
+				border-radius: 6px;
+				transition:
+					background 0.14s ease,
+					color 0.14s ease;
+			}
+			.group summary::-webkit-details-marker {
+				display: none;
+			}
+			.group summary:hover {
+				background: rgba(255, 255, 255, 0.035);
+				color: var(--text);
+			}
+			.chev {
+				color: var(--text-muted);
+				display: inline-block;
+				transition: transform 0.18s ease;
+			}
+			.group:not([open]) .chev {
+				transform: rotate(-90deg);
+			}
+			.branch {
+				margin: 0 0 9px 8px;
+				padding-left: 13px;
+				border-left: 1px solid rgba(238, 232, 220, 0.13);
+			}
+			.branch-title {
+				color: var(--heading-muted);
+				font-size: 13px;
+				margin: 6px 0;
+			}
+			.wiki-link {
+				display: block;
+				color: var(--text-soft);
+				padding: 6px 8px 6px 12px;
+				margin: 1px 0;
+				border-radius: 7px;
+				transition:
+					background 0.14s ease,
+					color 0.14s ease,
+					transform 0.14s ease;
+			}
+			.wiki-link:hover {
+				background: rgba(255, 255, 255, 0.04);
+				color: var(--text);
+				transform: translateX(2px);
+			}
+			.wiki-link.active {
+				color: var(--text);
+				background: rgba(255, 255, 255, 0.06);
+				box-shadow: inset 3px 0 0 var(--accent);
+			}
+			.wiki-link.hidden,
+			.group.hidden {
+				display: none;
+			}
 
-  /* Main article */
-  .entry-scroll {
-    min-width: 0;
-    overflow-y: auto;
-    scrollbar-color: rgba(238,232,220,.30) transparent;
-  }
-  .entry {
-    max-width: var(--max-entry);
-    padding: 28px clamp(26px, 4.2vw, 58px) 56px;
-  }
+			/* Main article */
+			.entry-scroll {
+				min-width: 0;
+				overflow-y: auto;
+				scrollbar-color: rgba(238, 232, 220, 0.3) transparent;
+			}
+			.entry {
+				max-width: var(--max-entry);
+				padding: 28px clamp(26px, 4.2vw, 58px) 56px;
+			}
 
-  .breadcrumbs {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 9px;
-    color: var(--text-muted);
-    font-size: 13px;
-    margin-bottom: 16px;
-  }
-  .breadcrumbs .current {
-    color: var(--accent-soft);
-  }
-  .crumb-sep {
-    color: #6f6960;
-  }
+			.breadcrumbs {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: center;
+				gap: 9px;
+				color: var(--text-muted);
+				font-size: 13px;
+				margin-bottom: 16px;
+			}
+			.breadcrumbs .current {
+				color: var(--accent-soft);
+			}
+			.crumb-sep {
+				color: #6f6960;
+			}
 
-  .entry-header {
-    max-width: 840px;
-    margin-bottom: 26px;
-  }
-  h1 {
-    font-family: var(--serif);
-    font-size: clamp(42px, 4.4vw, 64px);
-    line-height: .98;
-    margin: 0 0 13px;
-    letter-spacing: -.035em;
-    font-weight: 500;
-    color: var(--text);
-  }
-  .aliases {
-    color: var(--text-soft);
-    font-size: 15px;
-    margin-bottom: 18px;
-  }
-  .definition {
-    color: var(--text-soft);
-    font-size: 17px;
-    line-height: 1.55;
-    max-width: 820px;
-    margin: 0;
-  }
+			.entry-header {
+				max-width: 840px;
+				margin-bottom: 26px;
+			}
+			h1 {
+				font-family: var(--serif);
+				font-size: clamp(42px, 4.4vw, 64px);
+				line-height: 0.98;
+				margin: 0 0 13px;
+				letter-spacing: -0.035em;
+				font-weight: 500;
+				color: var(--text);
+			}
+			.aliases {
+				color: var(--text-soft);
+				font-size: 15px;
+				margin-bottom: 18px;
+			}
+			.definition {
+				color: var(--text-soft);
+				font-size: 17px;
+				line-height: 1.55;
+				max-width: 820px;
+				margin: 0;
+			}
 
-  .entry-section {
-    margin-top: 26px;
-  }
-  .section-title {
-    font-family: var(--serif);
-    font-size: 27px;
-    font-weight: 500;
-    color: var(--text);
-    margin: 0 0 13px;
-  }
-  .section-title.small {
-    font-family: var(--sans);
-    color: var(--heading-muted);
-    font-size: 13px;
-    letter-spacing: .10em;
-    text-transform: uppercase;
-    font-weight: 760;
-    margin: 0 0 10px;
-  }
+			.entry-section {
+				margin-top: 26px;
+			}
+			.section-title {
+				font-family: var(--serif);
+				font-size: 27px;
+				font-weight: 500;
+				color: var(--text);
+				margin: 0 0 13px;
+			}
+			.section-title.small {
+				font-family: var(--sans);
+				color: var(--heading-muted);
+				font-size: 13px;
+				letter-spacing: 0.1em;
+				text-transform: uppercase;
+				font-weight: 760;
+				margin: 0 0 10px;
+			}
 
-  .examples {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(160px, 1fr));
-    gap: 18px;
-  }
-  .example-card {
-    min-width: 0;
-    border-radius: 9px;
-    overflow: hidden;
-    color: var(--text);
-    transition: transform .16s ease, background .16s ease;
-  }
-  .example-card:hover {
-    transform: translateY(-3px);
-  }
-  .example-img {
-    height: 150px;
-    border: 1px solid var(--line-strong);
-    border-radius: 8px;
-    overflow: hidden;
-    background:
-      linear-gradient(var(--tilt, -8deg), rgba(255,255,255,.06), transparent 45%),
-      radial-gradient(circle at 25% 25%, rgba(218,185,111,.16), transparent 28%),
-      linear-gradient(135deg, #3c3123, #1c1b18 55%, #29241d);
-    position: relative;
-    filter: saturate(.72) contrast(1.04);
-  }
-  .example-img::before,
-  .example-img::after {
-    content: "";
-    position: absolute;
-    inset: 24% 10% auto;
-    height: 2px;
-    background: rgba(232,226,215,.18);
-    transform: rotate(var(--tilt, -8deg));
-    transform-origin: center;
-    box-shadow: 0 32px 0 rgba(232,226,215,.14), 0 64px 0 rgba(232,226,215,.10);
-  }
-  .example-img::after {
-    inset: auto 12% 18%;
-    height: 46px;
-    border: 2px solid rgba(232,226,215,.13);
-    background: rgba(0,0,0,.10);
-    box-shadow: none;
-  }
-  .example-img.anti {
-    background:
-      radial-gradient(circle at 50% 24%, rgba(238,232,220,.20), transparent 10%),
-      linear-gradient(90deg, rgba(238,232,220,.10) 0 1px, transparent 1px 100%),
-      linear-gradient(180deg, #3c352b, #24211e);
-  }
-  .example-img.anti::before {
-    transform: rotate(0deg);
-    opacity: .55;
-  }
-  .example-img.anti::after {
-    transform: rotate(-8deg);
-    width: 42px;
-    height: 96px;
-    left: 45%;
-    bottom: 22px;
-    border-radius: 36px 36px 12px 12px;
-  }
-  .example-label {
-    margin-top: 9px;
-    color: var(--positive);
-    font-size: 13px;
-    font-weight: 650;
-  }
-  .example-label.anti {
-    color: var(--warning);
-  }
-  .example-title {
-    margin-top: 5px;
-    color: var(--text-soft);
-    font-style: italic;
-  }
-  .example-meta {
-    color: var(--text-muted);
-    margin-top: 3px;
-    line-height: 1.35;
-  }
+			.examples {
+				display: grid;
+				grid-template-columns: repeat(4, minmax(160px, 1fr));
+				gap: 18px;
+			}
+			.example-card {
+				min-width: 0;
+				border-radius: 9px;
+				overflow: hidden;
+				color: var(--text);
+				transition:
+					transform 0.16s ease,
+					background 0.16s ease;
+			}
+			.example-card:hover {
+				transform: translateY(-3px);
+			}
+			.example-img {
+				height: 150px;
+				border: 1px solid var(--line-strong);
+				border-radius: 8px;
+				overflow: hidden;
+				background:
+					linear-gradient(var(--tilt, -8deg), rgba(255, 255, 255, 0.06), transparent 45%),
+					radial-gradient(circle at 25% 25%, rgba(218, 185, 111, 0.16), transparent 28%),
+					linear-gradient(135deg, #3c3123, #1c1b18 55%, #29241d);
+				position: relative;
+				filter: saturate(0.72) contrast(1.04);
+			}
+			.example-img::before,
+			.example-img::after {
+				content: '';
+				position: absolute;
+				inset: 24% 10% auto;
+				height: 2px;
+				background: rgba(232, 226, 215, 0.18);
+				transform: rotate(var(--tilt, -8deg));
+				transform-origin: center;
+				box-shadow:
+					0 32px 0 rgba(232, 226, 215, 0.14),
+					0 64px 0 rgba(232, 226, 215, 0.1);
+			}
+			.example-img::after {
+				inset: auto 12% 18%;
+				height: 46px;
+				border: 2px solid rgba(232, 226, 215, 0.13);
+				background: rgba(0, 0, 0, 0.1);
+				box-shadow: none;
+			}
+			.example-img.anti {
+				background:
+					radial-gradient(circle at 50% 24%, rgba(238, 232, 220, 0.2), transparent 10%),
+					linear-gradient(90deg, rgba(238, 232, 220, 0.1) 0 1px, transparent 1px 100%),
+					linear-gradient(180deg, #3c352b, #24211e);
+			}
+			.example-img.anti::before {
+				transform: rotate(0deg);
+				opacity: 0.55;
+			}
+			.example-img.anti::after {
+				transform: rotate(-8deg);
+				width: 42px;
+				height: 96px;
+				left: 45%;
+				bottom: 22px;
+				border-radius: 36px 36px 12px 12px;
+			}
+			.example-label {
+				margin-top: 9px;
+				color: var(--positive);
+				font-size: 13px;
+				font-weight: 650;
+			}
+			.example-label.anti {
+				color: var(--warning);
+			}
+			.example-title {
+				margin-top: 5px;
+				color: var(--text-soft);
+				font-style: italic;
+			}
+			.example-meta {
+				color: var(--text-muted);
+				margin-top: 3px;
+				line-height: 1.35;
+			}
 
-  .entry-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--accent-soft);
-    margin-top: 17px;
-    border-radius: 5px;
-    transition: color .14s ease, transform .14s ease;
-  }
-  .entry-link:hover {
-    color: var(--text);
-    transform: translateX(2px);
-  }
+			.entry-link {
+				display: inline-flex;
+				align-items: center;
+				gap: 8px;
+				color: var(--accent-soft);
+				margin-top: 17px;
+				border-radius: 5px;
+				transition:
+					color 0.14s ease,
+					transform 0.14s ease;
+			}
+			.entry-link:hover {
+				color: var(--text);
+				transform: translateX(2px);
+			}
 
-  .info-grid {
-    display: grid;
-    grid-template-columns: 1.05fr 1.15fr .95fr 1.15fr;
-    border-top: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
-    margin-top: 22px;
-  }
-  .info-block {
-    padding: 17px 24px 18px 0;
-    margin-right: 24px;
-    border-right: 1px solid var(--line);
-  }
-  .info-block:last-child {
-    border-right: 0;
-    margin-right: 0;
-  }
-  .info-block ul {
-    margin: 0;
-    padding-left: 17px;
-    color: var(--text-soft);
-    line-height: 1.52;
-  }
-  .info-block li + li {
-    margin-top: 7px;
-  }
+			.info-grid {
+				display: grid;
+				grid-template-columns: 1.05fr 1.15fr 0.95fr 1.15fr;
+				border-top: 1px solid var(--line);
+				border-bottom: 1px solid var(--line);
+				margin-top: 22px;
+			}
+			.info-block {
+				padding: 17px 24px 18px 0;
+				margin-right: 24px;
+				border-right: 1px solid var(--line);
+			}
+			.info-block:last-child {
+				border-right: 0;
+				margin-right: 0;
+			}
+			.info-block ul {
+				margin: 0;
+				padding-left: 17px;
+				color: var(--text-soft);
+				line-height: 1.52;
+			}
+			.info-block li + li {
+				margin-top: 7px;
+			}
 
-  .tag-ref {
-    display: inline;
-    color: var(--visual);
-    border-radius: 4px;
-    transition: background .14s ease, color .14s ease;
-  }
-  .tag-ref:hover {
-    background: rgba(255,255,255,.045);
-    color: #9fc5e8;
-  }
-  .tag-ref.classifier {
-    color: var(--classifier);
-    font-family: var(--mono);
-    font-size: 12px;
-  }
-  .tag-ref.source {
-    color: var(--source);
-  }
-  .tag-ref.theme {
-    color: var(--theme);
-  }
+			.tag-ref {
+				display: inline;
+				color: var(--visual);
+				border-radius: 4px;
+				transition:
+					background 0.14s ease,
+					color 0.14s ease;
+			}
+			.tag-ref:hover {
+				background: rgba(255, 255, 255, 0.045);
+				color: #9fc5e8;
+			}
+			.tag-ref.classifier {
+				color: var(--classifier);
+				font-family: var(--mono);
+				font-size: 12px;
+			}
+			.tag-ref.source {
+				color: var(--source);
+			}
+			.tag-ref.theme {
+				color: var(--theme);
+			}
 
-  .lower-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.4fr) minmax(260px, .75fr);
-    gap: 26px;
-    border-bottom: 1px solid var(--line);
-    padding-bottom: 24px;
-  }
-  .guidance {
-    color: var(--text-soft);
-    line-height: 1.55;
-  }
-  .guidance p {
-    margin: 0 0 12px;
-  }
-  .metadata-table {
-    display: grid;
-    grid-template-columns: 120px 1fr;
-    gap: 7px 18px;
-    color: var(--text-soft);
-  }
-  .metadata-table dt {
-    color: var(--text-muted);
-  }
-  .metadata-table dd {
-    margin: 0;
-  }
+			.lower-grid {
+				display: grid;
+				grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.75fr);
+				gap: 26px;
+				border-bottom: 1px solid var(--line);
+				padding-bottom: 24px;
+			}
+			.guidance {
+				color: var(--text-soft);
+				line-height: 1.55;
+			}
+			.guidance p {
+				margin: 0 0 12px;
+			}
+			.metadata-table {
+				display: grid;
+				grid-template-columns: 120px 1fr;
+				gap: 7px 18px;
+				color: var(--text-soft);
+			}
+			.metadata-table dt {
+				color: var(--text-muted);
+			}
+			.metadata-table dd {
+				margin: 0;
+			}
 
-  .ai-guidance {
-    margin-top: 26px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: rgba(255,255,255,.022);
-    padding: 16px;
-  }
-  .ai-guidance .section-title.small {
-    margin-bottom: 8px;
-  }
-  .ai-guidance p {
-    color: var(--text-soft);
-    margin: 0;
-    line-height: 1.55;
-  }
+			.ai-guidance {
+				margin-top: 26px;
+				border: 1px solid var(--line);
+				border-radius: 10px;
+				background: rgba(255, 255, 255, 0.022);
+				padding: 16px;
+			}
+			.ai-guidance .section-title.small {
+				margin-bottom: 8px;
+			}
+			.ai-guidance p {
+				color: var(--text-soft);
+				margin: 0;
+				line-height: 1.55;
+			}
 
-  .toast {
-    position: fixed;
-    right: 22px;
-    bottom: 22px;
-    background: rgba(21,20,18,.96);
-    border: 1px solid var(--line-strong);
-    color: var(--text-soft);
-    padding: 10px 12px;
-    border-radius: 9px;
-    box-shadow: 0 18px 60px rgba(0,0,0,.45);
-    opacity: 0;
-    transform: translateY(8px);
-    pointer-events: none;
-    transition: opacity .18s ease, transform .18s ease;
-  }
-  .toast.show {
-    opacity: 1;
-    transform: translateY(0);
-  }
+			.toast {
+				position: fixed;
+				right: 22px;
+				bottom: 22px;
+				background: rgba(21, 20, 18, 0.96);
+				border: 1px solid var(--line-strong);
+				color: var(--text-soft);
+				padding: 10px 12px;
+				border-radius: 9px;
+				box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+				opacity: 0;
+				transform: translateY(8px);
+				pointer-events: none;
+				transition:
+					opacity 0.18s ease,
+					transform 0.18s ease;
+			}
+			.toast.show {
+				opacity: 1;
+				transform: translateY(0);
+			}
 
-  @media (max-width: 1160px) {
-    :root { --wiki-nav: 300px; }
-    .examples { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
-    .info-grid { grid-template-columns: 1fr 1fr; }
-    .info-block:nth-child(2) { border-right: 0; margin-right: 0; }
-    .lower-grid { grid-template-columns: 1fr; }
-  }
+			@media (max-width: 1160px) {
+				:root {
+					--wiki-nav: 300px;
+				}
+				.examples {
+					grid-template-columns: repeat(2, minmax(180px, 1fr));
+				}
+				.info-grid {
+					grid-template-columns: 1fr 1fr;
+				}
+				.info-block:nth-child(2) {
+					border-right: 0;
+					margin-right: 0;
+				}
+				.lower-grid {
+					grid-template-columns: 1fr;
+				}
+			}
 
-  @media (max-width: 820px) {
-    body { overflow: auto; }
-    .app {
-      height: auto;
-      min-height: 100vh;
-      grid-template-columns: 60px 1fr;
-      grid-template-rows: auto auto;
-    }
-    .rail { grid-row: 1 / span 2; }
-    .wiki-nav {
-      grid-column: 2;
-      max-height: 52vh;
-      border-bottom: 1px solid var(--line-strong);
-    }
-    .entry-scroll { grid-column: 2; overflow: visible; }
-    .entry { padding: 24px 18px 44px; }
-    .examples, .info-grid { grid-template-columns: 1fr; }
-    .info-block { border-right: 0; margin-right: 0; border-bottom: 1px solid var(--line); }
-  }
+			@media (max-width: 820px) {
+				body {
+					overflow: auto;
+				}
+				.app {
+					height: auto;
+					min-height: 100vh;
+					grid-template-columns: 60px 1fr;
+					grid-template-rows: auto auto;
+				}
+				.rail {
+					grid-row: 1 / span 2;
+				}
+				.wiki-nav {
+					grid-column: 2;
+					max-height: 52vh;
+					border-bottom: 1px solid var(--line-strong);
+				}
+				.entry-scroll {
+					grid-column: 2;
+					overflow: visible;
+				}
+				.entry {
+					padding: 24px 18px 44px;
+				}
+				.examples,
+				.info-grid {
+					grid-template-columns: 1fr;
+				}
+				.info-block {
+					border-right: 0;
+					margin-right: 0;
+					border-bottom: 1px solid var(--line);
+				}
+			}
 
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
-      transition-duration: .001ms !important;
-      animation-duration: .001ms !important;
-      animation-iteration-count: 1 !important;
-      scroll-behavior: auto !important;
-    }
-  }
-</style>
-</head>
-<body>
-<div class="app">
-  <nav class="rail" aria-label="Global navigation">
-    <a href="#" aria-label="Home">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M3 11.5 12 4l9 7.5v8a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-8Z" stroke="currentColor" stroke-width="1.7"/></svg>
-    </a>
-    <a href="#" aria-label="Library">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3V4Z" stroke="currentColor" stroke-width="1.7"/><path d="M8 4v16" stroke="currentColor" stroke-width="1.7"/></svg>
-    </a>
-    <a class="active" href="#" aria-label="Atlas Wiki">
-      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.7"/><path d="m15 9-2 5-5 2 2-5 5-2Z" fill="currentColor"/></svg>
-    </a>
-    <a href="#" aria-label="Review">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14M12 5v14" stroke="currentColor" stroke-width="1.7"/></svg>
-    </a>
-    <a href="#" aria-label="Studio">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M7 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm10 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM7 22a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm10 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM9 6h6M9 18h6M7 8v8m10-8v8" stroke="currentColor" stroke-width="1.6"/></svg>
-    </a>
-    <div class="rail-spacer"></div>
-    <a href="#" aria-label="Settings">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="1.7"/><path d="M19 13.5v-3l-2-.5a6 6 0 0 0-.7-1.6l1-1.8-2.1-2.1-1.8 1a6 6 0 0 0-1.6-.7L11.5 2h-3L8 4a6 6 0 0 0-1.6.7l-1.8-1L2.5 5.8l1 1.8A6 6 0 0 0 2.8 9l-2 .5v3l2 .5a6 6 0 0 0 .7 1.6l-1 1.8 2.1 2.1 1.8-1a6 6 0 0 0 1.6.7l.5 2h3l.5-2a6 6 0 0 0 1.6-.7l1.8 1 2.1-2.1-1-1.8a6 6 0 0 0 .7-1.6l2-.5Z" stroke="currentColor" stroke-width="1.3"/></svg>
-    </a>
-  </nav>
+			@media (prefers-reduced-motion: reduce) {
+				*,
+				*::before,
+				*::after {
+					transition-duration: 0.001ms !important;
+					animation-duration: 0.001ms !important;
+					animation-iteration-count: 1 !important;
+					scroll-behavior: auto !important;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div class="app">
+			<nav class="rail" aria-label="Global navigation">
+				<a href="#" aria-label="Home">
+					<svg viewBox="0 0 24 24" fill="none">
+						<path
+							d="M3 11.5 12 4l9 7.5v8a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-8Z"
+							stroke="currentColor"
+							stroke-width="1.7"
+						/>
+					</svg>
+				</a>
+				<a href="#" aria-label="Library">
+					<svg viewBox="0 0 24 24" fill="none">
+						<path
+							d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3V4Z"
+							stroke="currentColor"
+							stroke-width="1.7"
+						/>
+						<path d="M8 4v16" stroke="currentColor" stroke-width="1.7" />
+					</svg>
+				</a>
+				<a class="active" href="#" aria-label="Atlas Wiki">
+					<svg viewBox="0 0 24 24" fill="none">
+						<circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.7" />
+						<path d="m15 9-2 5-5 2 2-5 5-2Z" fill="currentColor" />
+					</svg>
+				</a>
+				<a href="#" aria-label="Review">
+					<svg viewBox="0 0 24 24" fill="none">
+						<path d="M5 12h14M12 5v14" stroke="currentColor" stroke-width="1.7" />
+					</svg>
+				</a>
+				<a href="#" aria-label="Studio">
+					<svg viewBox="0 0 24 24" fill="none">
+						<path
+							d="M7 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm10 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM7 22a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm10 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM9 6h6M9 18h6M7 8v8m10-8v8"
+							stroke="currentColor"
+							stroke-width="1.6"
+						/>
+					</svg>
+				</a>
+				<div class="rail-spacer"></div>
+				<a href="#" aria-label="Settings">
+					<svg viewBox="0 0 24 24" fill="none">
+						<path
+							d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"
+							stroke="currentColor"
+							stroke-width="1.7"
+						/>
+						<path
+							d="M19 13.5v-3l-2-.5a6 6 0 0 0-.7-1.6l1-1.8-2.1-2.1-1.8 1a6 6 0 0 0-1.6-.7L11.5 2h-3L8 4a6 6 0 0 0-1.6.7l-1.8-1L2.5 5.8l1 1.8A6 6 0 0 0 2.8 9l-2 .5v3l2 .5a6 6 0 0 0 .7 1.6l-1 1.8 2.1 2.1 1.8-1a6 6 0 0 0 1.6.7l.5 2h3l.5-2a6 6 0 0 0 1.6-.7l1.8 1 2.1-2.1-1-1.8a6 6 0 0 0 .7-1.6l2-.5Z"
+							stroke="currentColor"
+							stroke-width="1.3"
+						/>
+					</svg>
+				</a>
+			</nav>
 
-  <aside class="wiki-nav" aria-label="Atlas wiki navigation">
-    <div class="nav-top">
-      <div class="brand">pastiche.</div>
-      <div class="wiki-title">Atlas Wiki</div>
-      <div class="doc-links">
-        <a href="#">Contribution Guidelines</a>
-        <a href="#">Tagging Rules</a>
-        <a href="#">Classifier Style Guide</a>
-        <a href="#">Agent Rules</a>
-      </div>
-    </div>
+			<aside class="wiki-nav" aria-label="Atlas wiki navigation">
+				<div class="nav-top">
+					<div class="brand">pastiche.</div>
+					<div class="wiki-title">Atlas Wiki</div>
+					<div class="doc-links">
+						<a href="#">Contribution Guidelines</a>
+						<a href="#">Tagging Rules</a>
+						<a href="#">Classifier Style Guide</a>
+						<a href="#">Agent Rules</a>
+					</div>
+				</div>
 
-    <div class="search-wrap">
-      <div class="search-box">
-        <span class="search-icon">⌕</span>
-        <input id="wikiSearch" type="search" placeholder="Search wiki…" aria-label="Search wiki">
-        <span class="kbd">⌘K</span>
-      </div>
-    </div>
+				<div class="search-wrap">
+					<div class="search-box">
+						<span class="search-icon">⌕</span>
+						<input
+							id="wikiSearch"
+							type="search"
+							placeholder="Search wiki…"
+							aria-label="Search wiki"
+						/>
+						<span class="kbd">⌘K</span>
+					</div>
+				</div>
 
-    <div class="nav-scroll">
-      <div class="nav-label">Browse index</div>
+				<div class="nav-scroll">
+					<div class="nav-label">Browse index</div>
 
-      <details class="group">
-        <summary>Objects <span class="chev">⌄</span></summary>
-        <div class="branch">
-          <a class="wiki-link" href="#">lamp</a>
-          <a class="wiki-link" href="#">table</a>
-          <a class="wiki-link" href="#">window</a>
-        </div>
-      </details>
+					<details class="group">
+						<summary>Objects <span class="chev">⌄</span></summary>
+						<div class="branch">
+							<a class="wiki-link" href="#">lamp</a>
+							<a class="wiki-link" href="#">table</a>
+							<a class="wiki-link" href="#">window</a>
+						</div>
+					</details>
 
-      <details class="group" open>
-        <summary>Composition <span class="chev">⌄</span></summary>
-        <div class="branch">
-          <div class="branch-title">Framing</div>
-          <a class="wiki-link" href="#">close_up</a>
-          <a class="wiki-link" href="#">wide_composition</a>
-          <div class="branch-title">Layout</div>
-          <a class="wiki-link" href="#">crowded_composition</a>
-          <a class="wiki-link" href="#">asymmetrical_composition</a>
-          <div class="branch-title">Orientation / Tilt</div>
-          <a class="wiki-link active" href="#">Dutch Angle</a>
-          <a class="wiki-link" href="#">Diagonal Composition</a>
-          <a class="wiki-link" href="#">Tilted Horizon</a>
-          <a class="wiki-link" href="#">Dynamic Angle</a>
-        </div>
-      </details>
+					<details class="group" open>
+						<summary>Composition <span class="chev">⌄</span></summary>
+						<div class="branch">
+							<div class="branch-title">Framing</div>
+							<a class="wiki-link" href="#">close_up</a>
+							<a class="wiki-link" href="#">wide_composition</a>
+							<div class="branch-title">Layout</div>
+							<a class="wiki-link" href="#">crowded_composition</a>
+							<a class="wiki-link" href="#">asymmetrical_composition</a>
+							<div class="branch-title">Orientation / Tilt</div>
+							<a class="wiki-link active" href="#">Dutch Angle</a>
+							<a class="wiki-link" href="#">Diagonal Composition</a>
+							<a class="wiki-link" href="#">Tilted Horizon</a>
+							<a class="wiki-link" href="#">Dynamic Angle</a>
+						</div>
+					</details>
 
-      <details class="group">
-        <summary>Subjects <span class="chev">⌄</span></summary>
-        <div class="branch">
-          <a class="wiki-link" href="#">person</a>
-          <a class="wiki-link" href="#">group_of_people</a>
-          <a class="wiki-link" href="#">fallen_soldier</a>
-        </div>
-      </details>
+					<details class="group">
+						<summary>Subjects <span class="chev">⌄</span></summary>
+						<div class="branch">
+							<a class="wiki-link" href="#">person</a>
+							<a class="wiki-link" href="#">group_of_people</a>
+							<a class="wiki-link" href="#">fallen_soldier</a>
+						</div>
+					</details>
 
-      <details class="group">
-        <summary>Animals <span class="chev">⌄</span></summary>
-        <div class="branch">
-          <a class="wiki-link" href="#">horse</a>
-          <a class="wiki-link" href="#">bull</a>
-          <a class="wiki-link" href="#">bird</a>
-        </div>
-      </details>
+					<details class="group">
+						<summary>Animals <span class="chev">⌄</span></summary>
+						<div class="branch">
+							<a class="wiki-link" href="#">horse</a>
+							<a class="wiki-link" href="#">bull</a>
+							<a class="wiki-link" href="#">bird</a>
+						</div>
+					</details>
 
-      <details class="group">
-        <summary>Color / Light / Value <span class="chev">⌄</span></summary>
-        <div class="branch">
-          <a class="wiki-link" href="#">monochrome</a>
-          <a class="wiki-link" href="#">high_contrast</a>
-          <a class="wiki-link" href="#">limited_palette</a>
-        </div>
-      </details>
+					<details class="group">
+						<summary>Color / Light / Value <span class="chev">⌄</span></summary>
+						<div class="branch">
+							<a class="wiki-link" href="#">monochrome</a>
+							<a class="wiki-link" href="#">high_contrast</a>
+							<a class="wiki-link" href="#">limited_palette</a>
+						</div>
+					</details>
 
-      <details class="group">
-        <summary>Style / Movement <span class="chev">⌄</span></summary>
-        <div class="branch">
-          <a class="wiki-link" href="#">cubism</a>
-          <a class="wiki-link" href="#">modernism</a>
-          <a class="wiki-link" href="#">expressionism</a>
-        </div>
-      </details>
+					<details class="group">
+						<summary>Style / Movement <span class="chev">⌄</span></summary>
+						<div class="branch">
+							<a class="wiki-link" href="#">cubism</a>
+							<a class="wiki-link" href="#">modernism</a>
+							<a class="wiki-link" href="#">expressionism</a>
+						</div>
+					</details>
 
-      <details class="group">
-        <summary>Theme / Mood <span class="chev">⌄</span></summary>
-        <div class="branch">
-          <a class="wiki-link" href="#">grief</a>
-          <a class="wiki-link" href="#">anti_war</a>
-          <a class="wiki-link" href="#">civilian_suffering</a>
-        </div>
-      </details>
+					<details class="group">
+						<summary>Theme / Mood <span class="chev">⌄</span></summary>
+						<div class="branch">
+							<a class="wiki-link" href="#">grief</a>
+							<a class="wiki-link" href="#">anti_war</a>
+							<a class="wiki-link" href="#">civilian_suffering</a>
+						</div>
+					</details>
 
-      <details class="group">
-        <summary>Artists <span class="chev">⌄</span></summary>
-        <div class="branch">
-          <a class="wiki-link" href="#">Pablo Picasso</a>
-          <a class="wiki-link" href="#">Édouard Manet</a>
-          <a class="wiki-link" href="#">Ernst Ludwig Kirchner</a>
-        </div>
-      </details>
+					<details class="group">
+						<summary>Artists <span class="chev">⌄</span></summary>
+						<div class="branch">
+							<a class="wiki-link" href="#">Pablo Picasso</a>
+							<a class="wiki-link" href="#">Édouard Manet</a>
+							<a class="wiki-link" href="#">Ernst Ludwig Kirchner</a>
+						</div>
+					</details>
 
-      <details class="group">
-        <summary>Sources / Rights <span class="chev">⌄</span></summary>
-        <div class="branch">
-          <a class="wiki-link" href="#">public_domain</a>
-          <a class="wiki-link" href="#">museum_record</a>
-          <a class="wiki-link" href="#">source_uncertain</a>
-        </div>
-      </details>
-    </div>
-  </aside>
+					<details class="group">
+						<summary>Sources / Rights <span class="chev">⌄</span></summary>
+						<div class="branch">
+							<a class="wiki-link" href="#">public_domain</a>
+							<a class="wiki-link" href="#">museum_record</a>
+							<a class="wiki-link" href="#">source_uncertain</a>
+						</div>
+					</details>
+				</div>
+			</aside>
 
-  <main class="entry-scroll" aria-label="Atlas wiki entry">
-    <article class="entry">
-      <nav class="breadcrumbs" aria-label="Breadcrumb">
-        <a href="#">Composition</a>
-        <span class="crumb-sep">›</span>
-        <a href="#">Orientation / Tilt</a>
-        <span class="crumb-sep">›</span>
-        <span class="current">Dutch Angle</span>
-      </nav>
+			<main class="entry-scroll" aria-label="Atlas wiki entry">
+				<article class="entry">
+					<nav class="breadcrumbs" aria-label="Breadcrumb">
+						<a href="#">Composition</a>
+						<span class="crumb-sep">›</span>
+						<a href="#">Orientation / Tilt</a>
+						<span class="crumb-sep">›</span>
+						<span class="current">Dutch Angle</span>
+					</nav>
 
-      <header class="entry-header">
-        <h1>Dutch Angle</h1>
-        <div class="aliases">Aliases: canted_angle, dutch_tilt, oblique_angle</div>
-        <p class="definition">A composition where the scene’s horizon, ground plane, or dominant spatial axis is deliberately tilted relative to the frame, creating an unstable, disorienting, or canted effect.</p>
-      </header>
+					<header class="entry-header">
+						<h1>Dutch Angle</h1>
+						<div class="aliases">Aliases: canted_angle, dutch_tilt, oblique_angle</div>
+						<p class="definition">
+							A composition where the scene’s horizon, ground plane, or dominant spatial axis is
+							deliberately tilted relative to the frame, creating an unstable, disorienting, or
+							canted effect.
+						</p>
+					</header>
 
-      <section class="entry-section" aria-labelledby="examples-title">
-        <h2 class="section-title" id="examples-title">Examples</h2>
-        <div class="examples">
-          <a class="example-card" href="#" tabindex="0">
-            <div class="example-img" style="--tilt:-10deg"></div>
-            <div class="example-label">Approved example</div>
-            <div class="example-title">Interior with Canted Perspective</div>
-            <div class="example-meta">Unknown artist · c. 1890</div>
-          </a>
-          <a class="example-card" href="#" tabindex="0">
-            <div class="example-img" style="--tilt:-7deg"></div>
-            <div class="example-label">Approved example</div>
-            <div class="example-title">Rue Mosnier</div>
-            <div class="example-meta">Édouard Manet · 1878</div>
-          </a>
-          <a class="example-card" href="#" tabindex="0">
-            <div class="example-img" style="--tilt:12deg"></div>
-            <div class="example-label">Approved example</div>
-            <div class="example-title">The Poet</div>
-            <div class="example-meta">Ernst Ludwig Kirchner · 1911</div>
-          </a>
-          <a class="example-card" href="#" tabindex="0">
-            <div class="example-img anti"></div>
-            <div class="example-label anti">Anti-example</div>
-            <div class="example-title">Single leaning figure only</div>
-            <div class="example-meta">Use <span class="tag-ref" tabindex="0">diagonal_composition</span> or <span class="tag-ref" tabindex="0">dynamic_pose</span> instead.</div>
-          </a>
-        </div>
-        <a class="entry-link" href="#">Open tag in Atlas →</a>
-      </section>
+					<section class="entry-section" aria-labelledby="examples-title">
+						<h2 class="section-title" id="examples-title">Examples</h2>
+						<div class="examples">
+							<a class="example-card" href="#" tabindex="0">
+								<div class="example-img" style="--tilt: -10deg"></div>
+								<div class="example-label">Approved example</div>
+								<div class="example-title">Interior with Canted Perspective</div>
+								<div class="example-meta">Unknown artist · c. 1890</div>
+							</a>
+							<a class="example-card" href="#" tabindex="0">
+								<div class="example-img" style="--tilt: -7deg"></div>
+								<div class="example-label">Approved example</div>
+								<div class="example-title">Rue Mosnier</div>
+								<div class="example-meta">Édouard Manet · 1878</div>
+							</a>
+							<a class="example-card" href="#" tabindex="0">
+								<div class="example-img" style="--tilt: 12deg"></div>
+								<div class="example-label">Approved example</div>
+								<div class="example-title">The Poet</div>
+								<div class="example-meta">Ernst Ludwig Kirchner · 1911</div>
+							</a>
+							<a class="example-card" href="#" tabindex="0">
+								<div class="example-img anti"></div>
+								<div class="example-label anti">Anti-example</div>
+								<div class="example-title">Single leaning figure only</div>
+								<div class="example-meta">
+									Use <span class="tag-ref" tabindex="0">diagonal_composition</span> or
+									<span class="tag-ref" tabindex="0">dynamic_pose</span> instead.
+								</div>
+							</a>
+						</div>
+						<a class="entry-link" href="#">Open tag in Atlas →</a>
+					</section>
 
-      <section class="entry-section info-grid" aria-label="Concept relationships and classifiers">
-        <div class="info-block">
-          <h2 class="section-title small">Automatic implications</h2>
-          <ul>
-            <li><span class="tag-ref" tabindex="0">composition</span></li>
-            <li><span class="tag-ref" tabindex="0">tilted_composition</span></li>
-          </ul>
+					<section
+						class="entry-section info-grid"
+						aria-label="Concept relationships and classifiers"
+					>
+						<div class="info-block">
+							<h2 class="section-title small">Automatic implications</h2>
+							<ul>
+								<li><span class="tag-ref" tabindex="0">composition</span></li>
+								<li><span class="tag-ref" tabindex="0">tilted_composition</span></li>
+							</ul>
 
-          <h2 class="section-title small" style="margin-top:18px;">Related tags</h2>
-          <ul>
-            <li><span class="tag-ref" tabindex="0">diagonal_composition</span></li>
-            <li><span class="tag-ref" tabindex="0">tilted_horizon</span></li>
-            <li><span class="tag-ref" tabindex="0">dynamic_angle</span></li>
-            <li><span class="tag-ref" tabindex="0">unstable_composition</span></li>
-          </ul>
-        </div>
+							<h2 class="section-title small" style="margin-top: 18px">Related tags</h2>
+							<ul>
+								<li><span class="tag-ref" tabindex="0">diagonal_composition</span></li>
+								<li><span class="tag-ref" tabindex="0">tilted_horizon</span></li>
+								<li><span class="tag-ref" tabindex="0">dynamic_angle</span></li>
+								<li><span class="tag-ref" tabindex="0">unstable_composition</span></li>
+							</ul>
+						</div>
 
-        <div class="info-block">
-          <h2 class="section-title small">Often confused with</h2>
-          <ul>
-            <li><span class="tag-ref" tabindex="0">diagonal_composition</span><br>diagonals organize the image, but the world itself is not canted.</li>
-            <li><span class="tag-ref" tabindex="0">tilted_horizon</span><br>horizon is tilted, but the full scene may not be Dutch Angle.</li>
-            <li><span class="tag-ref" tabindex="0">dynamic_pose</span><br>the body is angled or leaning, not the image frame.</li>
-          </ul>
-        </div>
+						<div class="info-block">
+							<h2 class="section-title small">Often confused with</h2>
+							<ul>
+								<li>
+									<span class="tag-ref" tabindex="0">diagonal_composition</span><br />diagonals
+									organize the image, but the world itself is not canted.
+								</li>
+								<li>
+									<span class="tag-ref" tabindex="0">tilted_horizon</span><br />horizon is tilted,
+									but the full scene may not be Dutch Angle.
+								</li>
+								<li>
+									<span class="tag-ref" tabindex="0">dynamic_pose</span><br />the body is angled or
+									leaning, not the image frame.
+								</li>
+							</ul>
+						</div>
 
-        <div class="info-block">
-          <h2 class="section-title small">Broader concepts</h2>
-          <ul>
-            <li><span class="tag-ref" tabindex="0">composition</span></li>
-            <li><span class="tag-ref" tabindex="0">image_orientation</span></li>
-          </ul>
+						<div class="info-block">
+							<h2 class="section-title small">Broader concepts</h2>
+							<ul>
+								<li><span class="tag-ref" tabindex="0">composition</span></li>
+								<li><span class="tag-ref" tabindex="0">image_orientation</span></li>
+							</ul>
 
-          <h2 class="section-title small" style="margin-top:18px;">Narrower / specific</h2>
-          <ul>
-            <li><span class="tag-ref" tabindex="0">extreme_dutch_angle</span></li>
-            <li><span class="tag-ref" tabindex="0">slight_dutch_angle</span></li>
-          </ul>
-        </div>
+							<h2 class="section-title small" style="margin-top: 18px">Narrower / specific</h2>
+							<ul>
+								<li><span class="tag-ref" tabindex="0">extreme_dutch_angle</span></li>
+								<li><span class="tag-ref" tabindex="0">slight_dutch_angle</span></li>
+							</ul>
+						</div>
 
-        <div class="info-block">
-          <h2 class="section-title small">Allowed classifiers</h2>
-          <ul>
-            <li><span class="tag-ref classifier" tabindex="0">tilt_direction</span>: left, right</li>
-            <li><span class="tag-ref classifier" tabindex="0">tilt_degree</span>: slight, moderate, extreme</li>
-            <li><span class="tag-ref classifier" tabindex="0">dominant_axis</span>: horizon, architecture, ground_plane, figure_group</li>
-            <li><span class="tag-ref classifier" tabindex="0">effect</span>: unstable, dramatic, disorienting, energetic</li>
-          </ul>
-        </div>
-      </section>
+						<div class="info-block">
+							<h2 class="section-title small">Allowed classifiers</h2>
+							<ul>
+								<li>
+									<span class="tag-ref classifier" tabindex="0">tilt_direction</span>: left, right
+								</li>
+								<li>
+									<span class="tag-ref classifier" tabindex="0">tilt_degree</span>: slight,
+									moderate, extreme
+								</li>
+								<li>
+									<span class="tag-ref classifier" tabindex="0">dominant_axis</span>: horizon,
+									architecture, ground_plane, figure_group
+								</li>
+								<li>
+									<span class="tag-ref classifier" tabindex="0">effect</span>: unstable, dramatic,
+									disorienting, energetic
+								</li>
+							</ul>
+						</div>
+					</section>
 
-      <section class="entry-section lower-grid">
-        <div>
-          <h2 class="section-title">Tagging guidance</h2>
-          <div class="guidance">
-            <p>Use this tag when the dominant spatial axes of the scene are visibly canted relative to the frame. If tilting your head makes the image feel more “level,” this tag is probably appropriate.</p>
-            <p>Do not use this tag for a single diagonal object, a leaning figure, a sloped hill, or ordinary perspective lines. In those cases, use <span class="tag-ref" tabindex="0">diagonal_composition</span>, <span class="tag-ref" tabindex="0">dynamic_pose</span>, or <span class="tag-ref" tabindex="0">tilted_horizon</span> instead.</p>
-          </div>
-        </div>
+					<section class="entry-section lower-grid">
+						<div>
+							<h2 class="section-title">Tagging guidance</h2>
+							<div class="guidance">
+								<p>
+									Use this tag when the dominant spatial axes of the scene are visibly canted
+									relative to the frame. If tilting your head makes the image feel more “level,”
+									this tag is probably appropriate.
+								</p>
+								<p>
+									Do not use this tag for a single diagonal object, a leaning figure, a sloped hill,
+									or ordinary perspective lines. In those cases, use
+									<span class="tag-ref" tabindex="0">diagonal_composition</span>,
+									<span class="tag-ref" tabindex="0">dynamic_pose</span>, or
+									<span class="tag-ref" tabindex="0">tilted_horizon</span> instead.
+								</p>
+							</div>
+						</div>
 
-        <aside>
-          <h2 class="section-title">Metadata</h2>
-          <dl class="metadata-table">
-            <dt>Created by</dt><dd>atlas_admin</dd>
-            <dt>Created</dt><dd>Mar 2, 2025</dd>
-            <dt>Last reviewed</dt><dd>May 28, 2025</dd>
-            <dt>Wiki maturity</dt><dd>Reviewed</dd>
-            <dt>Used in</dt><dd>18 assets</dd>
-            <dt>Agent use</dt><dd>Allowed with confidence threshold</dd>
-          </dl>
-        </aside>
-      </section>
+						<aside>
+							<h2 class="section-title">Metadata</h2>
+							<dl class="metadata-table">
+								<dt>Created by</dt>
+								<dd>atlas_admin</dd>
+								<dt>Created</dt>
+								<dd>Mar 2, 2025</dd>
+								<dt>Last reviewed</dt>
+								<dd>May 28, 2025</dd>
+								<dt>Wiki maturity</dt>
+								<dd>Reviewed</dd>
+								<dt>Used in</dt>
+								<dd>18 assets</dd>
+								<dt>Agent use</dt>
+								<dd>Allowed with confidence threshold</dd>
+							</dl>
+						</aside>
+					</section>
 
-      <section class="ai-guidance">
-        <h2 class="section-title small">AI tagging guidance</h2>
-        <p>Agents may suggest <span class="tag-ref" tabindex="0">dutch_angle</span> when multiple architectural, horizon, or ground-plane cues indicate that the scene itself is tilted. Agents should not apply the tag automatically when only a character pose or isolated object is diagonal.</p>
-      </section>
-    </article>
-  </main>
-</div>
+					<section class="ai-guidance">
+						<h2 class="section-title small">AI tagging guidance</h2>
+						<p>
+							Agents may suggest <span class="tag-ref" tabindex="0">dutch_angle</span> when multiple
+							architectural, horizon, or ground-plane cues indicate that the scene itself is tilted.
+							Agents should not apply the tag automatically when only a character pose or isolated
+							object is diagonal.
+						</p>
+					</section>
+				</article>
+			</main>
+		</div>
 
-<div class="toast" id="toast" role="status" aria-live="polite">Opened wiki preview</div>
+		<div class="toast" id="toast" role="status" aria-live="polite">Opened wiki preview</div>
 
-<script>
-(() => {
-  const search = document.getElementById('wikiSearch');
-  const links = [...document.querySelectorAll('.wiki-link')];
-  const groups = [...document.querySelectorAll('.group')];
+		<script>
+			(() => {
+				const search = document.getElementById('wikiSearch');
+				const links = [...document.querySelectorAll('.wiki-link')];
+				const groups = [...document.querySelectorAll('.group')];
 
-  function runSearch() {
-    const q = search.value.trim().toLowerCase();
-    links.forEach(link => {
-      const hit = !q || link.textContent.toLowerCase().includes(q);
-      link.classList.toggle('hidden', !hit);
-    });
-    groups.forEach(group => {
-      const visible = [...group.querySelectorAll('.wiki-link')].some(link => !link.classList.contains('hidden'));
-      group.classList.toggle('hidden', !visible && q);
-      if (q && visible) group.open = true;
-    });
-  }
-  search.addEventListener('input', runSearch);
+				function runSearch() {
+					const q = search.value.trim().toLowerCase();
+					links.forEach((link) => {
+						const hit = !q || link.textContent.toLowerCase().includes(q);
+						link.classList.toggle('hidden', !hit);
+					});
+					groups.forEach((group) => {
+						const visible = [...group.querySelectorAll('.wiki-link')].some(
+							(link) => !link.classList.contains('hidden')
+						);
+						group.classList.toggle('hidden', !visible && q);
+						if (q && visible) group.open = true;
+					});
+				}
+				search.addEventListener('input', runSearch);
 
-  document.addEventListener('keydown', event => {
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-      event.preventDefault();
-      search.focus();
-      search.select();
-    }
-  });
+				document.addEventListener('keydown', (event) => {
+					if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+						event.preventDefault();
+						search.focus();
+						search.select();
+					}
+				});
 
-  const toast = document.getElementById('toast');
-  let toastTimer;
-  function showToast(text) {
-    toast.textContent = text;
-    toast.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove('show'), 1200);
-  }
+				const toast = document.getElementById('toast');
+				let toastTimer;
+				function showToast(text) {
+					toast.textContent = text;
+					toast.classList.add('show');
+					clearTimeout(toastTimer);
+					toastTimer = setTimeout(() => toast.classList.remove('show'), 1200);
+				}
 
-  document.querySelectorAll('.tag-ref').forEach(tag => {
-    tag.addEventListener('click', () => showToast('Would open wiki page for “' + tag.textContent.trim() + '”'));
-    tag.addEventListener('keydown', event => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        showToast('Would open wiki page for “' + tag.textContent.trim() + '”');
-      }
-    });
-  });
+				document.querySelectorAll('.tag-ref').forEach((tag) => {
+					tag.addEventListener('click', () =>
+						showToast('Would open wiki page for “' + tag.textContent.trim() + '”')
+					);
+					tag.addEventListener('keydown', (event) => {
+						if (event.key === 'Enter' || event.key === ' ') {
+							event.preventDefault();
+							showToast('Would open wiki page for “' + tag.textContent.trim() + '”');
+						}
+					});
+				});
 
-  document.querySelector('.entry-link').addEventListener('click', event => {
-    event.preventDefault();
-    showToast('Would open dutch_angle in Atlas search/inspect context');
-  });
+				document.querySelector('.entry-link').addEventListener('click', (event) => {
+					event.preventDefault();
+					showToast('Would open dutch_angle in Atlas search/inspect context');
+				});
 
-  document.querySelectorAll('.example-card').forEach(card => {
-    card.addEventListener('click', event => {
-      event.preventDefault();
-      showToast('Would open example asset');
-    });
-  });
-})();
-</script>
-</body>
+				document.querySelectorAll('.example-card').forEach((card) => {
+					card.addEventListener('click', (event) => {
+						event.preventDefault();
+						showToast('Would open example asset');
+					});
+				});
+			})();
+		</script>
+	</body>
 </html>

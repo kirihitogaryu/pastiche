@@ -430,9 +430,13 @@ export function createCommonsReferenceConnector(options: CommonsReferenceOptions
 		const candidates = await collectCandidates(tokens, filters, limit + offset);
 		const uniqueCandidates = uniqueCandidatesByTitle(candidates);
 		const pageCandidates = uniqueCandidates.slice(offset, offset + limit);
-		const imageInfoByTitle = await fetchImageInfo(pageCandidates.map((candidate) => candidate.title));
+		const imageInfoByTitle = await fetchImageInfo(
+			pageCandidates.map((candidate) => candidate.title)
+		);
 		const items = pageCandidates
-			.map((candidate) => normalizeCandidate(candidate, imageInfoByTitle.get(candidate.title), filters))
+			.map((candidate) =>
+				normalizeCandidate(candidate, imageInfoByTitle.get(candidate.title), filters)
+			)
 			.filter((item): item is ExploreItem => item !== null);
 
 		return {
@@ -510,7 +514,16 @@ export function createCommonsReferenceConnector(options: CommonsReferenceOptions
 		if (filters.includeCommonsText) {
 			for (const textPhrase of phrases.slice(0, 5)) {
 				if (textPhrase) {
-					tasks.push(searchFiles(`intitle:"${escapeSearchPhrase(textPhrase)}"`, 'title', 48, null, tokens, filters));
+					tasks.push(
+						searchFiles(
+							`intitle:"${escapeSearchPhrase(textPhrase)}"`,
+							'title',
+							48,
+							null,
+							tokens,
+							filters
+						)
+					);
 					tasks.push(searchFiles(textPhrase, 'text', 32, null, tokens, filters));
 				}
 			}
@@ -549,12 +562,14 @@ export function createCommonsReferenceConnector(options: CommonsReferenceOptions
 			.filter((title) => !isHumanCenteredReferenceText(title, filters))
 			.sort(
 				(left, right) =>
-					categoryScore(right, phrase, tokens, filters) - categoryScore(left, phrase, tokens, filters) ||
-					left.localeCompare(right)
+					categoryScore(right, phrase, tokens, filters) -
+						categoryScore(left, phrase, tokens, filters) || left.localeCompare(right)
 			)
 			.slice(0, 3);
 		const memberPages = await Promise.all(
-			categories.map((category) => searchCategoryMembers(category, tokens, filters, limit, 300, phrase))
+			categories.map((category) =>
+				searchCategoryMembers(category, tokens, filters, limit, 300, phrase)
+			)
 		);
 		return memberPages.flat();
 	}
@@ -581,7 +596,8 @@ export function createCommonsReferenceConnector(options: CommonsReferenceOptions
 			.map((title) => ({
 				title,
 				lane: 'category' as const,
-				score: baseScore + categoryScore(category, phrase, tokens, filters) + titleScore(title, tokens),
+				score:
+					baseScore + categoryScore(category, phrase, tokens, filters) + titleScore(title, tokens),
 				matchedCategory: category,
 				matchedTokens: matchedReferenceLabels(tokens, filters)
 			}));
@@ -605,7 +621,8 @@ export function createCommonsReferenceConnector(options: CommonsReferenceOptions
 					'Wikimedia file search took too long to answer.'
 				)
 		);
-		const baseScore = lane === 'main_subject' ? 560 : lane === 'structured' ? 460 : lane === 'title' ? 170 : 80;
+		const baseScore =
+			lane === 'main_subject' ? 560 : lane === 'structured' ? 460 : lane === 'title' ? 170 : 80;
 		return searchTitles(data.query?.search, 'File:')
 			.filter((title) => !isHumanCenteredReferenceText(title, filters))
 			.map((title) => ({
@@ -704,7 +721,8 @@ function normalizeReferenceFilters(
 		...filters,
 		subjects: filters?.subjects ?? DEFAULT_FILTERS.subjects,
 		qualifiers: filters?.qualifiers ?? DEFAULT_FILTERS.qualifiers,
-		formats: filters?.formats && filters.formats.length > 0 ? filters.formats : DEFAULT_FILTERS.formats
+		formats:
+			filters?.formats && filters.formats.length > 0 ? filters.formats : DEFAULT_FILTERS.formats
 	};
 }
 
@@ -765,7 +783,10 @@ function normalizeCandidate(
 	};
 }
 
-function buildReferencePhrases(tokens: WikimediaReferenceToken[], filters: WikimediaReferenceFilters): string[] {
+function buildReferencePhrases(
+	tokens: WikimediaReferenceToken[],
+	filters: WikimediaReferenceFilters
+): string[] {
 	const entity = primaryEntity(tokens);
 	const text = tokens
 		.filter((token) => token.kind === 'text')
@@ -778,10 +799,14 @@ function buildReferencePhrases(tokens: WikimediaReferenceToken[], filters: Wikim
 	const baseFilterTerms = filterTerms.length > 0 ? filterTerms : formatTerms;
 	const firstFormatTerm = formatTerms[0] ?? '';
 	const entityPhrases = [
-		...entityLabels.flatMap((label) => textVariants.map((variant) => `${label} (${variant})`.trim())),
+		...entityLabels.flatMap((label) =>
+			textVariants.map((variant) => `${label} (${variant})`.trim())
+		),
 		...entityLabels.flatMap((label) => textVariants.map((variant) => `${label} ${variant}`.trim())),
 		...entityLabels.flatMap((label) => textVariants.map((variant) => `${variant} ${label}`.trim())),
-		...entityLabels.flatMap((label) => baseFilterTerms.slice(0, 6).map((term) => `${label} ${term}`.trim())),
+		...entityLabels.flatMap((label) =>
+			baseFilterTerms.slice(0, 6).map((term) => `${label} ${term}`.trim())
+		),
 		...entityLabels,
 		text.join(' ')
 	];
@@ -789,7 +814,8 @@ function buildReferencePhrases(tokens: WikimediaReferenceToken[], filters: Wikim
 		...baseFilterTerms.slice(0, 12).map((term) => `${term} ${firstFormatTerm}`.trim()),
 		...baseFilterTerms.slice(0, 12)
 	];
-	const phrases = entityLabels.length > 0 ? entityPhrases : [...entityPhrases, ...filterOnlyPhrases];
+	const phrases =
+		entityLabels.length > 0 ? entityPhrases : [...entityPhrases, ...filterOnlyPhrases];
 	return uniqueStrings(phrases.map(cleanPhrase).filter(Boolean));
 }
 
@@ -844,7 +870,10 @@ function referenceFormatTerms(formats: WikimediaReferenceFormat[]): string[] {
 	return uniqueStrings(formats.flatMap((format) => terms[format]));
 }
 
-function applyReferenceSearchExclusions(search: string, filters: WikimediaReferenceFilters): string {
+function applyReferenceSearchExclusions(
+	search: string,
+	filters: WikimediaReferenceFilters
+): string {
 	if (!shouldExcludeHumanDepicts(filters)) return search;
 	return `${search} -haswbstatement:P180=Q5`;
 }
@@ -1018,7 +1047,10 @@ function mediumFromMime(mime: string): string {
 	return 'Wikimedia Commons image';
 }
 
-function candidateMatchesFormats(candidate: CommonsCandidate, filters: WikimediaReferenceFilters): boolean {
+function candidateMatchesFormats(
+	candidate: CommonsCandidate,
+	filters: WikimediaReferenceFilters
+): boolean {
 	const formats = effectiveReferenceFormats(filters);
 	const text = normalizeText(`${candidate.title} ${candidate.matchedCategory ?? ''}`);
 	const inferred = new Set<string>();
@@ -1068,7 +1100,11 @@ function clampLimit(limit: number): number {
 }
 
 function normalizeText(value: string): string {
-	return value.toLowerCase().replace(/[_()[\]"]/g, ' ').replace(/\s+/g, ' ').trim();
+	return value
+		.toLowerCase()
+		.replace(/[_()[\]"]/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim();
 }
 
 function uniqueStrings(values: string[]): string[] {
@@ -1089,7 +1125,8 @@ function stringOrNull(value: unknown): string | null {
 }
 
 function numberOrNull(value: unknown): number | null {
-	const parsed = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+	const parsed =
+		typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
 	return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 

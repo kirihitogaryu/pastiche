@@ -1,49 +1,49 @@
 <script lang="ts">
-import CheckIcon from 'phosphor-svelte/lib/CheckIcon';
-import PencilSimpleIcon from 'phosphor-svelte/lib/PencilSimpleIcon';
-import XIcon from 'phosphor-svelte/lib/XIcon';
+	import CheckIcon from 'phosphor-svelte/lib/CheckIcon';
+	import PencilSimpleIcon from 'phosphor-svelte/lib/PencilSimpleIcon';
+	import XIcon from 'phosphor-svelte/lib/XIcon';
 
-type Props = {
-	description: string;
-	editMode: boolean;
-	saving?: boolean;
-	onSave: (description: string) => void | Promise<void>;
-};
+	type Props = {
+		description: string;
+		editMode: boolean;
+		saving?: boolean;
+		onSave: (description: string) => void | Promise<void>;
+	};
 
-let { description, editMode, saving = false, onSave }: Props = $props();
-let draft = $state('');
-let editing = $state(false);
-let displayDescription = $derived(cleanDescription(description));
+	let { description, editMode, saving = false, onSave }: Props = $props();
+	let draft = $state('');
+	let editing = $state(false);
+	let displayDescription = $derived(cleanDescription(description));
 
-$effect(() => {
-	if (!editing) draft = displayDescription;
-});
+	$effect(() => {
+		if (!editing) draft = displayDescription;
+	});
 
-async function save() {
-	await onSave(cleanDescription(draft));
-	editing = false;
-}
+	async function save() {
+		await onSave(cleanDescription(draft));
+		editing = false;
+	}
 
-function reset() {
-	draft = displayDescription;
-	editing = false;
-}
+	function reset() {
+		draft = displayDescription;
+		editing = false;
+	}
 
-function cleanDescription(value: string) {
-	return value
-		.replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')
-		.replace(/<br\s*\/?>/gi, '\n')
-		.replace(/<\/?(p|em|i|strong|b|span|div)[^>]*>/gi, '')
-		.replace(/<[^>]+>/g, '')
-		.replace(/&nbsp;/g, ' ')
-		.replace(/&amp;/g, '&')
-		.replace(/&lt;/g, '<')
-		.replace(/&gt;/g, '>')
-		.replace(/&quot;/g, '"')
-		.replace(/&#39;/g, "'")
-		.replace(/\n{3,}/g, '\n\n')
-		.trim();
-}
+	function cleanDescription(value: string) {
+		return value
+			.replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')
+			.replace(/<br\s*\/?>/gi, '\n')
+			.replace(/<\/?(p|em|i|strong|b|span|div)[^>]*>/gi, '')
+			.replace(/<[^>]+>/g, '')
+			.replace(/&nbsp;/g, ' ')
+			.replace(/&amp;/g, '&')
+			.replace(/&lt;/g, '<')
+			.replace(/&gt;/g, '>')
+			.replace(/&quot;/g, '"')
+			.replace(/&#39;/g, "'")
+			.replace(/\n{3,}/g, '\n\n')
+			.trim();
+	}
 </script>
 
 <section class="description-section" aria-label="Asset description">

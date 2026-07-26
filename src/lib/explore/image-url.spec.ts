@@ -53,7 +53,19 @@ describe('Explore image URLs', () => {
 			'https://www.artic.edu/iiif/2/abc123/full/1200,/0/default.jpg'
 		);
 		expect(getExplorePreviewImageUrl(item)).toBe(
-			'https://www.artic.edu/iiif/2/abc123/full/1600,/0/default.jpg'
+			'https://www.artic.edu/iiif/2/abc123/full/full/0/default.jpg'
 		);
+	});
+
+	it('routes Fur Affinity originals through the local authenticated image endpoint', () => {
+		const item = createItem({
+			source: 'furaffinity',
+			id: 'furaffinity-61544737',
+			detailUrl: 'https://www.furaffinity.net/view/61544737/',
+			imageUrl: 'https://d.furaffinity.net/art/test/original.png'
+		});
+
+		expect(getExploreDisplayImageUrl(item)).toBe('/explore/api/furaffinity/image/61544737');
+		expect(getExplorePreviewImageUrl(item)).toBe('/explore/api/furaffinity/image/61544737');
 	});
 });

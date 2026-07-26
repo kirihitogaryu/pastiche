@@ -139,8 +139,7 @@
 
 	.project-card.empty .project-media {
 		background:
-			linear-gradient(135deg, oklch(18% 0.01 70), oklch(11% 0.008 70)),
-			var(--color-surface);
+			linear-gradient(135deg, oklch(18% 0.01 70), oklch(11% 0.008 70)), var(--color-surface);
 	}
 
 	.project-label {

@@ -53,7 +53,10 @@ describe('Commons reference connector', () => {
 	it('merges category, structured, and title lanes for an entity plus text qualifier', async () => {
 		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
 			const url = new URL(input.toString());
-			if (url.searchParams.get('list') === 'search' && url.searchParams.get('srnamespace') === '14') {
+			if (
+				url.searchParams.get('list') === 'search' &&
+				url.searchParams.get('srnamespace') === '14'
+			) {
 				return Response.json({
 					query: {
 						search: [
@@ -78,7 +81,10 @@ describe('Commons reference connector', () => {
 					}
 				});
 			}
-			if (url.searchParams.get('list') === 'search' && url.searchParams.get('srnamespace') === '6') {
+			if (
+				url.searchParams.get('list') === 'search' &&
+				url.searchParams.get('srnamespace') === '6'
+			) {
 				const search = url.searchParams.get('srsearch') ?? '';
 				if (search.includes('haswbstatement:P180=Q140')) {
 					return Response.json({
@@ -115,7 +121,13 @@ describe('Commons reference connector', () => {
 		const page = await connector.search({
 			wikimediaMode: 'reference',
 			wikimediaReferenceTokens: [
-				{ kind: 'entity', id: 'Q140', label: 'lion', description: 'species of mammal', role: 'subject' },
+				{
+					kind: 'entity',
+					id: 'Q140',
+					label: 'lion',
+					description: 'species of mammal',
+					role: 'subject'
+				},
 				{ kind: 'text', value: 'female', match: 'boost' }
 			],
 			limit: 20
@@ -145,7 +157,9 @@ describe('Commons reference connector', () => {
 		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
 			const url = new URL(input.toString());
 			if (url.searchParams.get('list') === 'search') {
-				return Response.json({ query: { search: [{ title: 'File:Diagram.svg' }, { title: 'File:Tiny lion.jpg' }] } });
+				return Response.json({
+					query: { search: [{ title: 'File:Diagram.svg' }, { title: 'File:Tiny lion.jpg' }] }
+				});
 			}
 			if (url.searchParams.get('prop') === 'imageinfo') {
 				return Response.json({
@@ -188,7 +202,10 @@ describe('Commons reference connector', () => {
 		const searches: string[] = [];
 		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
 			const url = new URL(input.toString());
-			if (url.searchParams.get('list') === 'search' && url.searchParams.get('srnamespace') === '6') {
+			if (
+				url.searchParams.get('list') === 'search' &&
+				url.searchParams.get('srnamespace') === '6'
+			) {
 				searches.push(url.searchParams.get('srsearch') ?? '');
 				return Response.json({
 					query: { search: [{ title: 'File:Animal reference photo.jpg' }] }
@@ -236,7 +253,10 @@ describe('Commons reference connector', () => {
 		const searches: string[] = [];
 		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
 			const url = new URL(input.toString());
-			if (url.searchParams.get('list') === 'search' && url.searchParams.get('srnamespace') === '6') {
+			if (
+				url.searchParams.get('list') === 'search' &&
+				url.searchParams.get('srnamespace') === '6'
+			) {
 				searches.push(url.searchParams.get('srsearch') ?? '');
 				return Response.json({ query: { search: [] } });
 			}
@@ -274,14 +294,20 @@ describe('Commons reference connector', () => {
 		const categoryMemberRequests: string[] = [];
 		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
 			const url = new URL(input.toString());
-			if (url.searchParams.get('list') === 'search' && url.searchParams.get('srnamespace') === '14') {
+			if (
+				url.searchParams.get('list') === 'search' &&
+				url.searchParams.get('srnamespace') === '14'
+			) {
 				return Response.json({ query: { search: [] } });
 			}
 			if (url.searchParams.get('list') === 'categorymembers') {
 				categoryMemberRequests.push(url.searchParams.get('cmtitle') ?? '');
 				return Response.json({ query: { categorymembers: [] } });
 			}
-			if (url.searchParams.get('list') === 'search' && url.searchParams.get('srnamespace') === '6') {
+			if (
+				url.searchParams.get('list') === 'search' &&
+				url.searchParams.get('srnamespace') === '6'
+			) {
 				fileSearches.push(url.searchParams.get('srsearch') ?? '');
 				return Response.json({ query: { search: [] } });
 			}
@@ -296,7 +322,13 @@ describe('Commons reference connector', () => {
 		await connector.search({
 			wikimediaMode: 'reference',
 			wikimediaReferenceTokens: [
-				{ kind: 'entity', id: 'Q271218', label: 'Python', description: 'genus of reptiles', role: 'subject' }
+				{
+					kind: 'entity',
+					id: 'Q271218',
+					label: 'Python',
+					description: 'genus of reptiles',
+					role: 'subject'
+				}
 			],
 			wikimediaReferenceFilters: {
 				subjects: ['animals'],
@@ -315,13 +347,18 @@ describe('Commons reference connector', () => {
 
 		expect(fileSearches).not.toContain('animal photograph -haswbstatement:P180=Q5');
 		expect(categoryMemberRequests).not.toContain('Category:Animal photographs');
-		expect(fileSearches.every((search) => search.includes('Python') || search.includes('haswbstatement'))).toBe(true);
+		expect(
+			fileSearches.every((search) => search.includes('Python') || search.includes('haswbstatement'))
+		).toBe(true);
 	});
 
 	it('rejects human-centered categories from non-human subject filters', async () => {
 		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
 			const url = new URL(input.toString());
-			if (url.searchParams.get('list') === 'search' && url.searchParams.get('srnamespace') === '14') {
+			if (
+				url.searchParams.get('list') === 'search' &&
+				url.searchParams.get('srnamespace') === '14'
+			) {
 				return Response.json({
 					query: {
 						search: [
@@ -343,7 +380,10 @@ describe('Commons reference connector', () => {
 					query: { categorymembers: [{ title: 'File:Animal subject photograph.jpg' }] }
 				});
 			}
-			if (url.searchParams.get('list') === 'search' && url.searchParams.get('srnamespace') === '6') {
+			if (
+				url.searchParams.get('list') === 'search' &&
+				url.searchParams.get('srnamespace') === '6'
+			) {
 				return Response.json({ query: { search: [] } });
 			}
 			if (url.searchParams.get('prop') === 'imageinfo') {
@@ -387,7 +427,10 @@ describe('Commons reference connector', () => {
 	it('ranks structured subject matches above category and title matches', async () => {
 		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
 			const url = new URL(input.toString());
-			if (url.searchParams.get('list') === 'search' && url.searchParams.get('srnamespace') === '14') {
+			if (
+				url.searchParams.get('list') === 'search' &&
+				url.searchParams.get('srnamespace') === '14'
+			) {
 				return Response.json({
 					query: { search: [{ title: 'Category:Lions' }] }
 				});
@@ -397,7 +440,10 @@ describe('Commons reference connector', () => {
 					query: { categorymembers: [{ title: 'File:Lion category.jpg' }] }
 				});
 			}
-			if (url.searchParams.get('list') === 'search' && url.searchParams.get('srnamespace') === '6') {
+			if (
+				url.searchParams.get('list') === 'search' &&
+				url.searchParams.get('srnamespace') === '6'
+			) {
 				const search = url.searchParams.get('srsearch') ?? '';
 				if (search.includes('haswbstatement:P180=Q140')) {
 					return Response.json({
@@ -448,10 +494,16 @@ describe('Commons reference connector', () => {
 	it('ranks main subject structured matches above regular depicts matches', async () => {
 		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
 			const url = new URL(input.toString());
-			if (url.searchParams.get('list') === 'search' && url.searchParams.get('srnamespace') === '14') {
+			if (
+				url.searchParams.get('list') === 'search' &&
+				url.searchParams.get('srnamespace') === '14'
+			) {
 				return Response.json({ query: { search: [] } });
 			}
-			if (url.searchParams.get('list') === 'search' && url.searchParams.get('srnamespace') === '6') {
+			if (
+				url.searchParams.get('list') === 'search' &&
+				url.searchParams.get('srnamespace') === '6'
+			) {
 				const search = url.searchParams.get('srsearch') ?? '';
 				if (search.includes('haswbstatement:P921=Q140')) {
 					return Response.json({
@@ -491,16 +543,25 @@ describe('Commons reference connector', () => {
 			limit: 20
 		});
 
-		expect(page.items.map((item) => item.title)).toEqual(['Lion main subject.jpg', 'Lion depicts.jpg']);
+		expect(page.items.map((item) => item.title)).toEqual([
+			'Lion main subject.jpg',
+			'Lion depicts.jpg'
+		]);
 	});
 
 	it('filters human-centered file titles from non-human subject searches', async () => {
 		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
 			const url = new URL(input.toString());
-			if (url.searchParams.get('list') === 'search' && url.searchParams.get('srnamespace') === '14') {
+			if (
+				url.searchParams.get('list') === 'search' &&
+				url.searchParams.get('srnamespace') === '14'
+			) {
 				return Response.json({ query: { search: [] } });
 			}
-			if (url.searchParams.get('list') === 'search' && url.searchParams.get('srnamespace') === '6') {
+			if (
+				url.searchParams.get('list') === 'search' &&
+				url.searchParams.get('srnamespace') === '6'
+			) {
 				const search = url.searchParams.get('srsearch') ?? '';
 				if (search.includes('haswbstatement:P180=Q271218')) {
 					return Response.json({
@@ -535,7 +596,13 @@ describe('Commons reference connector', () => {
 		const page = await connector.search({
 			wikimediaMode: 'reference',
 			wikimediaReferenceTokens: [
-				{ kind: 'entity', id: 'Q271218', label: 'Python', description: 'genus of reptiles', role: 'subject' }
+				{
+					kind: 'entity',
+					id: 'Q271218',
+					label: 'Python',
+					description: 'genus of reptiles',
+					role: 'subject'
+				}
 			],
 			wikimediaReferenceFilters: {
 				subjects: ['animals'],

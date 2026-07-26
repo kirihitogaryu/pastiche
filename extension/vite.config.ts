@@ -47,8 +47,7 @@ export default defineConfig({
 			input: {
 				'sidebar/index': resolve(root, 'sidebar/index.html'),
 				'settings/index': resolve(root, 'settings/index.html'),
-				'background/service-worker': resolve(root, 'background/service-worker.ts'),
-				'content/index': resolve(root, 'content/index.ts')
+				'background/service-worker': resolve(root, 'background/service-worker.ts')
 			},
 			output: {
 				entryFileNames: '[name].js',

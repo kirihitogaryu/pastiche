@@ -5,16 +5,12 @@
 		closeMobileInspect,
 		exitSelection,
 		openAdd,
-		setShellScrolled,
-		setMode
+		setMode,
+		updateMobileNavFromScroll
 	} from '$lib/state/app-state.svelte';
-	import AtlasWorkspace from '$lib/components/atlas/AtlasWorkspace.svelte';
-	import ExploreWorkspace from '$lib/components/explore/ExploreWorkspace.svelte';
 	import FilterPanel from '$lib/components/filters/FilterPanel.svelte';
-	import HomeHub from '$lib/components/home/HomeHub.svelte';
 	import FocusedAssetPreview from '$lib/components/inspector/FocusedAssetPreview.svelte';
 	import MobileInspect from '$lib/components/inspector/MobileInspect.svelte';
-	import LibraryWorkspace from '$lib/components/library/LibraryWorkspace.svelte';
 	import ModeRail from '$lib/components/shell/ModeRail.svelte';
 	import MobileHeader from '$lib/components/shell/MobileHeader.svelte';
 	import TopBar from '$lib/components/shell/TopBar.svelte';
@@ -28,29 +24,59 @@
 		libraryState.snapshot.assets.find((asset) => asset.id === appState.selectedAssetId) ?? null
 	);
 	let mobilePreviewAsset = $state<Asset | null>(null);
-	let atlasInspectActive = $derived(appState.mode === 'atlas' && appState.atlasView === 'asset');
+	let atlasImmersiveActive = $derived(appState.mode === 'atlas');
+	let localExploreHeaderActive = $derived(appState.mode === 'explore');
+	const workspaceModules = {
+		home: import('$lib/components/home/HomeHub.svelte'),
+		library: import('$lib/components/library/LibraryWorkspace.svelte'),
+		explore: import('$lib/components/explore/ExploreWorkspace.svelte'),
+		atlas: import('$lib/components/atlas/AtlasWorkspace.svelte')
+	};
 </script>
 
 <div class="app-shell">
 	<ModeRail mode={appState.mode} onSelect={setMode} />
 	<div class="app-main">
-		{#if !atlasInspectActive}
+		{#if !atlasImmersiveActive && appState.mode !== 'library' && !localExploreHeaderActive}
 			<TopBar mode={appState.mode} />
+		{/if}
+		{#if !atlasImmersiveActive && !localExploreHeaderActive}
 			<MobileHeader mode={appState.mode} compact={appState.shellScrolled} />
 		{/if}
 		<main
 			id="main-content"
 			class="workspace"
-			onscroll={(event) => setShellScrolled(event.currentTarget.scrollTop > 12)}
+			class:atlas-immersive={atlasImmersiveActive}
+			onscroll={(event) => updateMobileNavFromScroll(event.currentTarget.scrollTop, 'shell')}
 		>
 			{#if appState.mode === 'home'}
-				<HomeHub />
+				{#await workspaceModules.home}
+					<section class="workspace-loading" aria-label="Loading studio">Loading studio…</section>
+				{:then module}
+					{@const HomeHub = module.default}
+					<HomeHub />
+				{/await}
 			{:else if appState.mode === 'library'}
-				<LibraryWorkspace />
+				{#await workspaceModules.library}
+					<section class="workspace-loading" aria-label="Loading library">Loading library…</section>
+				{:then module}
+					{@const LibraryWorkspace = module.default}
+					<LibraryWorkspace />
+				{/await}
 			{:else if appState.mode === 'explore'}
-				<ExploreWorkspace />
+				{#await workspaceModules.explore}
+					<section class="workspace-loading" aria-label="Loading Explore">Loading Explore…</section>
+				{:then module}
+					{@const ExploreWorkspace = module.default}
+					<ExploreWorkspace />
+				{/await}
 			{:else if appState.mode === 'atlas'}
-				<AtlasWorkspace />
+				{#await workspaceModules.atlas}
+					<section class="workspace-loading" aria-label="Loading Atlas">Loading Atlas…</section>
+				{:then module}
+					{@const AtlasWorkspace = module.default}
+					<AtlasWorkspace />
+				{/await}
 			{:else}
 				<section class="placeholder" aria-label={`${appState.mode} workspace placeholder`}>
 					<p>{appState.mode}</p>
@@ -92,12 +118,14 @@
 	onSelect={setMode}
 	onAdd={openAdd}
 	secondary={appState.mobileState === 'selecting'}
+	hidden={appState.mobileNavHidden || appState.mobileNavScrollHidden}
 />
 
 <style>
 	.app-shell {
 		width: 100vw;
 		height: 100vh;
+		height: 100dvh;
 		display: flex;
 		overflow: hidden;
 		background:
@@ -125,6 +153,14 @@
 		justify-items: start;
 		gap: var(--space-3);
 		padding: var(--space-8);
+	}
+
+	.workspace-loading {
+		height: 100%;
+		display: grid;
+		place-items: center;
+		color: var(--color-muted);
+		font-size: 0.78rem;
 	}
 
 	.placeholder p {
@@ -156,6 +192,10 @@
 	@media (max-width: 759px) {
 		.workspace {
 			overflow: auto;
+		}
+
+		.workspace.atlas-immersive {
+			overflow: hidden;
 		}
 	}
 </style>
