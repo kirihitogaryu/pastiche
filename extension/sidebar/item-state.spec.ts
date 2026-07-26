@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { EnrichedItem } from '../shared/types';
+import type { ImportedSource } from '../shared/types';
 import type { ImageCandidate } from '../shared/candidates';
 import {
+	sourceHashForItemUrl,
 	selectCandidateForItem,
 	selectInstagramLargeCandidateForItem,
 	tagsFromInput,
@@ -40,6 +42,8 @@ function item(partial: Partial<EnrichedItem>): EnrichedItem {
 	});
 	return {
 		id: partial.id ?? 'item-1',
+		captureKey: partial.captureKey ?? partial.url ?? selected.url,
+		revision: partial.revision ?? 0,
 		url: partial.url ?? selected.url,
 		selectedCandidateId: partial.selectedCandidateId ?? selected.id,
 		candidates: partial.candidates ?? [
@@ -87,7 +91,8 @@ function item(partial: Partial<EnrichedItem>): EnrichedItem {
 		storageModeReason: partial.storageModeReason ?? 'Remote URL',
 		fetchStatus: partial.fetchStatus ?? { state: 'idle' },
 		destinationFolderId: partial.destinationFolderId ?? null,
-		alreadyInLibrary: partial.alreadyInLibrary ?? false
+		alreadyInLibrary: partial.alreadyInLibrary ?? false,
+		enrichment: partial.enrichment ?? { state: 'idle' }
 	};
 }
 
@@ -101,18 +106,39 @@ describe('sidebar item state helpers', () => {
 	});
 
 	it('selects an alternate candidate without mutating the other items', () => {
-		expect.assertions(5);
+		expect.assertions(8);
 		const first = item({ id: 'first' });
 		const second = item({ id: 'second' });
 
 		const updated = selectCandidateForItem([first, second], 'first', 'candidate-thumb');
 		const changed = updated[0];
 
+		expect(changed.id).toBe(
+			sourceHashForItemUrl('https://cdn.example.com/thumb/work.jpg', first.sourceUrl)
+		);
+		expect(changed.captureKey).toBe('https://cdn.example.com/original/work.jpg');
 		expect(changed.url).toBe('https://cdn.example.com/thumb/work.jpg');
 		expect(changed.selectedCandidateId).toBe('candidate-thumb');
 		expect(changed.naturalWidth).toBe(320);
 		expect(changed.naturalHeight).toBe(320);
+		expect(changed.alreadyInLibrary).toBe(false);
 		expect(updated[1]).toBe(second);
+	});
+
+	it('marks a selected alternate candidate as already imported when status contains that source', () => {
+		expect.assertions(1);
+		const first = item({ id: 'first' });
+		const importedSources: ImportedSource[] = [
+			{
+				source_hash: 'hash-from-server',
+				source_image_url: 'https://cdn.example.com/thumb/work.jpg',
+				source_url: first.sourceUrl
+			}
+		];
+
+		const [changed] = selectCandidateForItem([first], 'first', 'candidate-thumb', importedSources);
+
+		expect(changed.alreadyInLibrary).toBe(true);
 	});
 
 	it('adds and selects an Instagram large media candidate for post imports', () => {
@@ -148,9 +174,9 @@ describe('sidebar item state helpers', () => {
 			confidence: 'high',
 			scoreReasons: ['Instagram large media endpoint']
 		});
-		expect(changed.candidates.filter((candidate) => candidate.url.endsWith('/media?size=l'))).toHaveLength(
-			1
-		);
+		expect(
+			changed.candidates.filter((candidate) => candidate.url.endsWith('/media?size=l'))
+		).toHaveLength(1);
 		expect(updated[1]).toBe(second);
 	});
 

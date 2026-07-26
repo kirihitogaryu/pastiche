@@ -126,6 +126,61 @@ export function moveAssetToFolder(assetId: string, folderId: string | null) {
 	}
 }
 
+export function moveAssetsToFolder(assetIds: string[], folderId: string | null) {
+	const ids = [...new Set(assetIds.map((id) => id.trim()).filter(Boolean))];
+	if (!ids.length) throw new Error('At least one asset is required');
+	const db = openLibraryDatabase();
+	try {
+		if (folderId !== null) assertFolderExists(db, folderId);
+		const now = new Date().toISOString();
+		const move = db.transaction(() => {
+			const update = db.prepare('update assets set folder_id = ?, modified_at = ? where id = ?');
+			for (const id of ids) {
+				assertAssetExists(db, id);
+				update.run(folderId, now, id);
+			}
+		});
+		move();
+		return ids.length;
+	} finally {
+		db.close();
+	}
+}
+
+export function updateAssetOrganization(
+	assetId: string,
+	input: { favorite?: boolean; folderId?: string | null }
+) {
+	const db = openLibraryDatabase();
+	try {
+		assertAssetExists(db, assetId);
+		if (input.folderId !== undefined && input.folderId !== null) {
+			assertFolderExists(db, input.folderId);
+		}
+		const now = new Date().toISOString();
+		const apply = db.transaction(() => {
+			if (input.favorite !== undefined) {
+				db.prepare('update assets set favorite = ?, modified_at = ? where id = ?').run(
+					input.favorite ? 1 : 0,
+					now,
+					assetId
+				);
+			}
+			if (input.folderId !== undefined) {
+				db.prepare('update assets set folder_id = ?, modified_at = ? where id = ?').run(
+					input.folderId,
+					now,
+					assetId
+				);
+			}
+		});
+		apply();
+		return true;
+	} finally {
+		db.close();
+	}
+}
+
 export function acceptSourceTagSuggestion(input: {
 	assetId: string;
 	name: string;
@@ -155,15 +210,19 @@ export function createProject(input: CreateProjectInput): LibraryProject {
 	try {
 		const name = input.name.trim();
 		if (!name) throw new Error('Project name is required');
+		if (input.startFolderId) assertFolderExists(db, input.startFolderId);
 		const id = `project-${crypto.randomUUID()}`;
-		db.prepare(
-			`insert into projects (id, name, description, pinned, cover_asset_id, created_at, updated_at)
-			 values (?, ?, ?, 0, null, ?, ?)`
-		).run(id, name, cleanString(input.description), now, now);
-		if (input.startFolderId) {
-			addProjectFolderRefInDb(db, id, input.startFolderId, false, now);
-		}
-		return projectById(db, id);
+		const create = db.transaction(() => {
+			db.prepare(
+				`insert into projects (id, name, description, pinned, cover_asset_id, created_at, updated_at)
+				 values (?, ?, ?, 0, null, ?, ?)`
+			).run(id, name, cleanString(input.description), now, now);
+			if (input.startFolderId) {
+				addProjectFolderRefInDb(db, id, input.startFolderId, false, now);
+			}
+			return projectById(db, id);
+		});
+		return create();
 	} finally {
 		db.close();
 	}
@@ -264,7 +323,11 @@ export function inferSuggestionFacet(name: string) {
 	if (normalized.includes('oil') || normalized.includes('paint') || normalized.includes('print')) {
 		return 'medium';
 	}
-	if (normalized.includes('met') || normalized.includes('art-institute') || normalized.includes('wikidata')) {
+	if (
+		normalized.includes('met') ||
+		normalized.includes('art-institute') ||
+		normalized.includes('wikidata')
+	) {
 		return 'source';
 	}
 	return 'subject';
@@ -317,11 +380,13 @@ function assertTagExists(db: Database.Database, id: string) {
 }
 
 function assertProjectExists(db: Database.Database, id: string) {
-	if (!db.prepare('select 1 from projects where id = ?').get(id)) throw new Error('Project not found');
+	if (!db.prepare('select 1 from projects where id = ?').get(id))
+		throw new Error('Project not found');
 }
 
 function assertFolderExists(db: Database.Database, id: string) {
-	if (!db.prepare('select 1 from folders where id = ?').get(id)) throw new Error('Folder not found');
+	if (!db.prepare('select 1 from folders where id = ?').get(id))
+		throw new Error('Folder not found');
 }
 
 function addProjectFolderRefInDb(

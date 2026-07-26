@@ -100,7 +100,7 @@ export type AtlasTagSuggestionProposal = {
 	slug: string;
 	sourceText: string;
 	provenance: string;
-	status: 'suggested';
+	status: 'suggested' | 'accepted' | 'rejected';
 };
 
 export type AtlasConceptSummary = {
@@ -113,6 +113,66 @@ export type AtlasConceptSummary = {
 	status: AtlasConceptStatus;
 	maturity: AtlasConceptMaturity;
 	shortDefinition: string;
+	needsClassification?: boolean;
+	updatedAt?: string;
+};
+
+export type AtlasConceptRelationType =
+	| 'broader'
+	| 'related'
+	| 'confusable'
+	| 'automatic_implication'
+	| 'suggested_implication'
+	| 'replaced_by';
+
+export type AtlasConceptRelationStatus = 'suggested' | 'approved' | 'rejected';
+
+export type AtlasConceptRelation = {
+	id: string;
+	sourceSlug: string;
+	targetSlug: string;
+	type: AtlasConceptRelationType;
+	status: AtlasConceptRelationStatus;
+	createdBy: string;
+	createdAt: string;
+	updatedAt: string;
+};
+
+export type AtlasConceptDraft = {
+	slug: string;
+	label: string;
+	kind: AtlasConceptKind;
+	category: string;
+	displayGroup: string;
+	shortDefinition?: string;
+	exampleAssetId?: string | null;
+};
+
+export type AtlasConceptDeletionImpact = {
+	slug: string;
+	label: string;
+	status: AtlasConceptStatus;
+	maturity: AtlasConceptMaturity;
+	updatedAt: string;
+	seeded: boolean;
+	assetAssignments: number;
+	annotationAssignments: number;
+	entityAssignments: number;
+	aliases: number;
+	incomingRelations: number;
+	outgoingRelations: number;
+	hasWiki: boolean;
+	tier: 'simple' | 'guarded';
+};
+
+export type AtlasConceptTombstone = {
+	slug: string;
+	label: string;
+	replacementSlug: string | null;
+	deletedAt: string;
+	deletedBy: string;
+	reason: string | null;
+	restoreAvailable: boolean;
 };
 
 export type AtlasConceptAssignment = AtlasConceptSummary & {
@@ -174,6 +234,7 @@ export type AtlasEntityProfile = {
 		id: string;
 		title: string;
 		thumbnailUrl: string | null;
+		mimeType: string | null;
 		sourceUrl: string;
 		importedAt: string;
 	}>;

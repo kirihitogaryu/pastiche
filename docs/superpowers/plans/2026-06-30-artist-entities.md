@@ -33,6 +33,7 @@
 ### Task 1: Artist Entity Schema And Types
 
 **Files:**
+
 - Modify: `src/lib/server/atlas/schema.ts`
 - Modify: `src/lib/atlas/types.ts`
 - Test: `src/lib/server/atlas/schema.spec.ts`
@@ -43,30 +44,30 @@ Add expectations for the new tables in `src/lib/server/atlas/schema.spec.ts`:
 
 ```ts
 expect(tables).toEqual([
-  'asset_import_failures',
-  'asset_tags',
-  'assets',
-  'atlas_annotation_classifiers',
-  'atlas_annotation_concepts',
-  'atlas_annotations',
-  'atlas_asset_concepts',
-  'atlas_asset_entities',
-  'atlas_claims',
-  'atlas_concepts',
-  'atlas_entities',
-  'atlas_entity_aliases',
-  'atlas_entity_links',
-  'atlas_entity_profiles',
-  'atlas_ingestion_runs',
-  'atlas_tag_suggestions',
-  'atlas_wiki_entries',
-  'folders',
-  'lazy_download_jobs',
-  'project_asset_refs',
-  'project_folder_refs',
-  'projects',
-  'tag_facets',
-  'tags'
+	'asset_import_failures',
+	'asset_tags',
+	'assets',
+	'atlas_annotation_classifiers',
+	'atlas_annotation_concepts',
+	'atlas_annotations',
+	'atlas_asset_concepts',
+	'atlas_asset_entities',
+	'atlas_claims',
+	'atlas_concepts',
+	'atlas_entities',
+	'atlas_entity_aliases',
+	'atlas_entity_links',
+	'atlas_entity_profiles',
+	'atlas_ingestion_runs',
+	'atlas_tag_suggestions',
+	'atlas_wiki_entries',
+	'folders',
+	'lazy_download_jobs',
+	'project_asset_refs',
+	'project_folder_refs',
+	'projects',
+	'tag_facets',
+	'tags'
 ]);
 ```
 
@@ -131,33 +132,33 @@ In `src/lib/atlas/types.ts`, add:
 
 ```ts
 export type AtlasEntityProfile = {
-  entityId: string;
-  kind: AtlasEntityKind;
-  slug: string;
-  label: string;
-  summary: string | null;
-  notes: string | null;
-  movements: string[];
-  styles: string[];
-  commonSubjects: string[];
-  historicalPeriod: string | null;
-  media: string[];
-  aiGuidance: string | null;
-  aliases: Array<{ alias: string; source: string; confidence: string }>;
-  links: Array<{
-    url: string;
-    host: string;
-    username: string | null;
-    sourceLabel: string | null;
-    confidence: string;
-  }>;
-  works: Array<{
-    id: string;
-    title: string;
-    thumbnailUrl: string | null;
-    sourceUrl: string;
-    importedAt: string;
-  }>;
+	entityId: string;
+	kind: AtlasEntityKind;
+	slug: string;
+	label: string;
+	summary: string | null;
+	notes: string | null;
+	movements: string[];
+	styles: string[];
+	commonSubjects: string[];
+	historicalPeriod: string | null;
+	media: string[];
+	aiGuidance: string | null;
+	aliases: Array<{ alias: string; source: string; confidence: string }>;
+	links: Array<{
+		url: string;
+		host: string;
+		username: string | null;
+		sourceLabel: string | null;
+		confidence: string;
+	}>;
+	works: Array<{
+		id: string;
+		title: string;
+		thumbnailUrl: string | null;
+		sourceUrl: string;
+		importedAt: string;
+	}>;
 };
 ```
 
@@ -183,6 +184,7 @@ git commit -m "feat: add atlas entity profile schema"
 ### Task 2: Artist Identity Resolution
 
 **Files:**
+
 - Create: `src/lib/server/atlas/entityIdentity.ts`
 - Test: `src/lib/server/atlas/entityIdentity.spec.ts`
 
@@ -192,36 +194,38 @@ Create `src/lib/server/atlas/entityIdentity.spec.ts` with tests for:
 
 ```ts
 it('normalizes social profile URLs to host and username', () => {
-  expect(normalizeArtistProfileUrl('https://www.deviantart.com/ExampleArtist/gallery')).toMatchObject({
-    normalizedUrl: 'https://deviantart.com/exampleartist',
-    host: 'deviantart.com',
-    username: 'exampleartist'
-  });
-  expect(normalizeArtistProfileUrl('https://x.com/ExampleArtist/status/1')).toMatchObject({
-    normalizedUrl: 'https://x.com/exampleartist',
-    host: 'x.com',
-    username: 'exampleartist'
-  });
+	expect(
+		normalizeArtistProfileUrl('https://www.deviantart.com/ExampleArtist/gallery')
+	).toMatchObject({
+		normalizedUrl: 'https://deviantart.com/exampleartist',
+		host: 'deviantart.com',
+		username: 'exampleartist'
+	});
+	expect(normalizeArtistProfileUrl('https://x.com/ExampleArtist/status/1')).toMatchObject({
+		normalizedUrl: 'https://x.com/exampleartist',
+		host: 'x.com',
+		username: 'exampleartist'
+	});
 });
 
 it('resolves existing artists by host and username before display name', () => {
-  const first = resolveOrCreateArtistEntity(db, {
-    label: 'Example Artist',
-    profileUrl: 'https://www.deviantart.com/exampleartist',
-    sourceLabel: 'DeviantArt',
-    assetId: 'asset-a',
-    provenance: 'metadata.artist',
-    now
-  });
-  const second = resolveOrCreateArtistEntity(db, {
-    label: 'ExampleArtist',
-    profileUrl: 'https://deviantart.com/exampleartist/gallery',
-    sourceLabel: 'DeviantArt',
-    assetId: 'asset-b',
-    provenance: 'metadata.artist',
-    now
-  });
-  expect(second.id).toBe(first.id);
+	const first = resolveOrCreateArtistEntity(db, {
+		label: 'Example Artist',
+		profileUrl: 'https://www.deviantart.com/exampleartist',
+		sourceLabel: 'DeviantArt',
+		assetId: 'asset-a',
+		provenance: 'metadata.artist',
+		now
+	});
+	const second = resolveOrCreateArtistEntity(db, {
+		label: 'ExampleArtist',
+		profileUrl: 'https://deviantart.com/exampleartist/gallery',
+		sourceLabel: 'DeviantArt',
+		assetId: 'asset-b',
+		provenance: 'metadata.artist',
+		now
+	});
+	expect(second.id).toBe(first.id);
 });
 ```
 
@@ -241,24 +245,29 @@ Create `src/lib/server/atlas/entityIdentity.ts` exporting:
 
 ```ts
 export type ArtistIdentityInput = {
-  label: string | null;
-  profileUrl?: string | null;
-  username?: string | null;
-  sourceLabel?: string | null;
-  assetId?: string | null;
-  provenance: string;
-  now: string;
+	label: string | null;
+	profileUrl?: string | null;
+	username?: string | null;
+	sourceLabel?: string | null;
+	assetId?: string | null;
+	provenance: string;
+	now: string;
 };
 
 export type NormalizedArtistProfileUrl = {
-  normalizedUrl: string;
-  host: string;
-  username: string | null;
+	normalizedUrl: string;
+	host: string;
+	username: string | null;
 };
 
-export function normalizeArtistProfileUrl(value: string | null | undefined): NormalizedArtistProfileUrl | null;
+export function normalizeArtistProfileUrl(
+	value: string | null | undefined
+): NormalizedArtistProfileUrl | null;
 export function normalizeArtistAlias(value: string): string;
-export function resolveOrCreateArtistEntity(db: Database.Database, input: ArtistIdentityInput): { id: string; slug: string; label: string };
+export function resolveOrCreateArtistEntity(
+	db: Database.Database,
+	input: ArtistIdentityInput
+): { id: string; slug: string; label: string };
 ```
 
 Implementation rules:
@@ -296,6 +305,7 @@ git commit -m "feat: resolve atlas artist identities"
 ### Task 3: Import Artist Profile Evidence
 
 **Files:**
+
 - Modify: `src/lib/atlas/types.ts`
 - Modify: `src/lib/server/atlas/ingest.ts`
 - Modify: `src/lib/server/library/types.ts`
@@ -396,6 +406,7 @@ git commit -m "feat: record artist profile evidence on import"
 ### Task 4: Artist Entity Profile API
 
 **Files:**
+
 - Create: `src/lib/server/atlas/entityProfile.ts`
 - Create: `src/routes/api/atlas/entities/[kind]/[slug]/+server.ts`
 - Tests: `src/lib/server/atlas/entityProfile.spec.ts`, `src/routes/api/atlas/entities/[kind]/[slug]/server.spec.ts`
@@ -407,11 +418,11 @@ Seed an imported asset with an artist entity and link. Assert:
 ```ts
 const profile = readAtlasEntityProfile(db, 'artist', 'exampleartist');
 expect(profile).toMatchObject({
-  kind: 'artist',
-  slug: 'exampleartist',
-  label: 'ExampleArtist',
-  links: [expect.objectContaining({ host: 'deviantart.com', username: 'exampleartist' })],
-  works: [expect.objectContaining({ title: 'Example Work' })]
+	kind: 'artist',
+	slug: 'exampleartist',
+	label: 'ExampleArtist',
+	links: [expect.objectContaining({ host: 'deviantart.com', username: 'exampleartist' })],
+	works: [expect.objectContaining({ title: 'Example Work' })]
 });
 ```
 
@@ -442,7 +453,9 @@ Reuse the same thumbnail URL mapping approach used in `src/lib/server/atlas/muta
 `GET /api/atlas/entities/artist/exampleartist` returns:
 
 ```ts
-{ entity: AtlasEntityProfile }
+{
+	entity: AtlasEntityProfile;
+}
 ```
 
 Missing entity returns 404.
@@ -469,6 +482,7 @@ git commit -m "feat: expose atlas artist entity profiles"
 ### Task 5: Artist Search Semantics
 
 **Files:**
+
 - Modify: `src/lib/server/atlas/search.ts`
 - Modify: search response types if defined in `src/lib/atlas/search.ts`
 - Modify: `src/lib/components/atlas/AtlasSearch.svelte`
@@ -480,16 +494,16 @@ Add tests:
 
 ```ts
 expect(searchAtlasAssets(db, 'artist:(exampleartist)').results.map((item) => item.id)).toEqual([
-  importedAssetId
+	importedAssetId
 ]);
 
 expect(searchAtlasAssets(db, 'exampleartist').entityResults).toEqual([
-  expect.objectContaining({
-    kind: 'artist',
-    slug: 'exampleartist',
-    label: 'ExampleArtist',
-    workCount: 1
-  })
+	expect.objectContaining({
+		kind: 'artist',
+		slug: 'exampleartist',
+		label: 'ExampleArtist',
+		workCount: 1
+	})
 ]);
 ```
 
@@ -520,13 +534,7 @@ When a plain query matches artist slug/label/alias/username, return entity resul
 
 ```ts
 {
-  kind: 'artist',
-  slug,
-  label,
-  workCount,
-  thumbnails,
-  aliases,
-  links
+	kind: ('artist', slug, label, workCount, thumbnails, aliases, links);
 }
 ```
 
@@ -557,6 +565,7 @@ git commit -m "feat: add atlas artist search"
 ### Task 6: Artist Wiki Mode And Links
 
 **Files:**
+
 - Modify: `src/lib/state/app-state.svelte.ts`
 - Modify: `src/lib/components/atlas/AtlasWiki.svelte`
 - Modify: `src/lib/components/atlas/AtlasMetadataPanel.svelte`
@@ -569,9 +578,9 @@ Add a navigation helper:
 
 ```ts
 export function openAtlasEntity(kind: AtlasEntityKind, slug: string) {
-  appState.currentView = 'atlas';
-  appState.atlasMode = 'wiki';
-  appState.atlasEntitySelection = { kind, slug };
+	appState.currentView = 'atlas';
+	appState.atlasMode = 'wiki';
+	appState.atlasEntitySelection = { kind, slug };
 }
 ```
 
@@ -620,6 +629,7 @@ git commit -m "feat: link atlas artist entity pages"
 ### Task 7: Verification And Push
 
 **Files:**
+
 - All touched files
 
 - [ ] **Step 1: Run full verification**

@@ -5,11 +5,13 @@ import type {
 	ImageCandidate,
 	SourceTag
 } from './candidates';
+import { artistCandidatesForPage, automaticallySelectedArtistCandidate } from './artist-candidates';
 
 export type SourceAdapterContext = {
 	pageUrl: string;
 	imageUrl?: string | null;
 	altText?: string | null;
+	targetElement?: Element | null;
 };
 
 export function sourceContextForPage(
@@ -40,15 +42,20 @@ export function sourceMetadataForPage(
 	const altTitle = context.altText?.trim() || null;
 	const title =
 		titleForHost(pageHost, ogTitle) ?? altTitle ?? titleFromUrl(context.imageUrl) ?? 'Untitled';
-	const artistIdentity = artistIdentityForHost(document, pageHost, context.pageUrl);
+	const artistCandidates = artistCandidatesForPage(document, {
+		pageUrl: context.pageUrl,
+		targetElement: context.targetElement
+	});
+	const artistIdentity = automaticallySelectedArtistCandidate(artistCandidates);
 	const sourceTags = sourceTagsForHost(document, pageHost);
 	const suggestedTags = sourceTags.map((tag) => tag.label);
 
 	return {
 		title,
-		artist: artistIdentity.artist,
-		artistProfileUrl: artistIdentity.profileUrl,
-		artistUsername: artistIdentity.username,
+		artist: artistIdentity?.label ?? null,
+		artistProfileUrl: artistIdentity?.profileUrl ?? null,
+		artistUsername: artistIdentity?.username ?? null,
+		artistCandidates,
 		date: null,
 		tags: [],
 		acceptedConceptSlugs: [],
@@ -102,6 +109,12 @@ export function applySourceAdapterCandidateHints(
 		}
 	}
 
+	const instagramLarge = instagramLargeMediaUrl(context.pageUrl);
+	if (instagramLarge && transformed === instagramLarge) {
+		score += 500;
+		scoreReasons.push('Instagram large media endpoint');
+	}
+
 	return {
 		...candidate,
 		url: transformed,
@@ -114,6 +127,22 @@ export function applySourceAdapterCandidateHints(
 function knownSourceForHost(host: string): { label: string; type: CaptureSourceType } | null {
 	if (isXHost(host)) return { label: 'X', type: 'social' };
 	if (isDanbooruHost(host)) return { label: 'Danbooru', type: 'booru' };
+	if (host === 'pixiv.net' || host.endsWith('.pixiv.net')) {
+		return { label: 'Pixiv', type: 'gallery' };
+	}
+	if (host === 'toyhou.se' || host.endsWith('.toyhou.se')) {
+		return { label: 'Toyhouse', type: 'gallery' };
+	}
+	if (host === 'furaffinity.net' || host.endsWith('.furaffinity.net')) {
+		return { label: 'Fur Affinity', type: 'gallery' };
+	}
+	if (host === 'lofter.com' || host.endsWith('.lofter.com')) {
+		return { label: 'Lofter', type: 'social' };
+	}
+	if (host === 'vk.com' || host.endsWith('.vk.com')) return { label: 'VK', type: 'social' };
+	if (host === 'weibo.com' || host.endsWith('.weibo.com')) {
+		return { label: 'Weibo', type: 'social' };
+	}
 	if (host.endsWith('tumblr.com')) return { label: 'Tumblr', type: 'social' };
 	if (host.endsWith('deviantart.com')) return { label: 'DeviantArt', type: 'gallery' };
 	if (host === 'pinterest.com' || host.endsWith('.pinterest.com')) {
@@ -134,53 +163,22 @@ function titleForHost(host: string, title: string | null): string | null {
 	return clean;
 }
 
-function artistIdentityForHost(
-	document: Document,
-	host: string,
-	pageUrl: string
-): { artist: string | null; profileUrl: string | null; username: string | null } {
-	if (host.endsWith('deviantart.com')) {
-		const creator = metaContent(document, 'name', 'twitter:creator');
-		const username = creator?.replace(/^@/, '').trim() || null;
-		return {
-			artist: username,
-			username,
-			profileUrl: username ? `https://www.deviantart.com/${username}` : null
-		};
-	}
-	if (isXHost(host)) {
-		const username = firstPathSegment(pageUrl);
-		return username ? { artist: username, username, profileUrl: `https://x.com/${username}` } : emptyArtistIdentity();
-	}
-	if (host === 'instagram.com' || host.endsWith('.instagram.com')) {
-		const username = firstPathSegment(pageUrl);
-		return username
-			? { artist: username, username, profileUrl: `https://www.instagram.com/${username}` }
-			: emptyArtistIdentity();
-	}
-	if (host.endsWith('.tumblr.com')) {
-		const username = host.slice(0, -'.tumblr.com'.length);
-		return username
-			? { artist: username, username, profileUrl: `https://${username}.tumblr.com` }
-			: emptyArtistIdentity();
-	}
-	return emptyArtistIdentity();
-}
-
-function emptyArtistIdentity() {
-	return { artist: null, profileUrl: null, username: null };
-}
-
 function sourceTagsForHost(document: Document, host: string): SourceTag[] {
 	if (isDanbooruHost(host)) {
 		return uniqueSourceTags(danbooruSourceTags(document));
 	}
 	if (host.endsWith('deviantart.com')) return uniqueSourceTags(deviantArtSourceTags(document));
 	if (host.endsWith('tumblr.com')) {
-		return uniqueSourceTags([...tumblrSourceTags(document), ...genericSourceTags(document, 'tumblr')]);
+		return uniqueSourceTags([
+			...tumblrSourceTags(document),
+			...genericSourceTags(document, 'tumblr')
+		]);
 	}
 	if (isXHost(host)) {
-		return uniqueSourceTags([...genericSourceTags(document, 'x'), ...hashtagSourceTags(document, 'x')]);
+		return uniqueSourceTags([
+			...genericSourceTags(document, 'x'),
+			...hashtagSourceTags(document, 'x')
+		]);
 	}
 	if (host === 'bsky.app' || host.endsWith('.bsky.app')) {
 		return uniqueSourceTags([
@@ -192,6 +190,33 @@ function sourceTagsForHost(document: Document, host: string): SourceTag[] {
 		return uniqueSourceTags([
 			...genericSourceTags(document, 'instagram'),
 			...hashtagSourceTags(document, 'instagram')
+		]);
+	}
+	if (host === 'pixiv.net' || host.endsWith('.pixiv.net')) {
+		return uniqueSourceTags(genericSourceTags(document, 'pixiv'));
+	}
+	if (host === 'toyhou.se' || host.endsWith('.toyhou.se')) {
+		return uniqueSourceTags(genericSourceTags(document, 'toyhouse'));
+	}
+	if (host === 'furaffinity.net' || host.endsWith('.furaffinity.net')) {
+		return uniqueSourceTags(genericSourceTags(document, 'furaffinity'));
+	}
+	if (host === 'lofter.com' || host.endsWith('.lofter.com')) {
+		return uniqueSourceTags([
+			...genericSourceTags(document, 'lofter'),
+			...hashtagSourceTags(document, 'lofter')
+		]);
+	}
+	if (host === 'vk.com' || host.endsWith('.vk.com')) {
+		return uniqueSourceTags([
+			...genericSourceTags(document, 'vk'),
+			...hashtagSourceTags(document, 'vk')
+		]);
+	}
+	if (host === 'weibo.com' || host.endsWith('.weibo.com')) {
+		return uniqueSourceTags([
+			...genericSourceTags(document, 'weibo'),
+			...hashtagSourceTags(document, 'weibo')
 		]);
 	}
 	return uniqueSourceTags(genericSourceTags(document, 'generic'));
@@ -243,9 +268,7 @@ function deviantArtSourceTags(document: Document): SourceTag[] {
 				slug: normalizeSourceTag(tagName),
 				url: anchor.href,
 				confidence: anchor.dataset.tagname ? 'high' : 'medium',
-				selectorHint: anchor.dataset.tagname
-					? 'a[data-tagname][href*="/tag/"]'
-					: 'a[href*="/tag/"]'
+				selectorHint: anchor.dataset.tagname ? 'a[data-tagname][href*="/tag/"]' : 'a[href*="/tag/"]'
 			}
 		];
 	});
@@ -425,18 +448,6 @@ function hostnameFrom(url: string | null | undefined): string | null {
 function readableHost(host: string | null): string | null {
 	if (!host) return null;
 	return host.replace(/^www\./, '');
-}
-
-function firstPathSegment(url: string): string | null {
-	try {
-		const segment = new URL(url).pathname.split('/').filter(Boolean)[0]?.replace(/^@/, '');
-		if (!segment || ['p', 'reel', 'status', 'search', 'explore', 'tags'].includes(segment)) {
-			return null;
-		}
-		return segment;
-	} catch {
-		return null;
-	}
 }
 
 function isXHost(host: string): boolean {

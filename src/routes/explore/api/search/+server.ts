@@ -1,10 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { getExploreConnector, isSourceId } from '$lib/explore/connectors';
 import type { ExploreQuery, SourceId } from '$lib/explore/types';
-import {
-	WikimediaTemporaryError,
-	isWikimediaTemporaryError
-} from '$lib/explore/wikimedia-request';
+import { WikimediaTemporaryError, isWikimediaTemporaryError } from '$lib/explore/wikimedia-request';
+import { RetryableMetError, isRetryableMetError } from '$lib/explore/connectors/met-scheduler';
 
 const SEARCH_CACHE_HEADERS = {
 	'cache-control': 'public, max-age=3600, stale-while-revalidate=86400'
@@ -31,6 +29,9 @@ export async function POST({ request }: { request: Request }) {
 	} catch (error) {
 		if (isWikimediaTemporaryError(error)) {
 			return temporaryWikimediaResponse(error);
+		}
+		if (isRetryableMetError(error)) {
+			return temporaryExploreResponse(error);
 		}
 		return json({ error: errorMessage(error, 'Explore search failed') }, { status: 502 });
 	}
@@ -87,6 +88,11 @@ function isExploreQuery(value: unknown): value is ExploreQuery {
 		isOptionalBoolean(value.hasImageOnly) &&
 		isOptionalBoolean(value.isHighlightOnly) &&
 		isOptionalString(value.color) &&
+		isOptionalContentSafety(value.contentSafety) &&
+		isOptionalString(value.blacklist) &&
+		isOptionalDate(value.dateFrom) &&
+		isOptionalDate(value.dateTo) &&
+		isOptionalExploreSort(value.sort) &&
 		isOptionalDepicts(value.depicts) &&
 		isOptionalWikimediaMode(value.wikimediaMode) &&
 		isOptionalWikimediaReferenceTokens(value.wikimediaReferenceTokens) &&
@@ -116,6 +122,32 @@ function isOptionalBoolean(value: unknown) {
 
 function isOptionalWorkType(value: unknown) {
 	return value === undefined || value === 'painting';
+}
+
+function isOptionalContentSafety(value: unknown) {
+	return value === undefined || value === 'hide' || value === 'blur' || value === 'show';
+}
+
+function isOptionalDate(value: unknown) {
+	return value === undefined || (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value));
+}
+
+function isOptionalExploreSort(value: unknown) {
+	return value === undefined || value === 'recent' || value === 'popular';
+}
+
+function temporaryExploreResponse(error: RetryableMetError) {
+	const retryAfter = error.retryAfterSeconds;
+	return json(
+		{
+			error: error.message,
+			retryAfterSeconds: retryAfter
+		},
+		{
+			status: error.status === 429 ? 429 : 503,
+			headers: retryAfter === null ? {} : { 'retry-after': String(retryAfter) }
+		}
+	);
 }
 
 function isOptionalWikidataMode(value: unknown) {

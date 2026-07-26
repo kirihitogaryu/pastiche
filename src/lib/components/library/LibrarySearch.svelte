@@ -1,13 +1,9 @@
 <script lang="ts">
 	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
-	import HashIcon from 'phosphor-svelte/lib/HashIcon';
-	import ImageSquareIcon from 'phosphor-svelte/lib/ImageSquareIcon';
 	import MagnifyingGlassIcon from 'phosphor-svelte/lib/MagnifyingGlassIcon';
 	import SlidersHorizontalIcon from 'phosphor-svelte/lib/SlidersHorizontalIcon';
-	import StackIcon from 'phosphor-svelte/lib/StackIcon';
 	import type { LibraryResponse } from '$lib/library/types';
-	import { appState, openFilter, setSearchQuery } from '$lib/state/app-state.svelte';
-	import type { Asset } from '$lib/types';
+	import { appState, openFilter, setLibraryQuery } from '$lib/state/app-state.svelte';
 	import { searchLibrary } from './libraryOverviewModel';
 
 	type Props = {
@@ -16,27 +12,27 @@
 		label?: string;
 		scopeLabel?: string;
 		compact?: boolean;
-		onOpenFolder: (path: string[]) => void;
-		onOpenProject: (id: string) => void;
-		onOpenTag: (id: string) => void;
-		onOpenAsset?: (asset: Asset) => void;
+		showNavigationResults?: boolean;
+		showFilter?: boolean;
+		onOpenFolder?: (path: string[]) => void;
 	};
 
 	let {
 		library,
-		placeholder = 'Search images, projects, folders, tags...',
+		placeholder = 'Search folders...',
 		label = 'Search library',
 		scopeLabel,
 		compact = false,
-		onOpenFolder,
-		onOpenProject,
-		onOpenTag,
-		onOpenAsset
+		showNavigationResults = true,
+		showFilter = false,
+		onOpenFolder
 	}: Props = $props();
 
 	let focused = $state(false);
-	let results = $derived(searchLibrary({ library, query: appState.query, limit: 5 }));
-	let showResults = $derived(focused && appState.query.trim().length >= 2);
+	let results = $derived(searchLibrary({ library, query: appState.libraryQuery, limit: 5 }));
+	let showResults = $derived(
+		showNavigationResults && focused && appState.libraryQuery.trim().length >= 2
+	);
 
 	function closeSoon() {
 		window.setTimeout(() => {
@@ -45,45 +41,21 @@
 	}
 
 	function handleInput(event: Event) {
-		setSearchQuery((event.currentTarget as HTMLInputElement).value);
+		setLibraryQuery((event.currentTarget as HTMLInputElement).value);
 		focused = true;
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
-		if (event.key !== 'Enter') return;
+		if (!showNavigationResults || event.key !== 'Enter') return;
 		event.preventDefault();
 		commitFirstResult();
 	}
 
 	function commitFirstResult() {
-		if (results.projects[0]) {
-			onOpenProject(results.projects[0].id);
-			focused = false;
-			return;
-		}
-		if (results.folders[0]) {
+		if (results.folders[0] && onOpenFolder) {
 			onOpenFolder(results.folders[0].path);
 			focused = false;
-			return;
 		}
-		if (results.tags[0]) {
-			onOpenTag(results.tags[0].id);
-			focused = false;
-			return;
-		}
-		if (results.assets[0]) {
-			openAsset(results.assets[0]);
-			focused = false;
-		}
-	}
-
-	function openAsset(asset: Asset) {
-		if (onOpenAsset) {
-			onOpenAsset(asset);
-			return;
-		}
-		appState.selectedAssetId = asset.id;
-		appState.inspectorOpen = true;
 	}
 </script>
 
@@ -95,7 +67,7 @@
 			<span class="scope-label">{scopeLabel}</span>
 		{/if}
 		<input
-			value={appState.query}
+			value={appState.libraryQuery}
 			{placeholder}
 			autocomplete="off"
 			oninput={handleInput}
@@ -103,62 +75,27 @@
 			onfocus={() => (focused = true)}
 			onblur={closeSoon}
 		/>
-		<button type="button" aria-label="Open filters" onclick={openFilter}>
-			<SlidersHorizontalIcon size={19} />
-		</button>
+		{#if showFilter}
+			<button type="button" aria-label="Open filters" onclick={openFilter}>
+				<SlidersHorizontalIcon size={19} />
+			</button>
+		{/if}
 	</label>
 
 	{#if showResults}
 		<div class="search-results" role="listbox" aria-label="Library search results">
 			{#if results.total === 0}
-				<p class="empty-result">No matches for "{appState.query.trim()}".</p>
+				<p class="empty-result">No matches for "{appState.libraryQuery.trim()}".</p>
 			{:else}
-				{#each results.projects as project (project.id)}
-					<button
-						type="button"
-						onmousedown={(event) => event.preventDefault()}
-						onclick={() => onOpenProject(project.id)}
-					>
-						<StackIcon size={17} />
-						<span>Project</span>
-						<strong>{project.name}</strong>
-						<small>{project.assetCount.toLocaleString()} assets</small>
-					</button>
-				{/each}
 				{#each results.folders as folder (folder.id)}
 					<button
 						type="button"
 						onmousedown={(event) => event.preventDefault()}
-						onclick={() => onOpenFolder(folder.path)}
+						onclick={() => onOpenFolder?.(folder.path)}
 					>
 						<FolderIcon size={17} />
-						<span>Folder</span>
 						<strong>{folder.name}</strong>
-						<small>{folder.assetCount.toLocaleString()} assets</small>
-					</button>
-				{/each}
-				{#each results.tags as tag (tag.id)}
-					<button
-						type="button"
-						onmousedown={(event) => event.preventDefault()}
-						onclick={() => onOpenTag(tag.id)}
-					>
-						<HashIcon size={17} />
-						<span>Tag</span>
-						<strong>{tag.value}</strong>
-						<small>{tag.facetName}</small>
-					</button>
-				{/each}
-				{#each results.assets as asset (asset.id)}
-					<button
-						type="button"
-						onmousedown={(event) => event.preventDefault()}
-						onclick={() => openAsset(asset)}
-					>
-						<ImageSquareIcon size={17} />
-						<span>Image</span>
-						<strong>{asset.title}</strong>
-						<small>{asset.creator || asset.sourceName}</small>
+						<small>{folder.assetCount.toLocaleString()} images</small>
 					</button>
 				{/each}
 			{/if}
@@ -250,7 +187,7 @@
 		min-width: 0;
 		min-height: 2.75rem;
 		display: grid;
-		grid-template-columns: auto 4rem minmax(0, 1fr) auto;
+		grid-template-columns: auto minmax(0, 1fr) auto;
 		align-items: center;
 		gap: var(--space-2);
 		padding: 0 var(--space-3);
@@ -268,7 +205,6 @@
 		background: var(--color-hover);
 	}
 
-	.search-results span,
 	.search-results small,
 	.empty-result {
 		color: var(--color-muted);
@@ -314,10 +250,6 @@
 		.search-results button {
 			grid-template-columns: auto minmax(0, 1fr) auto;
 			min-height: 2.55rem;
-		}
-
-		.search-results button span {
-			display: none;
 		}
 	}
 </style>

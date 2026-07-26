@@ -21,11 +21,11 @@ export function scoreCandidate(
 	candidate: ImageCandidate,
 	options: ScoreCandidateOptions
 ): ImageCandidate {
-	const rejectionReasons: string[] = [];
-	const scoreReasons: string[] = [];
+	const rejectionReasons: string[] = [...candidate.rejectionReasons];
+	const scoreReasons: string[] = [...candidate.scoreReasons];
 	const maxDimension = candidateMaxDimension(candidate);
 	const visibleArea = candidateVisibleArea(candidate);
-	let score = 0;
+	let score = candidate.score;
 
 	if (!options.directSelection && maxDimension > 0 && maxDimension < options.minDimension) {
 		rejectionReasons.push('below minimum page-scan size');
@@ -72,6 +72,13 @@ export function scoreCandidate(
 	if (candidate.kind === 'meta' || candidate.kind === 'json_ld') {
 		score += 35;
 		scoreReasons.push('source metadata candidate');
+		if (options.directSelection && maxDimension === 0) {
+			score -= 70;
+			scoreReasons.push('unverified page metadata fallback');
+		}
+	} else if (options.directSelection) {
+		score += 45;
+		scoreReasons.push('directly selected element');
 	}
 
 	if (candidate.kind === 'srcset' || candidate.kind === 'picture') {

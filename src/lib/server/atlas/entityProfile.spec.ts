@@ -83,9 +83,7 @@ describe('Atlas entity profile reads', () => {
 					lastSeenAt: expect.any(String)
 				})
 			]);
-			expect(profile?.aliases.map((alias) => alias.normalizedAlias)).toEqual([
-				'exampleartist'
-			]);
+			expect(profile?.aliases.map((alias) => alias.normalizedAlias)).toEqual(['exampleartist']);
 			expect(profile?.works).toEqual([
 				expect.objectContaining({
 					title: 'Dragon Study',

@@ -23,7 +23,7 @@
 		onRemove
 	}: Props = $props();
 	let focused = $state(false);
-let draft = $state('');
+	let draft = $state('');
 
 	$effect(() => {
 		if (!focused) draft = value;

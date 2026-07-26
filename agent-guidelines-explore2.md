@@ -1,4 +1,5 @@
 # Agent Guidelines — Pastiche Explore Feature
+
 ## API Connectivity & Normalization
 
 These guidelines define implementation constraints, priorities, and decisions for an AI agent working directly in the Pastiche codebase on the Explore page and its API connector system. Read this fully before writing any code related to Explore.
@@ -27,90 +28,107 @@ Define these in `src/lib/explore/types.ts`. All connectors and all UI components
 ```typescript
 // Every item returned from any source is normalized into this shape.
 type ExploreItem = {
-  // Identity
-  id: string                          // format: "{source}-{nativeId}" e.g. "met-437133"
-  source: SourceId
-  detailUrl: string                   // link back to source page
+	// Identity
+	id: string; // format: "{source}-{nativeId}" e.g. "met-437133"
+	source: SourceId;
+	detailUrl: string; // link back to source page
 
-  // Core display — these must always be present or explicitly null
-  title: string
-  artistRaw: string | null            // display string, may include prefix e.g. "Attributed to Rembrandt"
-  artistBio: string | null            // e.g. "Dutch, 1853–1890"
-  artistNationality: string | null
-  dateDisplay: string | null          // human-readable, show as-is e.g. "ca. 1665–1670"
-  yearStart: number | null            // integer, may be negative (BCE)
-  yearEnd: number | null              // integer, may be negative (BCE)
-  medium: string | null               // raw string from source, not normalized
-  mediumCategory: MediumCategory | null  // normalized bucket — see Medium Normalization
-  objectName: string | null           // "Painting", "Vase", "Photograph"
-  department: string | null           // source's own department/category label
-  culture: string | null              // e.g. "Afghan", "North African"
-  period: string | null               // e.g. "Ming dynasty", "Middle Bronze Age"
+	// Core display — these must always be present or explicitly null
+	title: string;
+	artistRaw: string | null; // display string, may include prefix e.g. "Attributed to Rembrandt"
+	artistBio: string | null; // e.g. "Dutch, 1853–1890"
+	artistNationality: string | null;
+	dateDisplay: string | null; // human-readable, show as-is e.g. "ca. 1665–1670"
+	yearStart: number | null; // integer, may be negative (BCE)
+	yearEnd: number | null; // integer, may be negative (BCE)
+	medium: string | null; // raw string from source, not normalized
+	mediumCategory: MediumCategory | null; // normalized bucket — see Medium Normalization
+	objectName: string | null; // "Painting", "Vase", "Photograph"
+	department: string | null; // source's own department/category label
+	culture: string | null; // e.g. "Afghan", "North African"
+	period: string | null; // e.g. "Ming dynasty", "Middle Bronze Age"
 
-  // Images
-  thumbUrl: string | null             // for grid cards — never use imageUrl for cards
-  imageUrl: string                    // full res or IIIF base URL
-  additionalImages: string[]          // additional views of the same object
-  isIIIF: boolean                     // true = imageUrl is a IIIF base, construct tile URLs from it
+	// Images
+	thumbUrl: string | null; // for grid cards — never use imageUrl for cards
+	imageUrl: string; // full res or IIIF base URL
+	additionalImages: string[]; // additional views of the same object
+	isIIIF: boolean; // true = imageUrl is a IIIF base, construct tile URLs from it
 
-  // Optional flavor — only populate when genuinely present
-  description: string | null          // curatorial blurb when available
+	// Optional flavor — only populate when genuinely present
+	description: string | null; // curatorial blurb when available
 
-  // Meta
-  tags: string[]
-  isHighlight: boolean                // source's editorial "important work" flag, when available
-  isPublicDomain: boolean | null      // null = unknown
+	// Meta
+	tags: string[];
+	isHighlight: boolean; // source's editorial "important work" flag, when available
+	isPublicDomain: boolean | null; // null = unknown
 
-  // Escape hatch — store anything useful that doesn't fit above
-  rawMetadata: Record<string, unknown>
-}
+	// Escape hatch — store anything useful that doesn't fit above
+	rawMetadata: Record<string, unknown>;
+};
 
 type MediumCategory =
-  | "oil" | "watercolor" | "tempera" | "fresco"
-  | "print" | "drawing" | "photograph"
-  | "sculpture" | "textile" | "ceramic"
-  | "metalwork" | "glass" | "mixed_media" | "other"
+	| 'oil'
+	| 'watercolor'
+	| 'tempera'
+	| 'fresco'
+	| 'print'
+	| 'drawing'
+	| 'photograph'
+	| 'sculpture'
+	| 'textile'
+	| 'ceramic'
+	| 'metalwork'
+	| 'glass'
+	| 'mixed_media'
+	| 'other';
 
-type SourceId = "met" | "artic" | "rijksmuseum" | "cleveland" | "europeana"
+type SourceId = 'met' | 'artic' | 'rijksmuseum' | 'cleveland' | 'europeana';
 
 // What the UI sends to a connector.
 type ExploreQuery = {
-  keyword?: string
-  artist?: string
-  tag?: string
-  yearFrom?: number
-  yearTo?: number
-  medium?: string
-  department?: string
-  publicDomainOnly?: boolean
-  hasImageOnly?: boolean        // connectors should default this to true
-  isHighlightOnly?: boolean
-  color?: string                // hex string — connectors ignore if unsupported
-  cursor?: string               // for pagination
-  limit: number                 // always set by the UI, typically 20
-}
+	keyword?: string;
+	artist?: string;
+	tag?: string;
+	yearFrom?: number;
+	yearTo?: number;
+	medium?: string;
+	department?: string;
+	publicDomainOnly?: boolean;
+	hasImageOnly?: boolean; // connectors should default this to true
+	isHighlightOnly?: boolean;
+	color?: string; // hex string — connectors ignore if unsupported
+	cursor?: string; // for pagination
+	limit: number; // always set by the UI, typically 20
+};
 
 // What a connector returns from search().
 type ExplorePage = {
-  items: ExploreItem[]
-  total: number | null          // null if the source doesn't expose a total count
-  nextCursor: string | null     // null if no more pages
-}
+	items: ExploreItem[];
+	total: number | null; // null if the source doesn't expose a total count
+	nextCursor: string | null; // null if no more pages
+};
 
 // Declared by each connector to tell the UI what it supports.
 type FilterCapability =
-  | "keyword" | "artist" | "tag" | "year_range" | "medium"
-  | "department" | "public_domain" | "has_image"
-  | "color" | "is_highlight"
+	| 'keyword'
+	| 'artist'
+	| 'tag'
+	| 'year_range'
+	| 'medium'
+	| 'department'
+	| 'public_domain'
+	| 'has_image'
+	| 'color'
+	| 'is_highlight';
 
 // The interface every connector must implement.
 interface SourceConnector {
-  id: SourceId
-  displayName: string
-  supportedFilters: FilterCapability[]
-  getDepartments(): Promise<{ id: string; label: string }[]>
-  search(query: ExploreQuery): Promise<ExplorePage>
-  getById(id: string): Promise<ExploreItem>
+	id: SourceId;
+	displayName: string;
+	supportedFilters: FilterCapability[];
+	getDepartments(): Promise<{ id: string; label: string }[]>;
+	search(query: ExploreQuery): Promise<ExplorePage>;
+	getById(id: string): Promise<ExploreItem>;
 }
 ```
 
@@ -146,17 +164,18 @@ The Met is the first connector to implement. Get this right before building the 
 
 ### Endpoints Used
 
-| Endpoint | When |
-|---|---|
-| `GET /search` | Every search query |
-| `GET /objects/{id}` | For each ID returned by search |
-| `GET /departments` | Once on startup, cached indefinitely |
+| Endpoint            | When                                 |
+| ------------------- | ------------------------------------ |
+| `GET /search`       | Every search query                   |
+| `GET /objects/{id}` | For each ID returned by search       |
+| `GET /departments`  | Once on startup, cached indefinitely |
 
 **Never call `GET /objects` (the full ID dump).** It returns 471k IDs and is not useful for Explore.
 
 ### Search Flow
 
 The Met's search returns IDs only, not full records. Every Explore page load is therefore:
+
 1. One `GET /search` call → array of object IDs + total count
 2. N parallel `GET /objects/{id}` calls for the current page of IDs
 
@@ -164,17 +183,17 @@ Fetch object details in parallel, up to 15 concurrent. The ideal UX is progressi
 
 ### Search Parameters
 
-| ExploreQuery field | Met parameter | Notes |
-|---|---|---|
-| `keyword` | `q` | Required by Met — if empty, use `"*"` |
-| `artist` | `artistOrCulture=true&q={artist}` | Searches artist + culture fields together |
-| `yearFrom` | `dateBegin` | Integer |
-| `yearTo` | `dateEnd` | Integer |
-| `medium` | `medium` | Pipe-delimited for multiple values |
-| `department` | `departmentId` | Must be numeric ID, not name — map via departments cache |
-| `publicDomainOnly` | `isPublicDomain=true` | Only add when true |
-| `hasImageOnly` | `hasImages=true` | Always add unless explicitly false |
-| `isHighlightOnly` | `isHighlight=true` | Only add when true |
+| ExploreQuery field | Met parameter                     | Notes                                                    |
+| ------------------ | --------------------------------- | -------------------------------------------------------- |
+| `keyword`          | `q`                               | Required by Met — if empty, use `"*"`                    |
+| `artist`           | `artistOrCulture=true&q={artist}` | Searches artist + culture fields together                |
+| `yearFrom`         | `dateBegin`                       | Integer                                                  |
+| `yearTo`           | `dateEnd`                         | Integer                                                  |
+| `medium`           | `medium`                          | Pipe-delimited for multiple values                       |
+| `department`       | `departmentId`                    | Must be numeric ID, not name — map via departments cache |
+| `publicDomainOnly` | `isPublicDomain=true`             | Only add when true                                       |
+| `hasImageOnly`     | `hasImages=true`                  | Always add unless explicitly false                       |
+| `isHighlightOnly`  | `isHighlight=true`                | Only add when true                                       |
 
 `color` is not supported by the Met. Ignore it silently.
 
@@ -237,20 +256,20 @@ Implement `normalizeMedium(raw: string | null): MediumCategory | null` in `src/l
 
 This is a simple lookup, not ML or fuzzy matching. Check if the lowercased raw string contains any of these substrings, in this priority order:
 
-| Contains | Category |
-|---|---|
-| "oil" | `"oil"` |
-| "watercolor" / "watercolour" | `"watercolor"` |
-| "tempera" | `"tempera"` |
-| "fresco" | `"fresco"` |
-| "engraving" / "etching" / "lithograph" / "woodcut" / "print" / "aquatint" | `"print"` |
-| "pencil" / "chalk" / "charcoal" / "ink" / "drawing" / "pastel" | `"drawing"` |
-| "photograph" / "gelatin" / "albumen" / "daguerreotype" | `"photograph"` |
-| "marble" / "bronze" / "terracotta" / "wood" / "ivory" / "cast" / "carved" / "sculpt" | `"sculpture"` |
-| "silk" / "wool" / "linen" / "cotton" / "embroid" / "tapestry" / "textile" / "woven" | `"textile"` |
-| "ceramic" / "porcelain" / "earthenware" / "stoneware" / "faience" | `"ceramic"` |
-| "gold" / "silver" / "copper" / "iron" / "steel" / "brass" / "metal" | `"metalwork"` |
-| "glass" | `"glass"` |
+| Contains                                                                             | Category       |
+| ------------------------------------------------------------------------------------ | -------------- |
+| "oil"                                                                                | `"oil"`        |
+| "watercolor" / "watercolour"                                                         | `"watercolor"` |
+| "tempera"                                                                            | `"tempera"`    |
+| "fresco"                                                                             | `"fresco"`     |
+| "engraving" / "etching" / "lithograph" / "woodcut" / "print" / "aquatint"            | `"print"`      |
+| "pencil" / "chalk" / "charcoal" / "ink" / "drawing" / "pastel"                       | `"drawing"`    |
+| "photograph" / "gelatin" / "albumen" / "daguerreotype"                               | `"photograph"` |
+| "marble" / "bronze" / "terracotta" / "wood" / "ivory" / "cast" / "carved" / "sculpt" | `"sculpture"`  |
+| "silk" / "wool" / "linen" / "cotton" / "embroid" / "tapestry" / "textile" / "woven"  | `"textile"`    |
+| "ceramic" / "porcelain" / "earthenware" / "stoneware" / "faience"                    | `"ceramic"`    |
+| "gold" / "silver" / "copper" / "iron" / "steel" / "brass" / "metal"                  | `"metalwork"`  |
+| "glass"                                                                              | `"glass"`      |
 
 If no match: return `"other"` if `raw` is non-null, `null` if `raw` is null.
 
@@ -281,6 +300,7 @@ The layout mode is **context-driven by whether a search query is active**, not a
 When no search query is entered, the Explore page shows a **source browser**: a grid of source entry points presented as tiles or pills (Met, Art Institute, Rijksmuseum, WikiArt Styles, etc.). The user selects a source to browse it directly. This is the right mode for discovery — the user does not know what they want yet and benefits from understanding what each source offers.
 
 Each source tile opens into that source's own browse experience:
+
 - Museum sources open to their highlights or department grid
 - WikiArt opens to the style/movement grid (its primary browse entry point)
 
@@ -307,11 +327,11 @@ Do not remove or hide the source indicator in any layout mode. It is always visi
 
 ### Mode Summary
 
-| State | Layout | Sources active |
-|---|---|---|
-| No query | Source browser — one source at a time | User-selected |
-| Query entered | Unified interleaved rows, labelled by source | All museum sources; WikiArt opt-in |
-| Card source pill clicked | Filter to that source | Single source |
+| State                    | Layout                                       | Sources active                     |
+| ------------------------ | -------------------------------------------- | ---------------------------------- |
+| No query                 | Source browser — one source at a time        | User-selected                      |
+| Query entered            | Unified interleaved rows, labelled by source | All museum sources; WikiArt opt-in |
+| Card source pill clicked | Filter to that source                        | Single source                      |
 
 Both modes share the same underlying pagination state model (see below).
 
@@ -323,15 +343,15 @@ Each source maintains its own independent pagination state. Do not attempt to me
 
 ```typescript
 type SourcePaginationState = {
-  source: SourceId
-  queryHash: string           // hash of the ExploreQuery that produced this state
-  cursor: string | null
-  exhausted: boolean
-  loadedItems: ExploreItem[]
-  total: number | null
-  loading: boolean
-  error: string | null
-}
+	source: SourceId;
+	queryHash: string; // hash of the ExploreQuery that produced this state
+	cursor: string | null;
+	exhausted: boolean;
+	loadedItems: ExploreItem[];
+	total: number | null;
+	loading: boolean;
+	error: string | null;
+};
 ```
 
 - In tab mode: trigger next page when user reaches the bottom of the tab scroll.
@@ -348,6 +368,7 @@ type SourcePaginationState = {
 **Server request cache (in-memory, LRU + pending de-dupe):** cache upstream search responses for 1 hour and normalized object records for 24 hours. Every connector's object/detail fetches should go through `ServerCache.getOrFetch()` so duplicate in-flight requests collapse before touching upstream APIs.
 
 **Persistent client cache (IndexedDB via `idb-keyval`):** use the established key namespaces:
+
 - `explore:search:{source}:{queryHash}` for search pages, 1 hour fresh TTL plus a 24 hour stale-while-revalidate window.
 - `explore:object:{source}-{nativeId}` for normalized object records, 7 day TTL.
 - `explore:thumb:{source}-{nativeId}` for thumbnail bytes, 30 day TTL.
@@ -406,6 +427,7 @@ When `isIIIF: true` on an `ExploreItem`, `imageUrl` is a IIIF base URL, not a di
 ```
 
 Example — a 600px wide version of an Art Institute painting:
+
 ```
 https://www.artic.edu/iiif/2/{identifier}/full/600,/0/default.jpg
 ```
@@ -421,6 +443,7 @@ Thumb URLs for IIIF sources should always be constructed at a fixed small size (
 A IIIF manifest is a structured JSON document describing a complete object: all images including multiple views, metadata, rights, and how images relate to each other. For sources that support it, fetch the manifest in the detail view alongside the regular API data.
 
 Art Institute manifest URL pattern:
+
 ```
 https://api.artic.edu/api/v1/artworks/{id}/manifest.json
 ```

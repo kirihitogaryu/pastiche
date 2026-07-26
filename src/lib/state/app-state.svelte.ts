@@ -1,9 +1,11 @@
 import type { AppMode, Asset, LibraryView, MobileState } from '$lib/types';
 import type {
+	ExploreContentSafety,
 	ExploreQuery,
 	ExploreSubject,
 	ExploreSuggestion,
 	SourceId,
+	WebsiteSearchMode,
 	WikimediaMode,
 	WikimediaReferenceFilters,
 	WikimediaReferenceToken,
@@ -28,6 +30,8 @@ export type LibraryFilterState = {
 		rights: string | null;
 	};
 	orientation: 'portrait' | 'landscape' | 'square' | null;
+	storageMode?: 'all' | 'saved' | 'bookmarked';
+	includeSubfolders?: boolean;
 };
 
 export type ExploreSourceFilterState = {
@@ -52,6 +56,22 @@ export type ExploreSourceFilterState = {
 		yearTo: number | null;
 		hasImageOnly: boolean;
 		reference: WikimediaReferenceFilters;
+	};
+	danbooru: {
+		contentSafety: ExploreContentSafety;
+		blacklist: string;
+	};
+	deviantart: {
+		contentSafety: ExploreContentSafety;
+		dateFrom: string | null;
+		dateTo: string | null;
+		sort: 'recent' | 'popular';
+	};
+	bluesky: {
+		contentSafety: ExploreContentSafety;
+	};
+	furaffinity: {
+		contentSafety: ExploreContentSafety;
 	};
 };
 
@@ -91,7 +111,9 @@ export function defaultLibraryFilters(): LibraryFilterState {
 			period: null,
 			rights: null
 		},
-		orientation: null
+		orientation: null,
+		storageMode: 'all',
+		includeSubfolders: false
 	};
 }
 
@@ -118,6 +140,22 @@ export function defaultExploreFilters(): ExploreSourceFilterState {
 			yearTo: null,
 			hasImageOnly: true,
 			reference: defaultWikimediaReferenceFilters()
+		},
+		danbooru: {
+			contentSafety: 'blur',
+			blacklist: ''
+		},
+		deviantart: {
+			contentSafety: 'blur',
+			dateFrom: null,
+			dateTo: null,
+			sort: 'recent'
+		},
+		bluesky: {
+			contentSafety: 'blur'
+		},
+		furaffinity: {
+			contentSafety: 'blur'
 		}
 	};
 }
@@ -161,9 +199,17 @@ export const appState = $state({
 	mode: 'home' as AppMode,
 	selectedAssetId: null as string | null,
 	atlasView: 'home' as AtlasView,
+	atlasReturnView: 'home' as Exclude<AtlasView, 'asset'>,
+	atlasReturnWikiSlug: null as string | null,
 	activeAtlasAssetId: null as string | null,
 	activeAtlasWikiSlug: null as string | null,
 	atlasSearchQuery: '' as string,
+	atlasSearchScrollTop: 0,
+	atlasSearchScrollQuery: '' as string,
+	atlasContextOpen: false,
+	atlasContextAvailable: false,
+	mobileNavHidden: false,
+	mobileNavScrollHidden: false,
 	selectedAssetIds: [] as string[],
 	mobileState: 'browse' as MobileState,
 	addOpen: false,
@@ -175,11 +221,12 @@ export const appState = $state({
 	activeSmartFolderId: null as string | null,
 	activeTagId: null as string | null,
 	activeProjectId: null as string | null,
-	librarySort: 'Newest',
+	librarySort: 'Newest' as 'Newest' | 'Oldest' | 'Title',
 	filterOpen: false,
 	shellScrolled: false,
 	focusedPreviewOpen: false,
 	query: '',
+	libraryQuery: '',
 	exploreCommittedQuery: '',
 	exploreSuggestions: [] as ExploreSuggestion[],
 	exploreQueryPatch: null as Partial<ExploreQuery> | null,
@@ -188,6 +235,7 @@ export const appState = $state({
 	exploreFilterOptions: defaultExploreFilterOptions(),
 	exploreSourceId: 'met' as SourceId,
 	exploreSourceLabel: 'The Met',
+	websiteSearchMode: 'artist' as WebsiteSearchMode,
 	wikimediaMode: 'art' as WikimediaMode,
 	wikidataMode: 'depicts' as WikidataSearchMode,
 	wikidataSubjects: [] as ExploreSubject[],
@@ -215,17 +263,25 @@ export function setMode(mode: AppMode) {
 	appState.addOpen = false;
 	appState.inspectorOpen = mode === 'explore';
 	appState.shellScrolled = false;
+	appState.mobileNavHidden = false;
+	resetMobileNavScroll();
+	appState.atlasContextOpen = false;
 	appState.focusedPreviewOpen = false;
 	appState.exploreQueryPatch = null;
 
 	if (mode === 'library') {
 		appState.libraryView = appState.lastLibraryView;
+		appState.libraryQuery = '';
 		appState.inspectorOpen = false;
 	}
 }
 
 export function setSearchQuery(query: string) {
 	appState.query = query;
+}
+
+export function setLibraryQuery(query: string) {
+	appState.libraryQuery = query;
 }
 
 export function commitExploreSearch(query = appState.query) {
@@ -240,6 +296,14 @@ export function setExploreSuggestions(suggestions: ExploreSuggestion[]) {
 export function setExploreSource(source: SourceId, label: string) {
 	appState.exploreSourceId = source;
 	appState.exploreSourceLabel = label;
+}
+
+export function setWebsiteSearchMode(mode: WebsiteSearchMode) {
+	if (appState.websiteSearchMode === mode) return;
+	appState.websiteSearchMode = mode;
+	appState.query = '';
+	appState.exploreCommittedQuery = '';
+	appState.exploreQueryPatch = null;
 }
 
 export function setExploreSourceLabel(label: string) {
@@ -259,7 +323,7 @@ export function selectExploreSuggestion(suggestion: ExploreSuggestion) {
 export function addWikidataSubject(subject: ExploreSubject) {
 	if (appState.wikidataSubjects.some((selected) => selected.id === subject.id)) return;
 	appState.wikidataSubjects = [...appState.wikidataSubjects, subject];
-	appState.query = '';
+	appState.libraryQuery = '';
 	appState.exploreCommittedQuery = '';
 	appState.wikidataEntitySuggestions = [];
 	appState.wikidataEntityError = null;
@@ -373,6 +437,12 @@ export function openLibraryOverview() {
 	appState.mobileState = 'browse';
 	appState.addOpen = false;
 	appState.filterOpen = false;
+	appState.query = '';
+	appState.libraryQuery = '';
+}
+
+export function setLibrarySort(sort: 'Newest' | 'Oldest' | 'Title') {
+	appState.librarySort = sort;
 }
 
 export function openFullLibrary() {
@@ -380,6 +450,7 @@ export function openFullLibrary() {
 	appState.libraryView = 'all';
 	appState.lastLibraryView = 'all';
 	appState.mobileState = 'browse';
+	appState.libraryQuery = '';
 }
 
 export function openLibraryFolder(path: string[]) {
@@ -389,6 +460,7 @@ export function openLibraryFolder(path: string[]) {
 	appState.activeLibraryFolderPath = path;
 	appState.folderPath = path;
 	appState.mobileState = 'browse';
+	appState.libraryQuery = '';
 }
 
 export function openSmartFolder(id: string) {
@@ -397,6 +469,7 @@ export function openSmartFolder(id: string) {
 	appState.lastLibraryView = 'smart';
 	appState.activeSmartFolderId = id;
 	appState.mobileState = 'browse';
+	appState.libraryQuery = '';
 }
 
 export function openLibraryTag(id: string) {
@@ -405,6 +478,7 @@ export function openLibraryTag(id: string) {
 	appState.lastLibraryView = 'tag';
 	appState.activeTagId = id;
 	appState.mobileState = 'browse';
+	appState.libraryQuery = '';
 }
 
 export function openProjectLibrary(id: string) {
@@ -413,9 +487,12 @@ export function openProjectLibrary(id: string) {
 	appState.lastLibraryView = 'project';
 	appState.activeProjectId = id;
 	appState.mobileState = 'browse';
+	appState.libraryQuery = '';
 }
 
 export function openAtlasAsset(assetId: string) {
+	if (appState.atlasView !== 'asset') appState.atlasReturnView = appState.atlasView;
+	if (appState.atlasView === 'wiki') appState.atlasReturnWikiSlug = appState.activeAtlasWikiSlug;
 	appState.activeAtlasAssetId = assetId;
 	appState.activeAtlasWikiSlug = null;
 	appState.selectedAssetId = assetId;
@@ -426,6 +503,8 @@ export function openAtlasAsset(assetId: string) {
 	appState.filterOpen = false;
 	appState.inspectorOpen = false;
 	appState.shellScrolled = false;
+	appState.mobileNavHidden = true;
+	appState.atlasContextOpen = false;
 	appState.focusedPreviewOpen = false;
 }
 
@@ -439,22 +518,48 @@ export function openAtlasHome() {
 	appState.filterOpen = false;
 	appState.inspectorOpen = false;
 	appState.shellScrolled = false;
+	appState.mobileNavHidden = false;
+	appState.atlasContextOpen = false;
 	appState.focusedPreviewOpen = false;
 }
 
 export function openAtlasSearch(query = appState.query) {
+	const nextQuery = query.trim();
+	if (nextQuery !== appState.atlasSearchQuery) {
+		appState.atlasSearchScrollTop = 0;
+		appState.atlasSearchScrollQuery = nextQuery;
+	}
 	appState.mode = 'atlas';
 	appState.atlasView = 'search';
 	appState.activeAtlasAssetId = null;
 	appState.activeAtlasWikiSlug = null;
-	appState.atlasSearchQuery = query.trim();
+	appState.atlasSearchQuery = nextQuery;
 	appState.query = query;
 	appState.mobileState = 'browse';
 	appState.addOpen = false;
 	appState.filterOpen = false;
 	appState.inspectorOpen = false;
 	appState.shellScrolled = false;
+	appState.mobileNavHidden = false;
+	appState.atlasContextOpen = false;
 	appState.focusedPreviewOpen = false;
+}
+
+export function rememberAtlasSearchScroll(query: string, scrollTop: number) {
+	appState.atlasSearchScrollQuery = query;
+	appState.atlasSearchScrollTop = Math.max(0, scrollTop);
+}
+
+export function returnFromAtlasAsset() {
+	if (appState.atlasReturnView === 'search') {
+		openAtlasSearch(appState.atlasSearchQuery);
+		return;
+	}
+	if (appState.atlasReturnView === 'wiki') {
+		openAtlasWiki(appState.atlasReturnWikiSlug);
+		return;
+	}
+	openAtlasHome();
 }
 
 export function openAtlasWiki(slug: string | null = null) {
@@ -467,6 +572,8 @@ export function openAtlasWiki(slug: string | null = null) {
 	appState.filterOpen = false;
 	appState.inspectorOpen = false;
 	appState.shellScrolled = false;
+	appState.mobileNavHidden = false;
+	appState.atlasContextOpen = false;
 	appState.focusedPreviewOpen = false;
 }
 
@@ -541,6 +648,68 @@ export function setShellScrolled(scrolled: boolean) {
 	appState.shellScrolled = scrolled;
 }
 
+export function setMobileNavHidden(hidden: boolean) {
+	appState.mobileNavHidden = hidden;
+}
+
+let mobileNavScrollTop = 0;
+let mobileNavScrollIntent = 0;
+let mobileNavScrollContext = '';
+
+export function updateMobileNavFromScroll(scrollTop: number, context = 'workspace') {
+	appState.shellScrolled = scrollTop > 12;
+	if (typeof window === 'undefined' || !window.matchMedia('(max-width: 759px)').matches) {
+		appState.mobileNavScrollHidden = false;
+		return;
+	}
+
+	if (context !== mobileNavScrollContext) {
+		mobileNavScrollContext = context;
+		mobileNavScrollTop = scrollTop;
+		mobileNavScrollIntent = 0;
+	}
+
+	const delta = scrollTop - mobileNavScrollTop;
+	if (scrollTop <= 18) {
+		mobileNavScrollIntent = 0;
+		appState.mobileNavScrollHidden = false;
+	} else if (Math.abs(delta) >= 1) {
+		if (Math.sign(delta) !== Math.sign(mobileNavScrollIntent)) mobileNavScrollIntent = 0;
+		mobileNavScrollIntent += delta;
+		if (mobileNavScrollIntent > 18 && scrollTop > 56) {
+			appState.mobileNavScrollHidden = true;
+			mobileNavScrollIntent = 0;
+		} else if (mobileNavScrollIntent < -10) {
+			appState.mobileNavScrollHidden = false;
+			mobileNavScrollIntent = 0;
+		}
+	}
+	mobileNavScrollTop = scrollTop;
+}
+
+export function resetMobileNavScroll() {
+	mobileNavScrollTop = 0;
+	mobileNavScrollIntent = 0;
+	mobileNavScrollContext = '';
+	appState.mobileNavScrollHidden = false;
+}
+
+export function setAtlasContextAvailable(available: boolean) {
+	appState.atlasContextAvailable = available;
+	if (!available) appState.atlasContextOpen = false;
+}
+
+export function toggleAtlasContext() {
+	if (!appState.atlasContextAvailable) return;
+	appState.mobileNavHidden = false;
+	appState.atlasContextOpen = !appState.atlasContextOpen;
+}
+
+export function closeAtlasContext() {
+	appState.atlasContextOpen = false;
+	appState.mobileNavHidden = false;
+}
+
 export function openMobileInspect(asset: Asset, scrollY: number) {
 	appState.lastBrowseScrollY = scrollY;
 	appState.selectedAssetId = asset.id;
@@ -571,6 +740,8 @@ export function toggleSelection(asset: Asset) {
 export function openAdd() {
 	appState.addOpen = true;
 	appState.mobileState = 'adding';
+	appState.mobileNavHidden = false;
+	resetMobileNavScroll();
 }
 
 export function closeAdd() {

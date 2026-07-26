@@ -158,12 +158,17 @@ export function createMetConnector(options: MetConnectorOptions = {}): SourceCon
 		async getDepartments() {
 			departmentsPromise ??= metJson<MetDepartmentResponse>(
 				new URL(`${MET_BASE_URL}/departments`)
-			).then((data) =>
-				data.departments.map((department) => ({
-					id: String(department.departmentId),
-					label: department.displayName
-				}))
-			);
+			)
+				.then((data) =>
+					data.departments.map((department) => ({
+						id: String(department.departmentId),
+						label: department.displayName
+					}))
+				)
+				.catch((error) => {
+					departmentsPromise = null;
+					throw error;
+				});
 			return departmentsPromise;
 		},
 		async search(query) {

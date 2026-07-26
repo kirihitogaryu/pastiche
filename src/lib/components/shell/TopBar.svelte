@@ -1,27 +1,21 @@
 <script lang="ts">
 	import BookOpenTextIcon from 'phosphor-svelte/lib/BookOpenTextIcon';
 	import FunnelIcon from 'phosphor-svelte/lib/FunnelIcon';
-	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
-	import HashIcon from 'phosphor-svelte/lib/HashIcon';
-	import TagChevronIcon from 'phosphor-svelte/lib/TagChevronIcon';
-	import StackIcon from 'phosphor-svelte/lib/StackIcon';
 	import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
-	import CreateOrganizationPopover from '$lib/components/library/CreateOrganizationPopover.svelte';
 	import SearchBox from '$lib/components/shell/SearchBox.svelte';
 	import type { AppMode } from '$lib/types';
-	import { appState, openAdd, openAtlasWiki, openFilter, setMode } from '$lib/state/app-state.svelte';
-	import { libraryState, setLibrarySnapshot } from '$lib/state/library-state.svelte';
+	import {
+		appState,
+		openAdd,
+		openAtlasWiki,
+		openFilter
+	} from '$lib/state/app-state.svelte';
 
 	type Props = {
 		mode: AppMode;
 	};
 
 	let { mode }: Props = $props();
-	type CreateKind = 'folder' | 'project' | 'tag' | 'tag-group';
-
-	let createOpen = $state<CreateKind | null>(null);
-	let createAnchor = $state<{ left: number; top: number } | null>(null);
-
 	const labels: Record<AppMode, string> = {
 		home: 'Home',
 		library: 'Library',
@@ -31,123 +25,28 @@
 		colors: 'Colors',
 		resources: 'Resources'
 	};
-
-	function openCreate(kind: CreateKind, event: MouseEvent) {
-		if (createOpen === kind) {
-			createOpen = null;
-			createAnchor = null;
-			return;
-		}
-		createOpen = kind;
-		createAnchor = anchorFrom(event.currentTarget);
-	}
-
-	function anchorFrom(target: EventTarget | null) {
-		if (!(target instanceof HTMLElement)) return null;
-		const rect = target.getBoundingClientRect();
-		const width = 320;
-		return {
-			left: Math.max(12, Math.min(rect.left, window.innerWidth - width - 12)),
-			top: rect.bottom + 8
-		};
-	}
 </script>
 
 <header class="topbar">
-	<button class="wordmark" type="button" aria-label="Pastiche Home" onclick={() => setMode('home')}>
-		pastiche.
-	</button>
-	<div class="mode-pill">{labels[mode]}</div>
-	<div class="search-slot">
-		<SearchBox
-			{mode}
-			label={`Search ${labels[mode]}`}
-			placeholder="Search artwork, artists, or collections..."
-			showShortcut
-		/>
-	</div>
-	{#if mode === 'library'}
-		<div class="tool-wrap">
-			<button
-				class="icon-tool"
-				type="button"
-				aria-label="New folder"
-				onclick={(event) => openCreate('folder', event)}
-			>
-				<FolderIcon size={20} />
-			</button>
-			{#if createOpen === 'folder'}
-				<CreateOrganizationPopover
-					kind="folder"
-					library={libraryState.snapshot}
-					anchor={createAnchor}
-					onClose={() => (createOpen = null)}
-					onSnapshot={setLibrarySnapshot}
-				/>
-			{/if}
+	<h1>{labels[mode]}</h1>
+	{#if mode !== 'library'}
+		<div class="search-slot">
+			<SearchBox
+				{mode}
+				label={`Search ${labels[mode]}`}
+				placeholder="Search artwork, artists, or collections..."
+				showShortcut
+			/>
 		</div>
-		<div class="tool-wrap">
-			<button
-				class="icon-tool"
-				type="button"
-				aria-label="New project"
-				onclick={(event) => openCreate('project', event)}
-			>
-				<StackIcon size={20} />
-			</button>
-			{#if createOpen === 'project'}
-				<CreateOrganizationPopover
-					kind="project"
-					library={libraryState.snapshot}
-					anchor={createAnchor}
-					onClose={() => (createOpen = null)}
-					onSnapshot={setLibrarySnapshot}
-				/>
-			{/if}
-		</div>
-		<div class="tool-wrap">
-			<button
-				class="icon-tool"
-				type="button"
-				aria-label="New tag"
-				onclick={(event) => openCreate('tag', event)}
-			>
-				<HashIcon size={20} />
-			</button>
-			{#if createOpen === 'tag'}
-				<CreateOrganizationPopover
-					kind="tag"
-					library={libraryState.snapshot}
-					anchor={createAnchor}
-					onClose={() => (createOpen = null)}
-					onSnapshot={setLibrarySnapshot}
-				/>
-			{/if}
-		</div>
-		<div class="tool-wrap">
-			<button
-				class="icon-tool"
-				type="button"
-				aria-label="New tag group"
-				onclick={(event) => openCreate('tag-group', event)}
-			>
-				<TagChevronIcon size={20} />
-			</button>
-			{#if createOpen === 'tag-group'}
-				<CreateOrganizationPopover
-					kind="tag-group"
-					library={libraryState.snapshot}
-					anchor={createAnchor}
-					onClose={() => (createOpen = null)}
-					onSnapshot={setLibrarySnapshot}
-				/>
-			{/if}
-		</div>
+	{:else}
+		<div class="topbar-spacer"></div>
 	{/if}
-	<button class="tool" type="button" onclick={openFilter}>
-		<FunnelIcon size={20} />
-		<span>Filter</span>
-	</button>
+	{#if mode === 'explore'}
+		<button class="tool" type="button" onclick={openFilter}>
+			<FunnelIcon size={20} />
+			<span>Filter</span>
+		</button>
+	{/if}
 	<button class="add" type="button" aria-label="Add to Library" onclick={openAdd}>
 		<PlusIcon size={24} />
 	</button>
@@ -170,20 +69,18 @@
 		background: oklch(12% 0.008 70 / 0.86);
 	}
 
-	.wordmark {
-		border: 0;
-		background: transparent;
+	h1 {
+		flex: 0 0 auto;
+		margin: 0;
 		color: var(--color-text);
-		font-family: var(--font-wordmark);
-		font-size: 1.55rem;
-		font-style: italic;
+		font-family: var(--font-heading);
+		font-size: 1.75rem;
+		font-weight: 600;
+		line-height: 1;
 		white-space: nowrap;
-		cursor: pointer;
 	}
 
-	.mode-pill,
 	.tool,
-	.icon-tool,
 	.add {
 		border: 1px solid var(--color-border);
 		background: var(--color-surface);
@@ -194,22 +91,18 @@
 			color var(--duration-fast) var(--ease-out);
 	}
 
-	.mode-pill {
-		padding: 0.58rem 0.85rem;
-		font-weight: 600;
-		font-size: 0.86rem;
-	}
-
 	.search-slot {
 		min-width: 16rem;
 		max-width: 38rem;
 		flex: 1;
 	}
 
+	.topbar-spacer {
+		flex: 1;
+	}
+
 	.tool:hover,
 	.tool:focus-visible,
-	.icon-tool:hover,
-	.icon-tool:focus-visible,
 	.add:hover,
 	.add:focus-visible {
 		border-color: var(--color-border-strong);
@@ -217,7 +110,6 @@
 	}
 
 	.tool,
-	.icon-tool,
 	.add,
 	.wiki-tool {
 		height: 2.55rem;
@@ -253,17 +145,6 @@
 		border-color: oklch(82% 0.085 78 / 0.72);
 		background: oklch(78% 0.08 78 / 0.16);
 		color: oklch(91% 0.06 78);
-	}
-
-	.tool-wrap {
-		position: relative;
-	}
-
-	.icon-tool {
-		width: 2.55rem;
-		display: grid;
-		place-items: center;
-		padding: 0;
 	}
 
 	.add {

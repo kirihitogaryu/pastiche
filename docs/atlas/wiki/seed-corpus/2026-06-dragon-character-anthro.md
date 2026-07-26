@@ -8,18 +8,18 @@ It deliberately mixes public-domain museum material, modern Danbooru-uploaded ar
 
 ## Seed Assets
 
-| Key | Local file | Source URL | Ontology pressure |
-| --- | --- | --- | --- |
-| digital_dragon | `/home/kristoph/Downloads/imports/__original_drawn_by_nablange__157711c92221e96db5c444d791fd9698.jpg` | `https://danbooru.donmai.us/posts/7806601?q=ordfav%3AMillions_Knives` | Digital art, modern artist, generic dragon anatomy, Danbooru-style artist/tag metadata |
-| susanoo_orochi | `/home/kristoph/Downloads/imports/Susano-o_no_Mikoto_Killing_the_Eight-headed_Dragon.jpg` | `https://www.artic.edu/artworks/19386/susano-o-no-mikoto-killing-the-eight-headed-dragon` | Notable work, named deity, named dragon entity, Japanese mythology, color woodblock print |
-| mega_dragonite | `/home/kristoph/Downloads/imports/__dragonite_and_mega_dragonite_pokemon_drawn_by_deepsea9013__8c357f352c18d0a6549289b04f8d222a.jpg` | `https://danbooru.donmai.us/posts/9692781?q=user%3AMillions_Knives` | Pokemon franchise hierarchy, species/form distinction, IP style vs visible style |
-| ace_attorney_humans | `/home/kristoph/Downloads/imports/__klavier_gavin_and_kristoph_gavin_ace_attorney_and_1_more_drawn_by_lanfengzheyu__8db104fd15ee82f3b88efdccbe0c5463.png` | `https://danbooru.donmai.us/posts/9692240?q=user%3AMillions_Knives` | Human character entities, franchise grouping, clothing and design attributes |
-| anthro_subject | `/home/kristoph/Downloads/imports/__original_drawn_by_egretfoooox__ff263959d93080069b4b8c70856409b9.jpg` | `https://danbooru.donmai.us/posts/9692641?q=user%3AMillions_Knives` | Anthro qualifier, species boundary, furry search separation from ordinary animals |
+| Key                 | Local file                                                                                                                                                | Source URL                                                                                | Ontology pressure                                                                         |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| digital_dragon      | `/home/kristoph/Downloads/imports/__original_drawn_by_nablange__157711c92221e96db5c444d791fd9698.jpg`                                                     | `https://danbooru.donmai.us/posts/7806601?q=ordfav%3AMillions_Knives`                     | Digital art, modern artist, generic dragon anatomy, Danbooru-style artist/tag metadata    |
+| susanoo_orochi      | `/home/kristoph/Downloads/imports/Susano-o_no_Mikoto_Killing_the_Eight-headed_Dragon.jpg`                                                                 | `https://www.artic.edu/artworks/19386/susano-o-no-mikoto-killing-the-eight-headed-dragon` | Notable work, named deity, named dragon entity, Japanese mythology, color woodblock print |
+| mega_dragonite      | `/home/kristoph/Downloads/imports/__dragonite_and_mega_dragonite_pokemon_drawn_by_deepsea9013__8c357f352c18d0a6549289b04f8d222a.jpg`                      | `https://danbooru.donmai.us/posts/9692781?q=user%3AMillions_Knives`                       | Pokemon franchise hierarchy, species/form distinction, IP style vs visible style          |
+| ace_attorney_humans | `/home/kristoph/Downloads/imports/__klavier_gavin_and_kristoph_gavin_ace_attorney_and_1_more_drawn_by_lanfengzheyu__8db104fd15ee82f3b88efdccbe0c5463.png` | `https://danbooru.donmai.us/posts/9692240?q=user%3AMillions_Knives`                       | Human character entities, franchise grouping, clothing and design attributes              |
+| anthro_subject      | `/home/kristoph/Downloads/imports/__original_drawn_by_egretfoooox__ff263959d93080069b4b8c70856409b9.jpg`                                                  | `https://danbooru.donmai.us/posts/9692641?q=user%3AMillions_Knives`                       | Anthro qualifier, species boundary, furry search separation from ordinary animals         |
 
 ## Imported Seed Assets
 
-| Key | Asset ID | First-pass status |
-| --- | --- | --- |
+| Key            | Asset ID                                     | First-pass status            |
+| -------------- | -------------------------------------------- | ---------------------------- |
 | digital_dragon | `asset-b19b8754-ec68-42e5-ad5f-eb475fa2d81d` | Imported and manually tagged |
 
 ## Import Notes

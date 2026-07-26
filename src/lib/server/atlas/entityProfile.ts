@@ -44,6 +44,7 @@ type WorkRow = {
 	source_image_url: string | null;
 	thumbnail_path: string | null;
 	original_path: string | null;
+	mime_type: string | null;
 	imported_at: string;
 };
 
@@ -97,7 +98,7 @@ export function readAtlasEntityProfile(
 	const works = db
 		.prepare(
 			`select assets.id, assets.title, assets.source_url, assets.source_image_url,
-				assets.thumbnail_path, assets.original_path, assets.imported_at
+				assets.thumbnail_path, assets.original_path, assets.mime_type, assets.imported_at
 			 from atlas_asset_entities
 			 join assets on assets.id = atlas_asset_entities.asset_id
 			 where atlas_asset_entities.entity_id = ?
@@ -138,6 +139,7 @@ export function readAtlasEntityProfile(
 			id: work.id,
 			title: work.title,
 			thumbnailUrl: thumbnailUrlForWork(work),
+			mimeType: work.mime_type,
 			sourceUrl: work.source_url,
 			importedAt: work.imported_at
 		}))
@@ -164,7 +166,9 @@ export function updateAtlasEntityProfile(
 		movements: input.movements === undefined ? existing.movements : uniqueList(input.movements),
 		styles: input.styles === undefined ? existing.styles : uniqueList(input.styles),
 		commonSubjects:
-			input.commonSubjects === undefined ? existing.commonSubjects : uniqueList(input.commonSubjects),
+			input.commonSubjects === undefined
+				? existing.commonSubjects
+				: uniqueList(input.commonSubjects),
 		historicalPeriod:
 			input.historicalPeriod === undefined
 				? existing.historicalPeriod
@@ -212,7 +216,9 @@ function parseJsonList(value: string | null | undefined): string[] {
 	if (!value) return [];
 	try {
 		const parsed = JSON.parse(value);
-		return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+		return Array.isArray(parsed)
+			? parsed.filter((item): item is string => typeof item === 'string')
+			: [];
 	} catch {
 		return [];
 	}
@@ -242,12 +248,7 @@ function replaceEntityAliases(
 	}
 }
 
-function replaceEntityLinks(
-	db: Database.Database,
-	entityId: string,
-	links: string[],
-	now: string
-) {
+function replaceEntityLinks(db: Database.Database, entityId: string, links: string[], now: string) {
 	db.prepare('delete from atlas_entity_links where entity_id = ?').run(entityId);
 	for (const value of uniqueList(links)) {
 		const profile = normalizeArtistProfileUrl(value);

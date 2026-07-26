@@ -1,27 +1,19 @@
 <script lang="ts">
 	import ArrowLeftIcon from 'phosphor-svelte/lib/ArrowLeftIcon';
 	import ArrowSquareOutIcon from 'phosphor-svelte/lib/ArrowSquareOutIcon';
+	import DatabaseIcon from 'phosphor-svelte/lib/DatabaseIcon';
 	import DownloadSimpleIcon from 'phosphor-svelte/lib/DownloadSimpleIcon';
 	import FolderPlusIcon from 'phosphor-svelte/lib/FolderPlusIcon';
-	import PaletteIcon from 'phosphor-svelte/lib/PaletteIcon';
-	import ScribbleIcon from 'phosphor-svelte/lib/ScribbleIcon';
 	import StarIcon from 'phosphor-svelte/lib/StarIcon';
-	import CreateOrganizationPopover from '$lib/components/library/CreateOrganizationPopover.svelte';
 	import MoveAssetPopover from '$lib/components/library/MoveAssetPopover.svelte';
-	import type { LibraryAssetRecord } from '$lib/library/types';
-	import type { LibraryResponse } from '$lib/library/types';
-	import { libraryState, setLibrarySnapshot } from '$lib/state/library-state.svelte';
+	import { downloadLibraryAsset } from '$lib/library/download';
+	import type { LibraryAsset, LibraryAssetRecord } from '$lib/library/types';
+	import { openAtlasAsset } from '$lib/state/app-state.svelte';
+	import { libraryState, replaceLibraryAsset } from '$lib/state/library-state.svelte';
 	import type { Asset } from '$lib/types';
 
 	type InspectableAsset = Asset & { record?: LibraryAssetRecord };
 	type FactRow = { label: string; value: string };
-	type DisplayTag = { facetName: string; facetSlug: string; value: string; accepted?: boolean };
-	type SourceSuggestion = LibraryAssetRecord['organization']['sourceTagSuggestions'][number];
-	type DisplayTagGroup<T extends DisplayTag = DisplayTag> = {
-		facetName: string;
-		facetSlug: string;
-		tags: T[];
-	};
 
 	type Props = {
 		asset: InspectableAsset | null;
@@ -31,24 +23,14 @@
 
 	let { asset, onClose, onPreview }: Props = $props();
 	let imageFailed = $state(false);
-	let tagPopoverOpen = $state(false);
 	let movePopoverOpen = $state(false);
-	let sourceTagsExpanded = $state(false);
 	let actionError = $state<string | null>(null);
 
 	let title = $derived(asset?.record?.title ?? asset?.title ?? '');
-	let artist = $derived(asset?.record?.artist ?? asset?.creator ?? '');
 	let previewUrl = $derived(asset?.record?.image.previewUrl || asset?.imageUrl || null);
 	let sourcePageUrl = $derived(asset?.record?.source.pageUrl ?? asset?.sourceUrl ?? null);
 	let subtitle = $derived(asset ? buildSubtitle(asset) : '');
 	let factRows = $derived(asset ? buildFactRows(asset) : []);
-	let tagGroups = $derived(groupTags(displayTags(asset)));
-	let sourceTagSuggestions = $derived(asset?.record?.organization.sourceTagSuggestions ?? []);
-	let visibleSourceTagSuggestions = $derived(
-		sourceTagsExpanded ? orderedSuggestions(sourceTagSuggestions) : orderedSuggestions(sourceTagSuggestions).slice(0, 6)
-	);
-	let suggestedTagGroups = $derived(groupTags(visibleSourceTagSuggestions));
-	let hiddenSourceTagCount = $derived(Math.max(0, sourceTagSuggestions.length - 6));
 
 	$effect(() => {
 		if (asset?.id || previewUrl) imageFailed = false;
@@ -68,11 +50,11 @@
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ favorite: !asset.favorite })
 			});
-			const body = (await response.json()) as { error?: string; snapshot?: LibraryResponse };
-			if (!response.ok || !body.snapshot) {
+			const body = (await response.json()) as { error?: string; asset?: LibraryAsset };
+			if (!response.ok || !body.asset) {
 				throw new Error(body.error ?? 'Favorite could not be updated.');
 			}
-			setLibrarySnapshot(body.snapshot);
+			replaceLibraryAsset(body.asset);
 		} catch (favoriteError) {
 			actionError =
 				favoriteError instanceof Error ? favoriteError.message : 'Favorite could not be updated.';
@@ -81,62 +63,7 @@
 
 	function downloadAsset() {
 		if (!asset) return;
-		const url = asset.record?.image.originalUrl || previewUrl || asset.imageUrl;
-		if (!url) return;
-		const link = document.createElement('a');
-		link.href = url;
-		link.download = `${safeFilename(title || asset.id)}${filenameExtension(url)}`;
-		link.rel = 'noreferrer';
-		document.body.append(link);
-		link.click();
-		link.remove();
-	}
-
-	async function acceptSourceTag(tag: SourceSuggestion) {
-		if (!asset || tag.accepted) return;
-		const response = await fetch(`/api/library/assets/${encodeURIComponent(asset.id)}/source-tags`, {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ name: tag.name, facet: tag.facetName, value: tag.value })
-		});
-		const body = (await response.json()) as { snapshot?: LibraryResponse };
-		if (response.ok && body.snapshot) setLibrarySnapshot(body.snapshot);
-	}
-
-	function orderedSuggestions(suggestions: SourceSuggestion[]) {
-		return [...suggestions].sort((a, b) => Number(b.useful) - Number(a.useful));
-	}
-
-	function displayTags(asset: InspectableAsset | null): DisplayTag[] {
-		if (!asset) return [];
-		if (asset.record) {
-			return asset.record.organization.tags.map((tag) => ({
-				facetName: tag.facetName,
-				facetSlug: tag.facetSlug,
-				value: tag.value,
-				accepted: true
-			}));
-		}
-		return asset.tags.map((tag) => ({
-			facetName: 'tag',
-			facetSlug: 'tag',
-			value: tag,
-			accepted: true
-		}));
-	}
-
-	function groupTags<T extends DisplayTag>(tags: T[]): DisplayTagGroup<T>[] {
-		const groups = new Map<string, DisplayTagGroup<T>>();
-		for (const tag of tags) {
-			const group = groups.get(tag.facetSlug) ?? {
-				facetName: tag.facetName,
-				facetSlug: tag.facetSlug,
-				tags: []
-			};
-			group.tags.push(tag);
-			groups.set(tag.facetSlug, group);
-		}
-		return [...groups.values()];
+		downloadLibraryAsset(asset.id, title);
 	}
 
 	function buildSubtitle(asset: InspectableAsset) {
@@ -144,11 +71,7 @@
 			return [asset.creator, asset.year, asset.medium].filter(Boolean).join(' · ');
 		}
 
-		return [
-			asset.record.artist,
-			asset.record.dates.dateDisplay,
-			asset.record.facts.medium
-		]
+		return [asset.record.artist, asset.record.dates.dateDisplay, asset.record.facts.medium]
 			.filter(Boolean)
 			.join(' · ');
 	}
@@ -200,22 +123,6 @@
 			day: 'numeric'
 		}).format(date);
 	}
-
-	function safeFilename(value: string) {
-		const cleaned = value
-			.toLowerCase()
-			.normalize('NFKD')
-			.replace(/[\u0300-\u036f]/g, '')
-			.replace(/[^a-z0-9]+/g, '-')
-			.replace(/^-+|-+$/g, '');
-		return cleaned || 'pastiche-reference';
-	}
-
-	function filenameExtension(url: string) {
-		const clean = url.split('?')[0].toLowerCase();
-		const match = clean.match(/\.(png|jpe?g|webp|gif|avif)$/);
-		return match ? match[0] : '.jpg';
-	}
 </script>
 
 {#if asset}
@@ -248,7 +155,7 @@
 				<StarIcon size={22} weight={asset.favorite ? 'fill' : 'regular'} />
 				{asset.favorite ? 'Favorited' : 'Favorite'}
 			</button>
-			<button type="button" disabled={!previewUrl} onclick={downloadAsset}
+			<button type="button" onclick={downloadAsset}
 				><DownloadSimpleIcon size={22} /> Download</button
 			>
 			<button type="button" onclick={() => (movePopoverOpen = true)}
@@ -289,77 +196,20 @@
 
 			{#if asset.record?.description ?? asset.description}
 				<section>
-				<h2>Description</h2>
+					<h2>Description</h2>
 					<p>{asset.record?.description ?? asset.description}</p>
 				</section>
 			{/if}
 
-			<section>
-				<h2>Tags</h2>
-				<div class="tag-groups">
-					{#each tagGroups as group (group.facetSlug)}
-						<div class="tag-group">
-							<span class="facet-label">{group.facetName}</span>
-							<div class="chips">
-								{#each group.tags as tag}
-									<span>{tag.value}</span>
-								{/each}
-							</div>
-						</div>
-					{/each}
-					<div class="tag-popover-wrap">
-						<button type="button" aria-label="Add tag" onclick={() => (tagPopoverOpen = !tagPopoverOpen)}>+</button>
-						{#if tagPopoverOpen && asset}
-							<CreateOrganizationPopover
-								kind="tag"
-								library={libraryState.snapshot}
-								{asset}
-								onClose={() => (tagPopoverOpen = false)}
-								onSnapshot={setLibrarySnapshot}
-							/>
-						{/if}
-					</div>
+			<section class="atlas-handoff">
+				<div>
+					<h2>Atlas metadata</h2>
+					<p>Tags and visual classifications are managed in Atlas.</p>
 				</div>
+				<button type="button" onclick={() => openAtlasAsset(asset.id)}>
+					<DatabaseIcon size={19} /> Open in Atlas
+				</button>
 			</section>
-
-			{#if sourceTagSuggestions.length}
-				<section>
-					<h2>Suggested Tags</h2>
-					<div class="tag-groups suggested-tags">
-						{#each suggestedTagGroups as group (group.facetSlug)}
-							<div class="tag-group">
-								<span class="facet-label">{group.facetName}</span>
-								<div class="chips source-tags">
-									{#each group.tags as tag}
-										<button class:accepted={tag.accepted} type="button" onclick={() => acceptSourceTag(tag)}>
-											{tag.value}
-										</button>
-									{/each}
-								</div>
-							</div>
-						{/each}
-						{#if !sourceTagsExpanded && hiddenSourceTagCount > 0}
-							<button type="button" aria-label="Show more suggested tags" onclick={() => (sourceTagsExpanded = true)}>
-								+{hiddenSourceTagCount}
-							</button>
-						{/if}
-					</div>
-				</section>
-			{/if}
-
-			<section>
-				<h2>Palette</h2>
-				<div class="palette">
-					{#each asset.palette as swatch}
-						<span title={`${swatch.label}: ${swatch.hex}`} style={`--swatch: ${swatch.hex}`}></span>
-					{/each}
-				</div>
-			</section>
-
-			<div class="detail-actions">
-				<button type="button"><ScribbleIcon size={20} /> Add to Canvas</button>
-				<button type="button"><PaletteIcon size={20} /> Copy Palette</button>
-			</div>
 		</article>
 	</section>
 {/if}
@@ -451,16 +301,14 @@
 		line-height: 1.4;
 	}
 
-	.primary-actions,
-	.detail-actions {
+	.primary-actions {
 		display: grid;
 		grid-template-columns: repeat(4, minmax(0, 1fr));
 		gap: var(--space-2);
 		margin-block: var(--space-3) var(--space-5);
 	}
 
-	.primary-actions button,
-	.detail-actions button {
+	.primary-actions button {
 		min-height: 3.2rem;
 		display: inline-flex;
 		align-items: center;
@@ -537,85 +385,25 @@
 		border-top: 1px solid var(--color-border-soft);
 	}
 
-	.chips {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--space-2);
-	}
-
-	.tag-groups {
-		display: grid;
+	.atlas-handoff {
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: center;
 		gap: var(--space-3);
 	}
 
-	.tag-group {
+	.atlas-handoff div {
 		display: grid;
 		gap: var(--space-1);
 	}
 
-	.facet-label {
-		color: var(--color-muted);
-		font-size: 0.68rem;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-	}
-
-	.tag-popover-wrap {
-		position: relative;
-	}
-
-	.chips span,
-	.chips button {
-		min-height: 2rem;
-		padding: 0 var(--space-3);
-		border-radius: var(--radius-pill);
-		background: var(--color-surface-raised);
-		color: var(--color-text);
-		font-size: 0.82rem;
-	}
-
-	.chips span {
+	.atlas-handoff button {
+		min-height: 2.75rem;
 		display: inline-flex;
 		align-items: center;
-	}
-
-	.tag-popover-wrap button,
-	.suggested-tags > button {
-		min-height: 2rem;
-		padding: 0 var(--space-3);
-		border-radius: var(--radius-pill);
-		background: var(--color-surface-raised);
-		color: var(--color-text);
-		font-size: 0.82rem;
-	}
-
-	.source-tags button {
-		background: oklch(18% 0.012 70 / 0.78);
-		color: var(--color-muted);
-	}
-
-	.source-tags button.accepted {
-		color: var(--color-text);
-		border-color: var(--color-border-strong);
-	}
-
-	.palette {
-		display: grid;
-		grid-template-columns: repeat(6, 1fr);
+		justify-content: center;
 		gap: var(--space-2);
-	}
-
-	.palette span {
-		aspect-ratio: 1.6 / 1;
-		border-radius: var(--radius-sm);
-		border: 1px solid var(--color-border-soft);
-		background: var(--swatch);
-	}
-
-	.detail-actions {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		margin-bottom: 0;
+		padding: 0 var(--space-3);
+		white-space: nowrap;
 	}
 
 	@media (max-width: 759px) {

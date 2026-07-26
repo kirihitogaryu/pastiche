@@ -20,15 +20,15 @@ Suggested CSS token direction:
 
 ```css
 :root {
-  --color-bg: oklch(13% 0.01 70);
-  --color-surface: oklch(17% 0.01 70);
-  --color-surface-raised: oklch(22% 0.012 70);
-  --color-border: oklch(100% 0 0 / 0.11);
-  --color-text: oklch(90% 0.01 75);
-  --color-muted: oklch(70% 0.012 75);
-  --color-dim: oklch(52% 0.012 75);
-  --color-accent: oklch(78% 0.08 78);
-  --color-danger: oklch(62% 0.18 28);
+	--color-bg: oklch(13% 0.01 70);
+	--color-surface: oklch(17% 0.01 70);
+	--color-surface-raised: oklch(22% 0.012 70);
+	--color-border: oklch(100% 0 0 / 0.11);
+	--color-text: oklch(90% 0.01 75);
+	--color-muted: oklch(70% 0.012 75);
+	--color-dim: oklch(52% 0.012 75);
+	--color-accent: oklch(78% 0.08 78);
+	--color-danger: oklch(62% 0.18 28);
 }
 ```
 

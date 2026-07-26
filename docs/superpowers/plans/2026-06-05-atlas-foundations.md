@@ -123,10 +123,12 @@ describe('Atlas normalization', () => {
 			label: 'Wikimedia Commons',
 			slug: 'wikimedia_commons'
 		});
-		expect(normalizeKnownAtlasValue('rights', 'Public domain image according to The Met.')).toEqual({
-			label: 'Public Domain',
-			slug: 'public_domain'
-		});
+		expect(normalizeKnownAtlasValue('rights', 'Public domain image according to The Met.')).toEqual(
+			{
+				label: 'Public Domain',
+				slug: 'public_domain'
+			}
+		);
 		expect(normalizeKnownAtlasValue('medium', 'Oil on canvas')).toEqual({
 			label: 'Oil on canvas',
 			slug: 'oil_on_canvas'
@@ -264,7 +266,10 @@ const KNOWN_VALUE_SLUGS: Partial<Record<KnownKind, Record<string, AtlasNormalize
 		'the metropolitan museum of art': { label: 'The Met', slug: 'the_met' },
 		'metropolitan museum': { label: 'The Met', slug: 'the_met' },
 		'the met': { label: 'The Met', slug: 'the_met' },
-		'art institute of chicago': { label: 'Art Institute of Chicago', slug: 'art_institute_of_chicago' },
+		'art institute of chicago': {
+			label: 'Art Institute of Chicago',
+			slug: 'art_institute_of_chicago'
+		},
 		'art institute': { label: 'Art Institute of Chicago', slug: 'art_institute_of_chicago' }
 	},
 	source: {
@@ -290,7 +295,10 @@ export function normalizeAtlasSlug(input: string): string {
 		.replace(/^_|_$/g, '');
 }
 
-export function normalizeKnownAtlasValue(kind: KnownKind, input: string): AtlasNormalizedValue | null {
+export function normalizeKnownAtlasValue(
+	kind: KnownKind,
+	input: string
+): AtlasNormalizedValue | null {
 	const clean = input.trim();
 	if (!clean) return null;
 	const key = clean.toLowerCase().replace(/\s+/g, ' ');
@@ -484,23 +492,23 @@ Then call `ensureAtlasSchema(db);` after the existing Library `db.exec(...)` blo
 Modify the table expectation in `src/lib/server/library/library.spec.ts` so it includes the Atlas tables:
 
 ```ts
-		expect(tables).toEqual([
-			'asset_import_failures',
-			'asset_tags',
-			'assets',
-			'atlas_asset_entities',
-			'atlas_claims',
-			'atlas_entities',
-			'atlas_ingestion_runs',
-			'atlas_tag_suggestions',
-			'folders',
-			'lazy_download_jobs',
-			'project_asset_refs',
-			'project_folder_refs',
-			'projects',
-			'tag_facets',
-			'tags'
-		]);
+expect(tables).toEqual([
+	'asset_import_failures',
+	'asset_tags',
+	'assets',
+	'atlas_asset_entities',
+	'atlas_claims',
+	'atlas_entities',
+	'atlas_ingestion_runs',
+	'atlas_tag_suggestions',
+	'folders',
+	'lazy_download_jobs',
+	'project_asset_refs',
+	'project_folder_refs',
+	'projects',
+	'tag_facets',
+	'tags'
+]);
 ```
 
 - [ ] **Step 6: Run schema tests**
@@ -573,7 +581,12 @@ describe('createAtlasIngestionProposal', () => {
 			expect.objectContaining({ label: 'horse', slug: 'horse', status: 'suggested' }),
 			expect.objectContaining({ label: 'mourning', slug: 'mourning', status: 'suggested' })
 		]);
-		expect(proposal.rawUnmapped).toEqual({ objectName: 'Painting', department: 'Paintings', culture: null, period: 'Cubism' });
+		expect(proposal.rawUnmapped).toEqual({
+			objectName: 'Painting',
+			department: 'Paintings',
+			culture: null,
+			period: 'Cubism'
+		});
 	});
 
 	it('does not create empty records for missing metadata', () => {
@@ -620,10 +633,7 @@ Create `src/lib/server/atlas/ingest.ts`:
 
 ```ts
 import type Database from 'better-sqlite3';
-import {
-	normalizeAtlasSlug,
-	normalizeKnownAtlasValue
-} from '$lib/atlas/normalization';
+import { normalizeAtlasSlug, normalizeKnownAtlasValue } from '$lib/atlas/normalization';
 import type {
 	AtlasClaimKind,
 	AtlasClaimProposal,
@@ -812,8 +822,12 @@ describe('applyAtlasIngestionProposal', () => {
 
 		applyAtlasIngestionProposal(db, proposal);
 
-		const entities = db.prepare('select kind, slug, label from atlas_entities order by kind, slug').all();
-		const claims = db.prepare('select kind, slug, value, status from atlas_claims order by kind').all();
+		const entities = db
+			.prepare('select kind, slug, label from atlas_entities order by kind, slug')
+			.all();
+		const claims = db
+			.prepare('select kind, slug, value, status from atlas_claims order by kind')
+			.all();
 		const suggestions = db.prepare('select slug, label, status from atlas_tag_suggestions').all();
 		const runs = db.prepare('select asset_id, source, source_id from atlas_ingestion_runs').all();
 		db.close();
@@ -824,8 +838,18 @@ describe('applyAtlasIngestionProposal', () => {
 		]);
 		expect(claims).toEqual([
 			expect.objectContaining({ kind: 'date', slug: '1937', value: '1937', status: 'approved' }),
-			expect.objectContaining({ kind: 'medium', slug: 'oil_on_canvas', value: 'Oil on canvas', status: 'approved' }),
-			expect.objectContaining({ kind: 'rights', slug: 'public_domain', value: 'Public Domain', status: 'approved' })
+			expect.objectContaining({
+				kind: 'medium',
+				slug: 'oil_on_canvas',
+				value: 'Oil on canvas',
+				status: 'approved'
+			}),
+			expect.objectContaining({
+				kind: 'rights',
+				slug: 'public_domain',
+				value: 'Public Domain',
+				status: 'approved'
+			})
 		]);
 		expect(suggestions).toEqual([{ slug: 'horse', label: 'horse', status: 'suggested' }]);
 		expect(runs).toEqual([{ asset_id: assetId, source: 'explore', source_id: 'met' }]);
@@ -982,67 +1006,67 @@ git commit -m "Persist Atlas ingestion proposals"
 Add this test to `src/lib/server/library/library.spec.ts` inside `describe('local library archive', () => { ... })`:
 
 ```ts
-	it('creates Atlas metadata records from reliable import metadata', async () => {
-		const result = await importLibraryItems({
-			destination_folder_id: null,
-			items: [
-				{
-					filename: 'Picasso ref',
-					storage_mode: 'url_reference',
-					image_data: null,
-					source_image_url: 'https://example.com/picasso.jpg',
-					mime_type: 'image/jpeg',
-					natural_width: 1200,
-					natural_height: 900,
-					source_url: 'https://www.metmuseum.org/art/collection/search/1',
-					page_title: 'Picasso ref',
-					alt_text: null,
-					captured_at: '2026-06-05T12:00:00.000Z',
-					metadata: {
-						sourceId: 'met',
-						sourceName: 'The Metropolitan Museum of Art',
-						sourceType: 'museum',
-						detailUrl: 'https://www.metmuseum.org/art/collection/search/1',
-						creator: 'Pablo Picasso',
-						dateDisplay: '1937',
-						medium: 'Oil on canvas',
-						objectName: 'Painting',
-						department: 'Paintings',
-						rights: 'Public domain image according to The Met.',
-						tags: ['horse', 'mourning'],
-						rawMetadata: { objectID: 1 }
-					}
+it('creates Atlas metadata records from reliable import metadata', async () => {
+	const result = await importLibraryItems({
+		destination_folder_id: null,
+		items: [
+			{
+				filename: 'Picasso ref',
+				storage_mode: 'url_reference',
+				image_data: null,
+				source_image_url: 'https://example.com/picasso.jpg',
+				mime_type: 'image/jpeg',
+				natural_width: 1200,
+				natural_height: 900,
+				source_url: 'https://www.metmuseum.org/art/collection/search/1',
+				page_title: 'Picasso ref',
+				alt_text: null,
+				captured_at: '2026-06-05T12:00:00.000Z',
+				metadata: {
+					sourceId: 'met',
+					sourceName: 'The Metropolitan Museum of Art',
+					sourceType: 'museum',
+					detailUrl: 'https://www.metmuseum.org/art/collection/search/1',
+					creator: 'Pablo Picasso',
+					dateDisplay: '1937',
+					medium: 'Oil on canvas',
+					objectName: 'Painting',
+					department: 'Paintings',
+					rights: 'Public domain image according to The Met.',
+					tags: ['horse', 'mourning'],
+					rawMetadata: { objectID: 1 }
 				}
-			]
-		});
-
-		const db = new Database(join(archiveRoot, 'workspace.sqlite'), { readonly: true });
-		const entities = db.prepare('select kind, slug, label from atlas_entities order by kind').all();
-		const claims = db.prepare('select kind, slug, value from atlas_claims order by kind').all();
-		const suggestions = db
-			.prepare('select slug, label, status from atlas_tag_suggestions order by slug')
-			.all();
-		const runs = db.prepare('select asset_id, source, source_id from atlas_ingestion_runs').all();
-		db.close();
-
-		expect(result.failed).toEqual([]);
-		expect(entities).toEqual([
-			{ kind: 'artist', slug: 'pablo_picasso', label: 'Pablo Picasso' },
-			{ kind: 'source', slug: 'the_met', label: 'The Met' }
-		]);
-		expect(claims).toEqual([
-			expect.objectContaining({ kind: 'date', slug: '1937', value: '1937' }),
-			expect.objectContaining({ kind: 'medium', slug: 'oil_on_canvas', value: 'Oil on canvas' }),
-			expect.objectContaining({ kind: 'rights', slug: 'public_domain', value: 'Public Domain' })
-		]);
-		expect(suggestions).toEqual([
-			{ slug: 'horse', label: 'horse', status: 'suggested' },
-			{ slug: 'mourning', label: 'mourning', status: 'suggested' }
-		]);
-		expect(runs).toEqual([
-			{ asset_id: result.imported[0].asset_id, source: 'explore', source_id: 'met' }
-		]);
+			}
+		]
 	});
+
+	const db = new Database(join(archiveRoot, 'workspace.sqlite'), { readonly: true });
+	const entities = db.prepare('select kind, slug, label from atlas_entities order by kind').all();
+	const claims = db.prepare('select kind, slug, value from atlas_claims order by kind').all();
+	const suggestions = db
+		.prepare('select slug, label, status from atlas_tag_suggestions order by slug')
+		.all();
+	const runs = db.prepare('select asset_id, source, source_id from atlas_ingestion_runs').all();
+	db.close();
+
+	expect(result.failed).toEqual([]);
+	expect(entities).toEqual([
+		{ kind: 'artist', slug: 'pablo_picasso', label: 'Pablo Picasso' },
+		{ kind: 'source', slug: 'the_met', label: 'The Met' }
+	]);
+	expect(claims).toEqual([
+		expect.objectContaining({ kind: 'date', slug: '1937', value: '1937' }),
+		expect.objectContaining({ kind: 'medium', slug: 'oil_on_canvas', value: 'Oil on canvas' }),
+		expect.objectContaining({ kind: 'rights', slug: 'public_domain', value: 'Public Domain' })
+	]);
+	expect(suggestions).toEqual([
+		{ slug: 'horse', label: 'horse', status: 'suggested' },
+		{ slug: 'mourning', label: 'mourning', status: 'suggested' }
+	]);
+	expect(runs).toEqual([
+		{ asset_id: result.imported[0].asset_id, source: 'explore', source_id: 'met' }
+	]);
+});
 ```
 
 - [ ] **Step 2: Run the failing integration test**
@@ -1069,27 +1093,27 @@ import {
 After the asset insert and lazy-download job insert inside `importOne`, add:
 
 ```ts
-			if (item.metadata) {
-				const proposal = createAtlasIngestionProposal({
-					assetId,
-					source: atlasSourceForImport(item.metadata),
-					sourceId: item.metadata.sourceId ?? null,
-					sourceName: item.metadata.sourceName ?? null,
-					detailUrl: item.metadata.detailUrl ?? null,
-					creator: item.metadata.creator ?? null,
-					dateDisplay: item.metadata.dateDisplay ?? null,
-					medium: item.metadata.medium ?? null,
-					objectName: item.metadata.objectName ?? null,
-					department: item.metadata.department ?? null,
-					culture: item.metadata.culture ?? null,
-					period: item.metadata.period ?? null,
-					rights: item.metadata.rights ?? null,
-					tags: item.metadata.tags ?? [],
-					rawMetadata: item.metadata.rawMetadata ?? {},
-					now
-				});
-				applyAtlasIngestionProposal(db, proposal);
-			}
+if (item.metadata) {
+	const proposal = createAtlasIngestionProposal({
+		assetId,
+		source: atlasSourceForImport(item.metadata),
+		sourceId: item.metadata.sourceId ?? null,
+		sourceName: item.metadata.sourceName ?? null,
+		detailUrl: item.metadata.detailUrl ?? null,
+		creator: item.metadata.creator ?? null,
+		dateDisplay: item.metadata.dateDisplay ?? null,
+		medium: item.metadata.medium ?? null,
+		objectName: item.metadata.objectName ?? null,
+		department: item.metadata.department ?? null,
+		culture: item.metadata.culture ?? null,
+		period: item.metadata.period ?? null,
+		rights: item.metadata.rights ?? null,
+		tags: item.metadata.tags ?? [],
+		rawMetadata: item.metadata.rawMetadata ?? {},
+		now
+	});
+	applyAtlasIngestionProposal(db, proposal);
+}
 ```
 
 Add helper near `serializeMetadata`:
@@ -1357,49 +1381,49 @@ git commit -m "Add Atlas asset read service"
 Add this test to `src/routes/api/library/save-explore/server.spec.ts`:
 
 ```ts
-	it('normalizes safe Explore metadata into Atlas records while keeping source tags suggested', async () => {
-		getById.mockResolvedValue({
-			...sampleItem,
-			title: 'Picasso metadata study',
-			artistRaw: 'Pablo Picasso',
-			dateDisplay: '1937',
-			medium: 'Oil on canvas',
-			objectName: 'Painting',
-			department: 'Paintings',
-			description: 'Public domain image according to The Met.',
-			tags: ['horse', 'mourning']
-		});
-		const { POST } = await import('./+server');
-		const { getLibrarySnapshot } = await import('$lib/server/library/read');
-		const { getAtlasAssetSummary } = await import('$lib/server/atlas/read');
-
-		const response = await POST({
-			request: new Request('http://localhost/api/library/save-explore', {
-				method: 'POST',
-				body: JSON.stringify({ item_id: 'met-1', destination_folder_id: null })
-			})
-		});
-		const snapshot = getLibrarySnapshot();
-		const summary = getAtlasAssetSummary(snapshot.assets[0].id);
-
-		expect(response.status).toBe(200);
-		expect(summary.entities).toEqual([
-			expect.objectContaining({ kind: 'artist', slug: 'pablo_picasso' }),
-			expect.objectContaining({ kind: 'source', slug: 'the_met' })
-		]);
-		expect(summary.claims).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ kind: 'date', slug: '1937' }),
-				expect.objectContaining({ kind: 'medium', slug: 'oil_on_canvas' }),
-				expect.objectContaining({ kind: 'rights', slug: 'public_domain' })
-			])
-		);
-		expect(summary.tagSuggestions).toEqual([
-			expect.objectContaining({ slug: 'horse', status: 'suggested' }),
-			expect.objectContaining({ slug: 'mourning', status: 'suggested' })
-		]);
-		expect(snapshot.assets[0].tags).toEqual([]);
+it('normalizes safe Explore metadata into Atlas records while keeping source tags suggested', async () => {
+	getById.mockResolvedValue({
+		...sampleItem,
+		title: 'Picasso metadata study',
+		artistRaw: 'Pablo Picasso',
+		dateDisplay: '1937',
+		medium: 'Oil on canvas',
+		objectName: 'Painting',
+		department: 'Paintings',
+		description: 'Public domain image according to The Met.',
+		tags: ['horse', 'mourning']
 	});
+	const { POST } = await import('./+server');
+	const { getLibrarySnapshot } = await import('$lib/server/library/read');
+	const { getAtlasAssetSummary } = await import('$lib/server/atlas/read');
+
+	const response = await POST({
+		request: new Request('http://localhost/api/library/save-explore', {
+			method: 'POST',
+			body: JSON.stringify({ item_id: 'met-1', destination_folder_id: null })
+		})
+	});
+	const snapshot = getLibrarySnapshot();
+	const summary = getAtlasAssetSummary(snapshot.assets[0].id);
+
+	expect(response.status).toBe(200);
+	expect(summary.entities).toEqual([
+		expect.objectContaining({ kind: 'artist', slug: 'pablo_picasso' }),
+		expect.objectContaining({ kind: 'source', slug: 'the_met' })
+	]);
+	expect(summary.claims).toEqual(
+		expect.arrayContaining([
+			expect.objectContaining({ kind: 'date', slug: '1937' }),
+			expect.objectContaining({ kind: 'medium', slug: 'oil_on_canvas' }),
+			expect.objectContaining({ kind: 'rights', slug: 'public_domain' })
+		])
+	);
+	expect(summary.tagSuggestions).toEqual([
+		expect.objectContaining({ slug: 'horse', status: 'suggested' }),
+		expect.objectContaining({ slug: 'mourning', status: 'suggested' })
+	]);
+	expect(snapshot.assets[0].tags).toEqual([]);
+});
 ```
 
 - [ ] **Step 2: Run the Explore save test**

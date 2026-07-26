@@ -32,6 +32,7 @@
 ## Task 1: Metadata Types And Storage
 
 **Files:**
+
 - Modify: `extension/shared/candidates.ts`
 - Modify: `extension/shared/capture-tray.ts`
 - Modify: `extension/shared/capture-tray.spec.ts`
@@ -111,6 +112,7 @@ Expected: PASS.
 ## Task 2: Source Tag Extraction
 
 **Files:**
+
 - Modify: `extension/shared/source-adapters.ts`
 - Modify: `extension/shared/source-adapters.spec.ts`
 
@@ -177,6 +179,7 @@ Expected: PASS.
 ## Task 3: Extension Tag Picker UI
 
 **Files:**
+
 - Create: `extension/sidebar/components/tag-picker.ts`
 - Create: `extension/sidebar/components/tag-picker.spec.ts`
 - Create: `extension/sidebar/components/TagPicker.svelte`
@@ -279,6 +282,7 @@ Expected: all pass.
 ## Task 4: Import Wire Format And Server Validation
 
 **Files:**
+
 - Modify: `extension/background/enrich-capture.ts`
 - Modify: `extension/background/enrich-capture.spec.ts`
 - Modify: `src/lib/server/library/types.ts`
@@ -323,9 +327,9 @@ Keep source tags under `rawMetadata.sourceTags` so the server does not need a se
 Update import route validation:
 
 ```ts
-(value.acceptedConceptSlugs === undefined ||
+value.acceptedConceptSlugs === undefined ||
 	(Array.isArray(value.acceptedConceptSlugs) &&
-		value.acceptedConceptSlugs.every((slug) => typeof slug === 'string')))
+		value.acceptedConceptSlugs.every((slug) => typeof slug === 'string'));
 ```
 
 - [ ] **Step 4: Run tests**
@@ -341,6 +345,7 @@ Expected: PASS.
 ## Task 5: Apply Accepted Concepts During Import
 
 **Files:**
+
 - Modify: `src/lib/server/library/import.ts`
 - Modify: `src/lib/server/library/library.spec.ts`
 
@@ -359,12 +364,16 @@ metadata: {
 Then assert:
 
 ```ts
-const concepts = db.prepare(`
+const concepts = db
+	.prepare(
+		`
 	select atlas_concepts.slug, atlas_asset_concepts.status, atlas_asset_concepts.evidence
 	from atlas_asset_concepts
 	join atlas_concepts on atlas_concepts.id = atlas_asset_concepts.concept_id
 	where atlas_asset_concepts.asset_id = ?
-`).all(assetId);
+`
+	)
+	.all(assetId);
 
 expect(concepts).toEqual([
 	expect.objectContaining({ slug: 'dragon', status: 'approved', evidence: 'observed' })
@@ -420,6 +429,7 @@ Expected: PASS.
 ## Task 6: Rendered Verification And Commit
 
 **Files:**
+
 - No new source files beyond previous tasks.
 
 - [ ] **Step 1: Run full focused test suite**

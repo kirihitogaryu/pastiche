@@ -20,6 +20,7 @@
 ## Task 1: Artist Profile Update API
 
 **Files:**
+
 - Modify: `src/lib/server/atlas/entityProfile.ts`
 - Modify: `src/routes/api/atlas/entities/[kind]/[slug]/+server.ts`
 - Test: `src/routes/api/atlas/entities/[kind]/[slug]/server.spec.ts`
@@ -72,6 +73,7 @@ git commit -m "feat: edit atlas artist profiles"
 ## Task 2: Artist Profile Editor UI
 
 **Files:**
+
 - Modify: `src/lib/components/atlas/AtlasWiki.svelte`
 
 - [ ] **Step 1: Add edit state**

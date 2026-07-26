@@ -42,7 +42,9 @@ describe('Atlas schema', () => {
 				'atlas_asset_concepts',
 				'atlas_annotations',
 				'atlas_annotation_concepts',
-				'atlas_annotation_classifiers'
+				'atlas_annotation_classifiers',
+				'atlas_agent_runs',
+				'atlas_agent_applied_suggestions'
 			])
 		);
 	});

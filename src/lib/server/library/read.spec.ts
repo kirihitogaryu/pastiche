@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { importLibraryItems } from './import';
 import { addProjectAssetRef, createProject, createTag } from './organization';
 import { openLibraryDatabase } from './schema';
-import { getLibrarySnapshot } from './read';
+import { getLibraryAssetById, getLibrarySnapshot } from './read';
 
 describe('library read service', () => {
 	let archiveRoot: string;
@@ -97,6 +97,33 @@ describe('library read service', () => {
 		expect(snapshot.stats.assets).toBe(1);
 		expect(snapshot.stats.folders).toBe(0);
 		expect(snapshot.stats.tags).toBe(0);
+	});
+
+	it('reads one library asset record by id without requiring a full snapshot', async () => {
+		const imported = await importLibraryItems({
+			destination_folder_id: null,
+			items: [
+				{
+					filename: 'Single asset',
+					storage_mode: 'url_reference',
+					image_data: null,
+					source_image_url: 'https://example.com/single.jpg',
+					mime_type: 'image/jpeg',
+					natural_width: 800,
+					natural_height: 600,
+					source_url: 'https://example.com/page',
+					page_title: 'Single Asset',
+					alt_text: null,
+					captured_at: '2026-07-06T12:00:00.000Z'
+				}
+			]
+		});
+
+		const asset = getLibraryAssetById(imported.imported[0].asset_id);
+
+		expect(asset?.title).toBe('Single Asset');
+		expect(asset?.record?.image.previewUrl).toBe('https://example.com/single.jpg');
+		expect(getLibraryAssetById('missing')).toBeNull();
 	});
 
 	it('maps Explore museum metadata into canonical Library records', async () => {
@@ -335,7 +362,9 @@ describe('library read service', () => {
 
 		const asset = getLibrarySnapshot().assets[0];
 
-		expect(asset.record?.raw.sourceMetadata).toEqual({});
+		expect(asset.record?.raw.sourceMetadata).toMatchObject({
+			embeddedImageMetadata: { kind: 'png' }
+		});
 		expect(asset.record?.generation).toMatchObject({
 			provider: 'novelai',
 			prompt: 'artist:nightcrow, western dragon, opal scales',

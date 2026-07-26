@@ -6,7 +6,7 @@ The product is for artists and visual creators who collect references, source im
 
 ## Current State
 
-Pastiche is a SvelteKit app with a local SQLite-backed library sidecar, responsive Library and Explore surfaces, an Inspector, browser-extension import plumbing, and real museum/source browsing work in progress.
+Pastiche is a SvelteKit app with a local SQLite-backed library sidecar, responsive Library, Explore, and Atlas surfaces, an Inspector, a Chrome/Firefox capture extension, and museum/reference connectors.
 
 Implemented or actively in progress:
 
@@ -19,13 +19,13 @@ Implemented or actively in progress:
 - Browser extension build and local server API path for capture/import work.
 - Responsive Inspector surfaces for desktop and mobile.
 - Filter/search work for Library and Explore, including richer source/reference filter UI.
-- Atlas metadata and tag wiki design spec for the next canonical metadata layer.
+- Atlas ingestion, canonical concepts, wiki entries, review flows, artist entities, annotations/classifiers, and structured search.
+- Durable Explore saves and extension imports with bounded high-resolution image handling, retry-safe jobs, and offline queue replay.
 
 Still early or placeholder:
 
 - Canvas, Colors, and Resources are not full product surfaces yet.
-- Atlas is designed but not implemented.
-- Color analysis, duplicate detection, image relationship graphs, and advanced Atlas search are future layers.
+- Color analysis, perceptual duplicate detection, and image relationship graphs are future layers.
 - AI assistance is planned as structured guidance/export first, not direct in-app AI automation.
 
 ## Mental Model
@@ -41,15 +41,15 @@ The main product surfaces are:
 - **Library**: where saved images live. Folders, projects, local organization, and practical archive management.
 - **Explore**: where public-domain and source images are discovered before saving.
 - **Inspector**: the intelligence surface for a selected image: source, metadata, tags, palette, notes, and future relationships.
-- **Atlas**: the planned canonical metadata/tag wiki layer. Atlas will define what images mean, contain, imply, and connect to.
+- **Atlas**: the canonical metadata, tag-wiki, entity, annotation, and search layer.
 - **Canvas**: future moodboard/reference-board workspace.
 - **Colors**: future color analysis and palette tooling.
 
 Long term, Library should display a calm projection of Atlas metadata rather than maintain a separate simplistic tag system.
 
-## Atlas Direction
+## Atlas
 
-Atlas is the next major metadata system. Its source-of-truth design lives at:
+Atlas is an active product surface. Its source-of-truth design lives at:
 
 ```text
 docs/superpowers/specs/2026-06-05-atlas-metadata-wiki-design.md
@@ -73,7 +73,7 @@ Core Atlas principles:
 
 The first implementation layer is deterministic Atlas ingestion: imported source metadata such as creator, institution, source, rights, date, and medium is normalized into typed Atlas entities and claims, while source tags stay as suggestions until reviewed.
 
-Atlas should eventually power Library tags, Inspector display, search, filters, review queues, AI guidance exports, color search, duplicate prevention, and image relationships.
+Atlas already powers canonical concepts, Inspector metadata, wiki governance, review queues, guidance exports, and structured search. Color search, duplicate prevention, and richer image relationships remain future work.
 
 ## Important Docs For Agents
 
@@ -129,6 +129,7 @@ Local archive sidecar:
 ```text
 .pastiche/
   workspace.sqlite
+  backups/
   originals/
   thumbnails/
   imports/
@@ -143,7 +144,20 @@ The sidecar can be moved with:
 PASTICHE_LIBRARY_DIR=/path/to/Pastiche npm run dev
 ```
 
+The database uses versioned migrations, WAL mode, foreign keys, and pre-migration backups. Do not copy only `workspace.sqlite` while Pastiche is running; copy the whole sidecar or stop the app first.
+
+Image imports are decoded and format-sniffed by Sharp. JPEG, PNG, WebP, GIF, TIFF, HEIF/HEIC, AVIF, and other formats supported by the installed Sharp build are accepted. Defaults are 100 MB per image, 250 MB per batch, and 200 megapixels across all animation frames. They can be adjusted for unusually large studio files:
+
+```sh
+PASTICHE_MAX_IMAGE_BYTES=209715200 \
+PASTICHE_MAX_IMPORT_BATCH_BYTES=524288000 \
+PASTICHE_MAX_IMAGE_PIXELS=400000000 \
+npm run dev
+```
+
 The browser extension talks to local SvelteKit server routes. The current Node server owns writes to SQLite and the filesystem. If Pastiche later moves to Tauri, preserve the local HTTP contract for extension compatibility.
+
+API requests are restricted to loopback hosts and trusted same-origin or extension origins. For an explicit extension pairing secret, set `PASTICHE_LOCAL_API_TOKEN` on the server and enter the same value under **Local API token** in the extension options. Deployments using a fixed extension ID can also set `PASTICHE_TRUSTED_EXTENSION_IDS` to a comma-separated allowlist. `PASTICHE_ALLOWED_HOSTS` is available only for intentional non-loopback deployments.
 
 ## Development
 
@@ -183,6 +197,7 @@ Run checks and tests:
 
 ```sh
 npm run check
+npm run lint
 npm run test
 ```
 
@@ -210,9 +225,8 @@ npm run build:extension
 
 ## Near-Term Direction
 
-1. Commit the current Library/Explore/filter/import worktree.
-2. Review and refine the Atlas metadata/wiki design spec.
-3. Write an implementation plan for Atlas foundations.
-4. Build Atlas as a bridge-first canonical layer that Library can read from.
-5. Migrate new tag creation/display toward Atlas-backed services after the bridge is stable.
-6. Add classifiers, review queues, explicit search syntax, color profiles, and image relationships in later phases.
+1. Profile and virtualize the paginated Library UI for archives that grow beyond ordinary desktop collections.
+2. Continue splitting the largest Atlas and extension modules along service/component boundaries.
+3. Expand end-to-end coverage for real archive CRUD, import retry behavior, and Atlas editing.
+4. Design the next UI/UX pass around the now-stable Library, Explore, and Atlas workflows.
+5. Add color profiles, perceptual duplicate detection, and image relationships in later phases.

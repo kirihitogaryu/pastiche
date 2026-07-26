@@ -1,28 +1,22 @@
 <script lang="ts">
 	import ArrowSquareOutIcon from 'phosphor-svelte/lib/ArrowSquareOutIcon';
-	import CopyIcon from 'phosphor-svelte/lib/CopyIcon';
-	import GridFourIcon from 'phosphor-svelte/lib/GridFourIcon';
+	import DatabaseIcon from 'phosphor-svelte/lib/DatabaseIcon';
+	import DownloadSimpleIcon from 'phosphor-svelte/lib/DownloadSimpleIcon';
+	import FolderPlusIcon from 'phosphor-svelte/lib/FolderPlusIcon';
+	import ImageSquareIcon from 'phosphor-svelte/lib/ImageSquareIcon';
 	import ArrowsOutSimpleIcon from 'phosphor-svelte/lib/ArrowsOutSimpleIcon';
-	import PaletteIcon from 'phosphor-svelte/lib/PaletteIcon';
 	import StarIcon from 'phosphor-svelte/lib/StarIcon';
 	import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
 	import XIcon from 'phosphor-svelte/lib/XIcon';
-	import CreateOrganizationPopover from '$lib/components/library/CreateOrganizationPopover.svelte';
-	import type { LibraryAssetRecord } from '$lib/library/types';
-	import type { LibraryResponse } from '$lib/library/types';
+	import MoveAssetPopover from '$lib/components/library/MoveAssetPopover.svelte';
+	import { downloadLibraryAsset } from '$lib/library/download';
+	import type { LibraryAsset, LibraryAssetRecord } from '$lib/library/types';
 	import { openAtlasAsset } from '$lib/state/app-state.svelte';
-	import { libraryState, setLibrarySnapshot } from '$lib/state/library-state.svelte';
+	import { libraryState, replaceLibraryAsset } from '$lib/state/library-state.svelte';
 	import type { Asset } from '$lib/types';
 
 	type InspectableAsset = Asset & { record?: LibraryAssetRecord };
 	type FactRow = { label: string; value: string };
-	type DisplayTag = { facetName: string; facetSlug: string; value: string; accepted?: boolean };
-	type SourceSuggestion = LibraryAssetRecord['organization']['sourceTagSuggestions'][number];
-	type DisplayTagGroup<T extends DisplayTag = DisplayTag> = {
-		facetName: string;
-		facetSlug: string;
-		tags: T[];
-	};
 
 	type Props = {
 		asset: InspectableAsset | null;
@@ -34,22 +28,13 @@
 	let { asset, onClose, onDelete, onPreview }: Props = $props();
 	let deleting = $state(false);
 	let imageFailed = $state(false);
-	let tagPopoverOpen = $state(false);
-	let tagPopoverAnchor = $state<{ left: number; top: number } | null>(null);
-	let sourceTagsExpanded = $state(false);
 	let actionError = $state<string | null>(null);
+	let movePopoverOpen = $state(false);
 
 	let title = $derived(asset?.record?.title ?? asset?.title ?? '');
 	let artist = $derived(asset?.record?.artist ?? asset?.creator ?? '');
 	let previewUrl = $derived(asset?.record?.image.previewUrl || asset?.imageUrl || null);
 	let sourcePageUrl = $derived(asset?.record?.source.pageUrl ?? asset?.sourceUrl ?? null);
-	let sourceTagSuggestions = $derived(asset?.record?.organization.sourceTagSuggestions ?? []);
-	let visibleSourceTagSuggestions = $derived(
-		sourceTagsExpanded ? orderedSuggestions(sourceTagSuggestions) : orderedSuggestions(sourceTagSuggestions).slice(0, 6)
-	);
-	let suggestedTagGroups = $derived(groupTags(visibleSourceTagSuggestions));
-	let hiddenSourceTagCount = $derived(Math.max(0, sourceTagSuggestions.length - 6));
-	let tagGroups = $derived(groupTags(displayTags(asset)));
 	let factRows = $derived(asset ? buildFactRows(asset) : []);
 	let previewRatio = $derived(asset ? imageRatio(asset) : 1);
 
@@ -81,82 +66,15 @@
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ favorite: !asset.favorite })
 			});
-			const body = (await response.json()) as { error?: string; snapshot?: LibraryResponse };
-			if (!response.ok || !body.snapshot) {
+			const body = (await response.json()) as { error?: string; asset?: LibraryAsset };
+			if (!response.ok || !body.asset) {
 				throw new Error(body.error ?? 'Favorite could not be updated.');
 			}
-			setLibrarySnapshot(body.snapshot);
+			replaceLibraryAsset(body.asset);
 		} catch (favoriteError) {
 			actionError =
 				favoriteError instanceof Error ? favoriteError.message : 'Favorite could not be updated.';
 		}
-	}
-
-	function toggleTagPopover(event: MouseEvent) {
-		if (tagPopoverOpen) {
-			tagPopoverOpen = false;
-			tagPopoverAnchor = null;
-			return;
-		}
-		tagPopoverOpen = true;
-		tagPopoverAnchor = anchorFrom(event.currentTarget);
-	}
-
-	function anchorFrom(target: EventTarget | null) {
-		if (!(target instanceof HTMLElement)) return null;
-		const rect = target.getBoundingClientRect();
-		const width = 320;
-		return {
-			left: Math.max(12, Math.min(rect.left, window.innerWidth - width - 12)),
-			top: rect.bottom + 8
-		};
-	}
-
-	async function acceptSourceTag(tag: SourceSuggestion) {
-		if (!asset || tag.accepted) return;
-		const response = await fetch(`/api/library/assets/${encodeURIComponent(asset.id)}/source-tags`, {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ name: tag.name, facet: tag.facetName, value: tag.value })
-		});
-		const body = (await response.json()) as { snapshot?: LibraryResponse };
-		if (response.ok && body.snapshot) setLibrarySnapshot(body.snapshot);
-	}
-
-	function orderedSuggestions(suggestions: SourceSuggestion[]) {
-		return [...suggestions].sort((a, b) => Number(b.useful) - Number(a.useful));
-	}
-
-	function displayTags(asset: InspectableAsset | null): DisplayTag[] {
-		if (!asset) return [];
-		if (asset.record) {
-			return asset.record.organization.tags.map((tag) => ({
-				facetName: tag.facetName,
-				facetSlug: tag.facetSlug,
-				value: tag.value,
-				accepted: true
-			}));
-		}
-		return asset.tags.map((tag) => ({
-			facetName: 'tag',
-			facetSlug: 'tag',
-			value: tag,
-			accepted: true
-		}));
-	}
-
-	function groupTags<T extends DisplayTag>(tags: T[]): DisplayTagGroup<T>[] {
-		const groups = new Map<string, DisplayTagGroup<T>>();
-		for (const tag of tags) {
-			const group = groups.get(tag.facetSlug) ?? {
-				facetName: tag.facetName,
-				facetSlug: tag.facetSlug,
-				tags: []
-			};
-			group.tags.push(tag);
-			groups.set(tag.facetSlug, group);
-		}
-		return [...groups.values()];
 	}
 
 	function buildFactRows(asset: InspectableAsset): FactRow[] {
@@ -227,9 +145,6 @@
 				{/if}
 			</div>
 			<div class="header-actions">
-				<button type="button" aria-label="Favorite {title}" onclick={toggleFavorite}>
-					<StarIcon size={21} weight={asset.favorite ? 'fill' : 'regular'} />
-				</button>
 				{#if onClose}
 					<button type="button" aria-label="Close inspector" onclick={onClose}
 						><XIcon size={20} /></button
@@ -283,69 +198,14 @@
 			</section>
 		{/if}
 
-		<section>
-			<h3>Tags</h3>
-			<div class="tag-groups">
-				{#each tagGroups as group (group.facetSlug)}
-					<div class="tag-group">
-						<span class="facet-label">{group.facetName}</span>
-						<div class="chips">
-							{#each group.tags as tag}
-								<span>{tag.value}</span>
-							{/each}
-						</div>
-					</div>
-				{/each}
-				<div class="tag-popover-wrap">
-					<button type="button" aria-label="Add tag" onclick={toggleTagPopover}>+</button>
-					{#if tagPopoverOpen && asset}
-						<CreateOrganizationPopover
-							kind="tag"
-							library={libraryState.snapshot}
-							{asset}
-							anchor={tagPopoverAnchor}
-							onClose={() => (tagPopoverOpen = false)}
-							onSnapshot={setLibrarySnapshot}
-						/>
-					{/if}
-				</div>
+		<section class="atlas-handoff">
+			<div>
+				<h3>Atlas metadata</h3>
+				<p>Tags and visual classifications are managed in Atlas.</p>
 			</div>
-		</section>
-
-		{#if sourceTagSuggestions.length}
-			<section>
-				<h3>Suggested Tags</h3>
-				<div class="tag-groups suggested-tags">
-					{#each suggestedTagGroups as group (group.facetSlug)}
-						<div class="tag-group">
-							<span class="facet-label">{group.facetName}</span>
-							<div class="chips source-tags">
-								{#each group.tags as tag}
-									<button class:accepted={tag.accepted} type="button" onclick={() => acceptSourceTag(tag)}>
-										{tag.value}
-									</button>
-								{/each}
-							</div>
-						</div>
-					{/each}
-					{#if !sourceTagsExpanded && hiddenSourceTagCount > 0}
-						<button type="button" aria-label="Show more suggested tags" onclick={() => (sourceTagsExpanded = true)}>
-							+{hiddenSourceTagCount}
-						</button>
-					{/if}
-				</div>
-			</section>
-		{/if}
-
-			<section>
-				<div class="section-title">
-					<h3>Palette</h3>
-				</div>
-			<div class="palette">
-				{#each asset.palette as swatch}
-					<span title={`${swatch.label}: ${swatch.hex}`} style={`--swatch: ${swatch.hex}`}></span>
-				{/each}
-			</div>
+			<button type="button" onclick={() => openAtlasAsset(asset.id)}>
+				<DatabaseIcon size={18} /> Open in Atlas
+			</button>
 		</section>
 
 		{#if asset.notes}
@@ -360,24 +220,38 @@
 		{/if}
 
 		<div class="actions">
-			<button type="button"><GridFourIcon size={19} /> Add to Canvas</button>
-			<button type="button"><CopyIcon size={19} /> Copy Palette</button>
-			<button type="button" onclick={() => asset && openAtlasAsset(asset.id)}>
-				<GridFourIcon size={19} /> Open in Atlas
+			<button type="button" onclick={toggleFavorite}>
+				<StarIcon size={19} weight={asset.favorite ? 'fill' : 'regular'} />
+				{asset.favorite ? 'Favorited' : 'Favorite'}
+			</button>
+			<button type="button" onclick={() => downloadLibraryAsset(asset.id, title)}>
+				<DownloadSimpleIcon size={19} /> Download
+			</button>
+			<button type="button" onclick={() => (movePopoverOpen = true)}>
+				<FolderPlusIcon size={19} /> Move
 			</button>
 			<button type="button" disabled={!sourcePageUrl} onclick={openSource}
-				><ArrowSquareOutIcon size={19} /> Open Source</button
+				><ArrowSquareOutIcon size={19} /> Source</button
 			>
-			{#if onDelete}
+		</div>
+		{#if movePopoverOpen}
+			<MoveAssetPopover
+				{asset}
+				library={libraryState.snapshot}
+				onClose={() => (movePopoverOpen = false)}
+			/>
+		{/if}
+		{#if onDelete}
+			<div class="danger-actions">
 				<button class="danger" type="button" disabled={deleting} onclick={deleteAsset}>
 					<TrashIcon size={19} />
 					{deleting ? 'Deleting' : 'Delete'}
 				</button>
-			{/if}
-		</div>
+			</div>
+		{/if}
 	{:else}
 		<div class="empty">
-			<PaletteIcon size={32} />
+			<ImageSquareIcon size={32} />
 			<h2>Select an image</h2>
 			<p>Inspector details will appear here.</p>
 		</div>
@@ -521,8 +395,6 @@
 	}
 
 	.header-actions,
-	.chips,
-	.section-title,
 	.actions {
 		display: flex;
 		align-items: center;
@@ -576,84 +448,29 @@
 		border-top: 1px solid var(--color-border-soft);
 	}
 
-	.chips {
-		flex-wrap: wrap;
-		gap: var(--space-2);
-	}
-
-	.tag-groups {
-		display: grid;
+	.atlas-handoff {
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: center;
 		gap: var(--space-3);
 	}
 
-	.tag-group {
+	.atlas-handoff div {
 		display: grid;
 		gap: var(--space-1);
 	}
 
-	.facet-label {
-		color: var(--color-muted);
-		font-size: 0.68rem;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
+	.atlas-handoff p {
+		font-size: 0.8rem;
 	}
 
-	.tag-popover-wrap {
-		position: relative;
-	}
-
-	.chips span,
-	.chips button {
-		min-height: 2rem;
-		padding: 0 var(--space-3);
-		border-radius: var(--radius-pill);
-		background: var(--color-surface-raised);
-		color: var(--color-text);
-		font-size: 0.82rem;
-	}
-
-	.chips span {
+	.atlas-handoff button {
+		min-height: 2.45rem;
 		display: inline-flex;
 		align-items: center;
-	}
-
-	.tag-popover-wrap button,
-	.suggested-tags > button {
-		min-height: 2rem;
-		padding: 0 var(--space-3);
-		border-radius: var(--radius-pill);
-		background: var(--color-surface-raised);
-		color: var(--color-text);
-		font-size: 0.82rem;
-	}
-
-	.source-tags button {
-		background: oklch(18% 0.012 70 / 0.78);
-		color: var(--color-muted);
-	}
-
-	.source-tags button.accepted {
-		color: var(--color-text);
-		border-color: var(--color-border-strong);
-	}
-
-	.section-title {
-		justify-content: space-between;
-		gap: var(--space-3);
-	}
-
-	.palette {
-		display: grid;
-		grid-template-columns: repeat(6, 1fr);
+		justify-content: center;
 		gap: var(--space-2);
-	}
-
-	.palette span {
-		aspect-ratio: 1.6 / 1;
-		border-radius: var(--radius-sm);
-		border: 1px solid var(--color-border-soft);
-		background: var(--swatch);
+		padding: 0 var(--space-3);
+		white-space: nowrap;
 	}
 
 	.action-error {
@@ -683,9 +500,16 @@
 		font-size: 0.78rem;
 	}
 
-	.actions button.danger {
+	.danger-actions {
+		display: grid;
+		padding-top: var(--space-1);
+	}
+
+	.danger-actions button {
+		min-height: 2.75rem;
+		border-color: rgb(224 108 117 / 28%);
+		background: transparent;
 		color: #f0a4a8;
-		border-color: rgb(224 108 117 / 35%);
 	}
 
 	.empty {

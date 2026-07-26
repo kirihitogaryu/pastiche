@@ -73,12 +73,17 @@ export function exploreThumbKey(itemId: string): string {
 	return `explore:thumb:${itemId}`;
 }
 
-export async function getCachedThumbUrl(itemId: string, sourceUrl: string): Promise<string> {
+export async function getCachedThumbUrl(
+	itemId: string,
+	sourceUrl: string,
+	options: { populate?: boolean } = {}
+): Promise<string> {
 	if (!canUseIndexedDb()) return sourceUrl;
 	if (shouldSkipThumbBlobCache(sourceUrl)) return sourceUrl;
 	const cacheKey = exploreThumbKey(itemId);
 	const cached = await cacheGet<CachedThumb>(cacheKey);
 	if (cached) return makeBlobUrl(cached);
+	if (options.populate === false) return sourceUrl;
 
 	try {
 		const response = await fetch(sourceUrl);
@@ -113,7 +118,9 @@ function canUseIndexedDb(): boolean {
 }
 
 function normalizeQuery(query: ExploreQuery): ExploreQuery {
-	const entries = Object.entries(query).filter(([, value]) => value !== undefined && value !== null);
+	const entries = Object.entries(query).filter(
+		([, value]) => value !== undefined && value !== null
+	);
 	return Object.fromEntries(entries) as ExploreQuery;
 }
 

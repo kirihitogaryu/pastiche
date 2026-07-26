@@ -11,12 +11,20 @@
 		onSelect: (mode: AppMode) => void;
 		onAdd: () => void;
 		secondary?: boolean;
+		hidden?: boolean;
 	};
 
-	let { mode, onSelect, onAdd, secondary = false }: Props = $props();
+	let { mode, onSelect, onAdd, secondary = false, hidden = false }: Props = $props();
 </script>
 
-<nav class:secondary class="bottom-nav" aria-label="Mobile primary">
+<nav
+	class:secondary
+	class:hidden
+	class="bottom-nav"
+	aria-label="Mobile primary"
+	aria-hidden={hidden}
+	inert={hidden}
+>
 	<button class:active={mode === 'library'} type="button" onclick={() => onSelect('library')}>
 		<BookOpenIcon size={21} weight={mode === 'library' ? 'fill' : 'regular'} />
 		<span>Library</span>
@@ -53,7 +61,15 @@
 		border-top: 1px solid var(--color-border);
 		background: oklch(10% 0.006 70 / 0.92);
 		backdrop-filter: blur(18px);
-		transition: opacity var(--duration-base) var(--ease-out);
+		transition:
+			opacity 180ms cubic-bezier(0.22, 1, 0.36, 1),
+			transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+	}
+
+	.bottom-nav.hidden {
+		opacity: 0;
+		pointer-events: none;
+		transform: translateY(calc(100% + env(safe-area-inset-bottom)));
 	}
 
 	.bottom-nav.secondary {
@@ -100,6 +116,12 @@
 	@media (min-width: 760px) {
 		.bottom-nav {
 			display: none;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.bottom-nav {
+			transition: none;
 		}
 	}
 </style>

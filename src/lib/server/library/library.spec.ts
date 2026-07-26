@@ -1,7 +1,8 @@
-import { existsSync, mkdtempSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
+import sharp from 'sharp';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ensureLibraryArchive, resolveLibraryPaths } from './paths';
 import { initializeLibrary, openLibraryDatabase } from './schema';
@@ -15,6 +16,7 @@ import {
 	createTag
 } from './organization';
 import { getLibrarySnapshot } from './read';
+import { createGovernedAtlasConcept } from '$lib/server/atlas/governance';
 
 describe('local library archive', () => {
 	let archiveRoot: string;
@@ -63,36 +65,56 @@ describe('local library archive', () => {
 			.prepare('pragma table_info(projects)')
 			.all()
 			.map((row) => (row as { name: string }).name);
+		const userVersion = db.pragma('user_version', { simple: true });
+		const journalMode = db.pragma('journal_mode', { simple: true });
+		const assetIndexes = db
+			.prepare("select name from sqlite_master where type = 'index' and tbl_name = 'assets'")
+			.all()
+			.map((row) => (row as { name: string }).name);
 		db.close();
 
 		expect(tables).toEqual([
 			'asset_import_failures',
 			'asset_tags',
 			'assets',
+			'atlas_agent_applied_suggestions',
+			'atlas_agent_runs',
 			'atlas_annotation_classifiers',
 			'atlas_annotation_concepts',
 			'atlas_annotations',
 			'atlas_asset_concepts',
 			'atlas_asset_entities',
 			'atlas_claims',
+			'atlas_concept_aliases',
+			'atlas_concept_relations',
+			'atlas_concept_tombstones',
 			'atlas_concepts',
 			'atlas_entities',
 			'atlas_entity_aliases',
 			'atlas_entity_links',
 			'atlas_entity_profiles',
 			'atlas_ingestion_runs',
+			'atlas_ontology_migration_issues',
 			'atlas_tag_suggestions',
 			'atlas_wiki_entries',
 			'folders',
+			'import_jobs',
 			'lazy_download_jobs',
 			'project_asset_refs',
 			'project_folder_refs',
 			'projects',
+			'saved_explore_searches',
+			'schema_migrations',
 			'tag_facets',
 			'tags'
 		]);
 
 		expect(projectColumns).not.toContain('path');
+		expect(userVersion).toBe(3);
+		expect(journalMode).toBe('wal');
+		expect(assetIndexes).toEqual(
+			expect.arrayContaining(['assets_source_hash_idx', 'assets_folder_id_idx'])
+		);
 	});
 
 	it('creates the reserved General tag group first', () => {
@@ -221,7 +243,64 @@ describe('local library archive', () => {
 		]);
 	});
 
+	it('exposes canonical Atlas assignments in the Library asset record', async () => {
+		const db = openLibraryDatabase();
+		createGovernedAtlasConcept(db, {
+			slug: 'library_search_dragon',
+			label: 'Library Search Dragon',
+			kind: 'visual_tag',
+			category: 'object',
+			displayGroup: 'Objects',
+			shortDefinition: 'Use when the test dragon is visible.'
+		});
+		db.close();
+		const result = await importLibraryItems({
+			destination_folder_id: null,
+			items: [
+				{
+					filename: 'Atlas searchable ref',
+					storage_mode: 'url_reference',
+					image_data: null,
+					source_image_url: 'https://example.com/dragon.jpg',
+					mime_type: 'image/jpeg',
+					natural_width: 800,
+					natural_height: 600,
+					source_url: 'https://example.com/dragon',
+					page_title: 'Atlas searchable ref',
+					alt_text: null,
+					captured_at: '2026-07-24T12:00:00.000Z',
+					metadata: {
+						acceptedConceptSlugs: ['library_search_dragon']
+					}
+				}
+			]
+		});
+
+		const asset = getLibrarySnapshot().assets.find(
+			(item) => item.id === result.imported[0].asset_id
+		);
+		expect(asset?.record?.organization.atlasTags).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					expression: 'library_search_dragon',
+					assignmentStatus: 'approved'
+				})
+			])
+		);
+		expect(asset?.tags).toContain('library_search_dragon');
+	});
+
 	it('applies user-accepted Atlas concepts from extension import metadata', async () => {
+		const setupDb = openLibraryDatabase();
+		createGovernedAtlasConcept(setupDb, {
+			slug: 'black_hair',
+			label: 'Black hair',
+			kind: 'visual_tag',
+			category: 'anatomy',
+			displayGroup: 'Anatomy and Body Features',
+			shortDefinition: 'Use when black hair is visibly depicted.'
+		});
+		setupDb.close();
 		const result = await importLibraryItems({
 			destination_folder_id: null,
 			items: [
@@ -245,6 +324,13 @@ describe('local library archive', () => {
 						artistProfileUrl: 'https://www.deviantart.com/exampleartist',
 						artistUsername: 'ExampleArtist',
 						acceptedConceptSlugs: ['dragon', 'Black Hair', 'dragon'],
+						acceptedAnnotations: [
+							{
+								label: 'dragon',
+								concepts: ['dragon'],
+								classifiers: { scale_color: 'green' }
+							}
+						],
 						tags: ['page-only-suggestion']
 					}
 				}
@@ -255,7 +341,8 @@ describe('local library archive', () => {
 		const accepted = db
 			.prepare(
 				`
-				select atlas_concepts.slug, atlas_asset_concepts.evidence, atlas_asset_concepts.status
+				select atlas_concepts.slug, atlas_concepts.status as concept_status,
+					atlas_asset_concepts.evidence, atlas_asset_concepts.status
 				from atlas_asset_concepts
 				join atlas_concepts on atlas_concepts.id = atlas_asset_concepts.concept_id
 				where atlas_asset_concepts.asset_id = ?
@@ -277,14 +364,32 @@ describe('local library archive', () => {
 			`
 			)
 			.all();
+		const classifiers = db
+			.prepare(
+				`select atlas_annotations.label, atlas_annotation_classifiers.classifier_type,
+					atlas_annotation_classifiers.classifier_value
+				 from atlas_annotation_classifiers
+				 join atlas_annotations
+					on atlas_annotations.id = atlas_annotation_classifiers.annotation_id
+				 where atlas_annotations.asset_id = ?`
+			)
+			.all(result.imported[0].asset_id);
 		db.close();
 
 		expect(result.failed).toEqual([]);
 		expect(accepted).toEqual([
-			{ slug: 'black_hair', evidence: 'observed', status: 'approved' },
-			{ slug: 'dragon', evidence: 'observed', status: 'approved' }
+			{
+				slug: 'black_hair',
+				concept_status: 'needs_review',
+				evidence: 'observed',
+				status: 'approved'
+			},
+			{ slug: 'dragon', concept_status: 'needs_review', evidence: 'observed', status: 'approved' }
 		]);
 		expect(suggestions).toEqual([{ slug: 'page_only_suggestion', status: 'suggested' }]);
+		expect(classifiers).toEqual([
+			{ label: 'dragon', classifier_type: 'scale_color', classifier_value: 'green' }
+		]);
 		expect(artistLinks).toEqual([
 			{
 				kind: 'artist',
@@ -361,10 +466,80 @@ describe('local library archive', () => {
 		db.close();
 
 		expect(asset.storage_mode).toBe('download');
-		expect(asset.original_path).toMatch(/^originals\/.+\.jpg$/);
+		expect(asset.original_path).toMatch(/^originals\/.+\.png$/);
 		expect(asset.thumbnail_path).toMatch(/^thumbnails\/.+\.webp$/);
 		expect(existsSync(join(archiveRoot, asset.original_path))).toBe(true);
 		expect(existsSync(join(archiveRoot, asset.thumbnail_path))).toBe(true);
+	});
+
+	it('rolls back downloaded asset rows and files when Atlas ingestion fails', async () => {
+		const now = '2026-07-06T12:00:00.000Z';
+		const db = openLibraryDatabase();
+		db.prepare(
+			`insert into atlas_concepts (
+				id, slug, label, kind, category, display_group, status, maturity, short_definition,
+				created_by, created_at, updated_at
+			) values (
+				'atlas-concept-blocked-import-test',
+				'blocked_import_test',
+				'Blocked Import Test',
+				'visual_tag',
+				'object',
+				'Objects',
+				'blocked',
+				'stub',
+				'Concept used to verify import rollback.',
+				'test',
+				?,
+				?
+			)`
+		).run(now, now);
+		db.close();
+
+		const result = await importLibraryItems({
+			destination_folder_id: null,
+			items: [
+				{
+					filename: 'Broken atlas import',
+					storage_mode: 'download',
+					image_data: tinyPngBase64(),
+					source_image_url: 'https://example.com/broken.png',
+					mime_type: 'image/png',
+					natural_width: 1,
+					natural_height: 1,
+					source_url: 'https://example.com/broken',
+					page_title: 'Broken atlas import',
+					alt_text: null,
+					captured_at: now,
+					metadata: {
+						sourceName: 'Local file',
+						sourceType: 'local',
+						acceptedConceptSlugs: ['blocked_import_test']
+					}
+				}
+			]
+		});
+
+		const verifyDb = new Database(join(archiveRoot, 'workspace.sqlite'), { readonly: true });
+		const assetCount = verifyDb.prepare('select count(*) as count from assets').get() as {
+			count: number;
+		};
+		const failureCount = verifyDb
+			.prepare('select count(*) as count from asset_import_failures')
+			.get() as { count: number };
+		verifyDb.close();
+
+		expect(result.imported).toEqual([]);
+		expect(result.failed).toEqual([
+			expect.objectContaining({
+				index: 0,
+				error: 'Atlas concept "blocked_import_test" is blocked.'
+			})
+		]);
+		expect(assetCount.count).toBe(0);
+		expect(failureCount.count).toBe(1);
+		expect(readdirSync(join(archiveRoot, 'originals'))).toEqual([]);
+		expect(readdirSync(join(archiveRoot, 'thumbnails'))).toEqual([]);
 	});
 
 	it('imports URL references without writing originals', async () => {
@@ -405,6 +580,55 @@ describe('local library archive', () => {
 			storage_mode: 'url_reference'
 		});
 	});
+
+	it.each([
+		{ format: 'webp', mimeType: 'image/webp', extension: 'webp' },
+		{ format: 'gif', mimeType: 'image/gif', extension: 'gif' },
+		{ format: 'tiff', mimeType: 'image/tiff', extension: 'tif' }
+	])(
+		'detects and preserves $format downloads independently of the claimed filename',
+		async ({ format, mimeType, extension }) => {
+			const pipeline = sharp({
+				create: { width: 4, height: 3, channels: 4, background: '#c06c4c' }
+			});
+			const image = await (
+				format === 'webp' ? pipeline.webp() : format === 'gif' ? pipeline.gif() : pipeline.tiff()
+			).toBuffer();
+
+			const result = await importLibraryItems({
+				destination_folder_id: null,
+				items: [
+					{
+						filename: `studio-reference.${extension}`,
+						storage_mode: 'download',
+						image_data: image.toString('base64'),
+						source_image_url: null,
+						mime_type: 'image/jpeg',
+						natural_width: 1,
+						natural_height: 1,
+						source_url: `file://studio-reference.${extension}`,
+						page_title: `studio-reference.${extension}`,
+						alt_text: null,
+						captured_at: '2026-07-22T12:00:00.000Z'
+					}
+				]
+			});
+			const db = new Database(join(archiveRoot, 'workspace.sqlite'), { readonly: true });
+			const row = db
+				.prepare('select mime_type, width, height, original_path from assets where id = ?')
+				.get(result.imported[0].asset_id) as {
+				mime_type: string;
+				width: number;
+				height: number;
+				original_path: string;
+			};
+			db.close();
+
+			expect(row).toMatchObject({ mime_type: mimeType, width: 4, height: 3 });
+			expect(row.original_path).toMatch(new RegExp(`\\.${extension}$`));
+			expect(existsSync(join(archiveRoot, row.original_path))).toBe(true);
+		}
+	);
 
 	it('records lazy download jobs without fetching immediately', async () => {
 		const result = await importLibraryItems({

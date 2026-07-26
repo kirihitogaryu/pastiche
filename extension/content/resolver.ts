@@ -1,7 +1,8 @@
 import { chooseBestCandidate, scoreCandidate } from '../shared/candidate-scoring';
 import type { CaptureMetadata, CaptureSource, ImageCandidate } from '../shared/candidates';
 import { sourceContextForPage, sourceMetadataForPage } from '../shared/source-adapters';
-import { candidatesForElement } from './candidate-scanner';
+import { candidatesForTarget } from './candidate-scanner';
+import { selectorForElement } from './metadata-adapters';
 
 /**
  * content/resolver.ts
@@ -82,11 +83,15 @@ export function resolveTargetAtPoint(
  * where we already have the element reference).
  */
 export function resolveElement(el: Element): ResolvedImage | null {
-	const candidates = candidatesForElement(el, window.location.href).map((item) =>
+	const sourceElementPath = selectorForElement(el);
+	const detailUrl = detailUrlForElement(el);
+	const candidates = candidatesForTarget(el, document, window.location.href).map((item) =>
 		scoreCandidate(
 			{
 				...item,
-				url: applyArtsyUpsize(item.url)
+				url: applyArtsyUpsize(item.url),
+				sourceElementPath: item.sourceElementPath ?? sourceElementPath,
+				detailUrl: item.detailUrl ?? detailUrl
 			},
 			{ minDimension: 300, directSelection: true }
 		)
@@ -98,7 +103,7 @@ export function resolveElement(el: Element): ResolvedImage | null {
 			selectedCandidateId: candidate.id,
 			candidates,
 			source: sourceForResolvedCandidate(candidate),
-			metadata: metadataForResolvedCandidate(candidate),
+			metadata: metadataForResolvedCandidate(candidate, el),
 			naturalWidth: candidate.width ?? measuredWidthFor(el),
 			naturalHeight: candidate.height ?? measuredHeightFor(el),
 			mimeType: candidate.mimeType,
@@ -204,7 +209,7 @@ function resolveImg(img: HTMLImageElement): ResolvedImage | null {
 			selectedCandidateId: `candidate-${hashish(resolvedUrl)}`,
 			candidates: [legacyCandidateForResolvedUrl(applyArtsyUpsize(resolvedUrl), 'img', img)],
 			source: sourceForUrl(applyArtsyUpsize(resolvedUrl), null),
-			metadata: metadataForText(img.alt || null, applyArtsyUpsize(resolvedUrl)),
+			metadata: metadataForText(img.alt || null, applyArtsyUpsize(resolvedUrl), img),
 			naturalWidth: img.naturalWidth,
 			naturalHeight: img.naturalHeight,
 			mimeType: null,
@@ -226,7 +231,7 @@ function resolveVideo(video: HTMLVideoElement): ResolvedImage | null {
 				legacyCandidateForResolvedUrl(applyArtsyUpsize(video.poster), 'video_poster', video)
 			],
 			source: sourceForUrl(applyArtsyUpsize(video.poster), null),
-			metadata: metadataForText(null, applyArtsyUpsize(video.poster)),
+			metadata: metadataForText(null, applyArtsyUpsize(video.poster), video),
 			naturalWidth: video.videoWidth || video.offsetWidth,
 			naturalHeight: video.videoHeight || video.offsetHeight,
 			mimeType: null,
@@ -250,7 +255,7 @@ function resolveVideo(video: HTMLVideoElement): ResolvedImage | null {
 				selectedCandidateId: `candidate-${hashish(dataUrl)}`,
 				candidates: [legacyCandidateForResolvedUrl(dataUrl, 'video_frame', video)],
 				source: sourceForUrl(dataUrl, null),
-				metadata: metadataForText(null, dataUrl),
+				metadata: metadataForText(null, dataUrl, video),
 				naturalWidth: video.videoWidth,
 				naturalHeight: video.videoHeight,
 				mimeType: 'image/png',
@@ -275,7 +280,7 @@ function resolveCanvas(canvas: HTMLCanvasElement): ResolvedImage | null {
 			selectedCandidateId: `candidate-${hashish(dataUrl)}`,
 			candidates: [legacyCandidateForResolvedUrl(dataUrl, 'canvas', canvas)],
 			source: sourceForUrl(dataUrl, null),
-			metadata: metadataForText(null, dataUrl),
+			metadata: metadataForText(null, dataUrl, canvas),
 			naturalWidth: canvas.width,
 			naturalHeight: canvas.height,
 			mimeType: 'image/png',
@@ -304,7 +309,7 @@ function resolveCssBackground(el: Element): ResolvedImage | null {
 		selectedCandidateId: `candidate-${hashish(url)}`,
 		candidates: [legacyCandidateForResolvedUrl(applyArtsyUpsize(url), 'background', el)],
 		source: sourceForUrl(applyArtsyUpsize(url), null),
-		metadata: metadataForText(null, applyArtsyUpsize(url)),
+		metadata: metadataForText(null, applyArtsyUpsize(url), el),
 		naturalWidth: (el as HTMLElement).offsetWidth,
 		naturalHeight: (el as HTMLElement).offsetHeight,
 		mimeType: null,
@@ -384,14 +389,24 @@ function legacyCandidateForResolvedUrl(
 		mimeType: null,
 		byteSize: null,
 		altText,
-		sourceElementPath: null,
-		detailUrl: null,
+		sourceElementPath: selectorForElement(element),
+		detailUrl: detailUrlForElement(element),
 		inlineData: url.startsWith('data:') ? url : null,
 		score: 0,
 		confidence: 'medium',
 		rejectionReasons: [],
 		scoreReasons: []
 	};
+}
+
+function detailUrlForElement(element: Element): string | null {
+	const href = element.closest<HTMLAnchorElement>('a[href]')?.href;
+	if (!href || href.startsWith('javascript:') || href.startsWith('mailto:')) return null;
+	try {
+		return new URL(href, window.location.href).toString();
+	} catch {
+		return null;
+	}
 }
 
 function sourceForResolvedCandidate(candidate: ImageCandidate): CaptureSource {
@@ -405,15 +420,23 @@ function sourceForUrl(url: string, detailUrl: string | null): CaptureSource {
 	};
 }
 
-function metadataForResolvedCandidate(candidate: ImageCandidate): CaptureMetadata {
-	return metadataForText(candidate.altText, candidate.url);
+function metadataForResolvedCandidate(
+	candidate: ImageCandidate,
+	targetElement: Element
+): CaptureMetadata {
+	return metadataForText(candidate.altText, candidate.url, targetElement);
 }
 
-function metadataForText(text: string | null, url: string): CaptureMetadata {
+function metadataForText(
+	text: string | null,
+	url: string,
+	targetElement: Element | null = null
+): CaptureMetadata {
 	const adapterMetadata = sourceMetadataForPage(document, {
 		pageUrl: window.location.href,
 		imageUrl: url,
-		altText: text
+		altText: text,
+		targetElement
 	});
 	return {
 		...adapterMetadata,
@@ -430,14 +453,6 @@ function titleFromFilename(url: string): string | null {
 			.replace(/[-_]+/g, ' ')
 			.trim();
 		return title || null;
-	} catch {
-		return null;
-	}
-}
-
-function hostnameFrom(url: string): string | null {
-	try {
-		return new URL(url).hostname;
 	} catch {
 		return null;
 	}

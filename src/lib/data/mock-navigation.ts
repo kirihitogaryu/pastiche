@@ -30,7 +30,14 @@ export const smartFolders = [
 	{ label: 'Untagged', count: 76 }
 ];
 
-export const libraryChips = ['all', 'abstract', 'color field', 'geometric', 'splatter', 'composition'];
+export const libraryChips = [
+	'all',
+	'abstract',
+	'color field',
+	'geometric',
+	'splatter',
+	'composition'
+];
 export const exploreChips = [
 	'All',
 	'Painting',
@@ -42,7 +49,14 @@ export const exploreChips = [
 	'Architecture'
 ];
 
-export const exploreSources = ['All Sources', 'The Met', 'MoMA', 'Wikimedia', 'Europeana', 'Artvee'];
+export const exploreSources = [
+	'All Sources',
+	'The Met',
+	'MoMA',
+	'Wikimedia',
+	'Europeana',
+	'Artvee'
+];
 
 export const pinnedProjects: Project[] = [
 	{

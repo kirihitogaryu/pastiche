@@ -40,6 +40,7 @@ import {
 	teardown
 } from './highlight';
 import {
+	resolveElement,
 	resolveTargetAtPoint,
 	sweepPage,
 	collectInRegion,
@@ -47,8 +48,8 @@ import {
 	type SweepCandidate
 } from './resolver';
 import { deliverCapturedItem, deliverCapturedItems } from './capture-delivery';
-import type { CaptureMetadata, CaptureSource, ImageCandidate } from '../shared/candidates';
 import type { CapturedItemPayload } from '../shared/types';
+import { extractLiveMetadata } from './metadata-adapters';
 
 // ---------------------------------------------------------------------------
 // Browser compatibility shim
@@ -73,11 +74,13 @@ const MSG_CONTENT_PING = 'PASTICHE_CONTENT_PING';
 const MSG_SWEEP = 'PASTICHE_SWEEP';
 const MSG_DESELECT_ITEM = 'PASTICHE_DESELECT_ITEM';
 const MSG_CLEAR_SELECTION = 'PASTICHE_CLEAR_SELECTION';
-const MSG_ITEM_CAPTURED = 'PASTICHE_ITEM_CAPTURED';
 const MSG_SWEEP_RESULTS = 'PASTICHE_SWEEP_RESULTS';
 const MSG_LASSO_RESULTS = 'PASTICHE_LASSO_RESULTS';
 const MSG_CAPTURE_FAILED = 'PASTICHE_CAPTURE_FAILED';
-const MSG_OPEN_SIDEBAR_FOR_DRAG = 'PASTICHE_OPEN_SIDEBAR_FOR_DRAG';
+const MSG_OPEN_CAPTURE_PANEL_FOR_DRAG = 'PASTICHE_OPEN_CAPTURE_PANEL_FOR_DRAG';
+const MSG_SHOW_CAPTURE_PANEL = 'PASTICHE_SHOW_CAPTURE_PANEL';
+const MSG_STAGE_PENDING_DRAG = 'PASTICHE_STAGE_PENDING_DRAG';
+const MSG_EXTRACT_PAGE_METADATA = 'PASTICHE_EXTRACT_PAGE_METADATA';
 
 // Default size threshold — overridden by PASTICHE_SWEEP message payload.
 const DEFAULT_MIN_DIMENSION = 300;
@@ -97,6 +100,38 @@ const selectedByUrl = new Map<string, Element>();
 // Lasso start coordinates (viewport space).
 let lassoStart: { x: number; y: number } | null = null;
 let lassoPointerId: number | null = null;
+let lassoMinDimension = DEFAULT_MIN_DIMENSION;
+let lastExternalDragOpenAt = 0;
+let embeddedCaptureHost: HTMLElement | null = null;
+let embeddedDropTarget: HTMLElement | null = null;
+let recentPointerDragTarget: {
+	element: Element;
+	resolved: ResolvedImage;
+	capturedAt: number;
+} | null = null;
+
+const EMBEDDED_CAPTURE_HOST_ID = '__pastiche_drag_capture_panel__';
+const DRAG_CAPTURE_SETTING_KEY = 'dragCaptureEnabled';
+// Start closed until the stored preference is known so an opted-out user never
+// gets a capture panel during extension/page startup.
+let dragCaptureEnabled = false;
+
+void ext.storage.local
+	.get({ [DRAG_CAPTURE_SETTING_KEY]: true })
+	.then((stored) => {
+		dragCaptureEnabled = stored[DRAG_CAPTURE_SETTING_KEY] !== false;
+	})
+	.catch(() => {
+		dragCaptureEnabled = true;
+	});
+
+ext.storage.onChanged.addListener((changes, areaName) => {
+	if (areaName !== 'local' || !(DRAG_CAPTURE_SETTING_KEY in changes)) return;
+	dragCaptureEnabled = changes[DRAG_CAPTURE_SETTING_KEY].newValue !== false;
+	if (!dragCaptureAllowed() && embeddedDropTarget?.isConnected) {
+		hideEmbeddedCapturePanel();
+	}
+});
 
 // Invisible overlay div used during capture modes so we receive all pointer
 // events even on pages with aggressive event listeners.
@@ -137,9 +172,10 @@ function enterSingleMode(): void {
 	overlay.addEventListener('click', onSingleClick);
 }
 
-function enterLassoMode(): void {
+function enterLassoMode(minDimension = DEFAULT_MIN_DIMENSION): void {
 	if (mode !== 'idle') exitCapture();
 	mode = 'lasso';
+	lassoMinDimension = minDimension;
 	overlay = createOverlay();
 	overlay.addEventListener('pointerdown', onLassoPointerDown);
 }
@@ -238,7 +274,7 @@ function onLassoPointerUp(event: PointerEvent): void {
 	// Ignore tiny accidental drags.
 	if (selectionRect.width < 10 || selectionRect.height < 10) return;
 
-	const candidates = collectInRegion(selectionRect, DEFAULT_MIN_DIMENSION);
+	const candidates = collectInRegion(selectionRect, lassoMinDimension);
 	const newCandidates = candidates.filter((c) => !selectedByUrl.has(c.url));
 
 	if (newCandidates.length === 0) {
@@ -411,19 +447,470 @@ globalThis.addEventListener('scroll', onScrollOrResize, { passive: true, capture
 globalThis.addEventListener('resize', onScrollOrResize, { passive: true });
 
 globalThis.addEventListener(
-	'dragstart',
+	'pointerdown',
 	(event) => {
-		if (!isImageLikeDragTarget(event.target)) return;
-		void ext.runtime.sendMessage({ type: MSG_OPEN_SIDEBAR_FOR_DRAG }).catch(() => {
-			// Best effort. The sidebar also accepts manual drops when already open.
-		});
+		if (!dragCaptureAllowed()) {
+			recentPointerDragTarget = null;
+			return;
+		}
+		if (event.button !== 0) return;
+		const target = resolvedDragTarget(event);
+		recentPointerDragTarget = target
+			? { ...target, capturedAt: Date.now() }
+			: null;
 	},
 	true
 );
 
-function isImageLikeDragTarget(target: EventTarget | null): boolean {
-	if (!(target instanceof Element)) return false;
-	return Boolean(target.closest('img, picture, video, canvas, [style*="background-image"]'));
+globalThis.addEventListener(
+	'dragstart',
+	(event) => {
+		if (!dragCaptureAllowed()) return;
+		const directTarget = resolvedDragTarget(event);
+		const cachedTarget =
+			recentPointerDragTarget &&
+			Date.now() - recentPointerDragTarget.capturedAt < 3_000 &&
+			recentPointerDragTarget.element.isConnected
+				? recentPointerDragTarget
+				: null;
+		const target = directTarget ?? cachedTarget;
+		if (!target && !looksLikeImageDrag(event)) return;
+		try {
+			if (target) {
+				event.dataTransfer?.setData('application/x-pastiche-image-url', target.resolved.url);
+			}
+		} catch {
+			// Some pages or browser drag implementations make DataTransfer read-only.
+		}
+		openCaptureSurfaceForDrag(
+			target ? resolvedToPayload(target.resolved, target.element) : undefined
+		);
+	},
+	true
+);
+
+globalThis.addEventListener(
+	'dragenter',
+	(event) => {
+		if (!dragCaptureAllowed()) return;
+		const types = Array.from(event.dataTransfer?.types ?? []);
+		const externalImageFile =
+			types.includes('Files') ||
+			types.some((type) => type === 'application/x-moz-file' || type.startsWith('image/'));
+		if (!externalImageFile || Date.now() - lastExternalDragOpenAt < 2_000) return;
+		lastExternalDragOpenAt = Date.now();
+		openCaptureSurfaceForDrag();
+	},
+	true
+);
+
+function openCaptureSurfaceForDrag(item?: CapturedItemPayload): void {
+	if (!dragCaptureAllowed()) return;
+	// The page-local panel is the single capture surface in both browsers.
+	// Creating it synchronously during dragstart keeps the active drag in the
+	// page's event space; native browser sidebars cannot guarantee that handoff.
+	showEmbeddedCapturePanel(true);
+	void ext.runtime
+		.sendMessage({
+			type: MSG_OPEN_CAPTURE_PANEL_FOR_DRAG,
+			...(item ? { item } : {})
+		})
+		.catch(() => {
+			// The panel still accepts ordinary URL/file drops if the resolved
+			// pending-image handoff could not be persisted.
+		});
+}
+
+function dragCaptureAllowed(): boolean {
+	return dragCaptureEnabled && !isPasticheDocument();
+}
+
+function isPasticheDocument(): boolean {
+	return Boolean(document.querySelector('meta[name="pastiche-app"][content="true"]'));
+}
+
+function showEmbeddedCapturePanel(forDrag = false): void {
+	if (embeddedCaptureHost?.isConnected) {
+		if (!forDrag || embeddedDropTarget?.isConnected) return;
+		// A completed prior drag removes its temporary drop shield so the framed
+		// workbench is usable. Rebuild when a new drag starts to arm it again.
+		hideEmbeddedCapturePanel();
+	}
+
+	const host = document.createElement('div');
+	host.id = EMBEDDED_CAPTURE_HOST_ID;
+	host.setAttribute('data-pastiche-capture-panel', 'open');
+	const shadow = host.attachShadow({ mode: 'closed' });
+
+	const style = document.createElement('style');
+	style.textContent = `
+		:host {
+			all: initial;
+		}
+		.pastiche-panel {
+			position: fixed;
+			inset-block: 8px;
+			inset-inline-end: 8px;
+			z-index: 2147483647;
+			width: min(420px, calc(100vw - 16px));
+			display: grid;
+			grid-template-rows: 48px minmax(0, 1fr);
+			overflow: hidden;
+			color: oklch(90% 0.01 75);
+			background: oklch(13% 0.01 70);
+			border: 1px solid oklch(100% 0 0 / 0.16);
+			border-radius: 10px;
+			box-shadow: 0 18px 52px oklch(5% 0.01 70 / 0.48);
+			opacity: 0;
+			transform: translate3d(16px, 0, 0);
+			transition:
+				opacity 160ms cubic-bezier(0.16, 1, 0.3, 1),
+				transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+			font-family: Montserrat, system-ui, sans-serif;
+			pointer-events: auto;
+		}
+		.pastiche-panel[data-visible='true'] {
+			opacity: 1;
+			transform: translate3d(0, 0, 0);
+		}
+		.pastiche-panel__bar {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			padding: 0 10px 0 14px;
+			background: oklch(16% 0.01 70);
+			border-bottom: 1px solid oklch(100% 0 0 / 0.1);
+		}
+		.pastiche-panel__mark {
+			display: grid;
+			place-items: center;
+			width: 24px;
+			height: 24px;
+			border: 1px solid oklch(78% 0.08 78 / 0.42);
+			border-radius: 6px;
+			color: oklch(83% 0.1 78);
+			font: 700 13px/1 Montserrat, system-ui, sans-serif;
+		}
+		.pastiche-panel__title {
+			flex: 1;
+			margin: 0;
+			color: oklch(90% 0.01 75);
+			font: 600 13px/1.2 Montserrat, system-ui, sans-serif;
+			letter-spacing: 0.01em;
+		}
+		.pastiche-panel__close {
+			display: grid;
+			place-items: center;
+			width: 34px;
+			height: 34px;
+			padding: 0;
+			color: oklch(70% 0.012 75);
+			background: transparent;
+			border: 1px solid transparent;
+			border-radius: 7px;
+			font: 400 22px/1 system-ui, sans-serif;
+			cursor: pointer;
+		}
+		.pastiche-panel__close:hover {
+			color: oklch(90% 0.01 75);
+			background: oklch(100% 0 0 / 0.06);
+			border-color: oklch(100% 0 0 / 0.1);
+		}
+		.pastiche-panel__close:focus-visible {
+			outline: 2px solid oklch(78% 0.08 78);
+			outline-offset: -2px;
+		}
+		.pastiche-panel__frame {
+			width: 100%;
+			height: 100%;
+			background: oklch(13% 0.01 70);
+			border: 0;
+		}
+		.pastiche-panel__body {
+			position: relative;
+			min-height: 0;
+		}
+		.pastiche-panel__drop-target {
+			position: absolute;
+			inset: 0;
+			z-index: 2;
+			display: grid;
+			place-content: center;
+			gap: 8px;
+			padding: 28px;
+			text-align: center;
+			background: oklch(13% 0.01 70 / 0.96);
+			border: 1px dashed oklch(78% 0.08 78 / 0.48);
+			border-radius: 8px;
+			margin: 10px;
+		}
+		.pastiche-panel__drop-target[data-state='active'] {
+			background: oklch(18% 0.018 74 / 0.98);
+			border-color: oklch(83% 0.1 78);
+		}
+		.pastiche-panel__drop-target[data-state='added'] {
+			background: oklch(16% 0.025 150 / 0.98);
+			border-color: oklch(72% 0.12 150);
+		}
+		.pastiche-panel__drop-target[data-state='error'] {
+			background: oklch(16% 0.025 28 / 0.98);
+			border-color: oklch(62% 0.18 28);
+		}
+		.pastiche-panel__drop-title {
+			margin: 0;
+			color: oklch(90% 0.01 75);
+			font: 600 16px/1.25 Montserrat, system-ui, sans-serif;
+		}
+		.pastiche-panel__drop-detail {
+			max-width: 30ch;
+			margin: 0;
+			color: oklch(70% 0.012 75);
+			font: 400 12px/1.5 Montserrat, system-ui, sans-serif;
+		}
+		@media (max-width: 480px) {
+			.pastiche-panel {
+				inset: 0;
+				width: 100vw;
+				border: 0;
+				border-radius: 0;
+			}
+		}
+		@media (prefers-reduced-motion: reduce) {
+			.pastiche-panel {
+				transition: none;
+			}
+		}
+	`;
+
+	const panel = document.createElement('aside');
+	panel.className = 'pastiche-panel';
+	panel.setAttribute('role', 'complementary');
+	panel.setAttribute('aria-label', 'Pastiche Capture');
+
+	const bar = document.createElement('header');
+	bar.className = 'pastiche-panel__bar';
+
+	const mark = document.createElement('span');
+	mark.className = 'pastiche-panel__mark';
+	mark.textContent = 'P';
+	mark.setAttribute('aria-hidden', 'true');
+
+	const title = document.createElement('p');
+	title.className = 'pastiche-panel__title';
+	title.textContent = 'Pastiche Capture';
+
+	const close = document.createElement('button');
+	close.className = 'pastiche-panel__close';
+	close.type = 'button';
+	close.textContent = '×';
+	close.setAttribute('aria-label', 'Close Pastiche Capture');
+	close.addEventListener('click', hideEmbeddedCapturePanel);
+
+	const frame = document.createElement('iframe');
+	frame.className = 'pastiche-panel__frame';
+	frame.title = 'Pastiche Capture';
+	const frameUrl = new URL(ext.runtime.getURL('sidebar/index.html'));
+	frameUrl.searchParams.set('embedded', '1');
+	frameUrl.searchParams.set('sourceUrl', window.location.href);
+	frame.src = frameUrl.toString();
+	frame.setAttribute('allow', 'clipboard-read; clipboard-write');
+
+	const body = document.createElement('div');
+	body.className = 'pastiche-panel__body';
+
+	const dropTarget = document.createElement('div');
+	dropTarget.className = 'pastiche-panel__drop-target';
+	dropTarget.dataset.state = 'ready';
+	dropTarget.setAttribute('role', 'status');
+	dropTarget.setAttribute('aria-live', 'polite');
+
+	const dropTitle = document.createElement('p');
+	dropTitle.className = 'pastiche-panel__drop-title';
+	dropTitle.textContent = 'Drop to Pastiche';
+
+	const dropDetail = document.createElement('p');
+	dropDetail.className = 'pastiche-panel__drop-detail';
+	dropDetail.textContent = 'The best available image will be staged for review.';
+
+	let dropInFlight = false;
+	const handlePanelDragOver = (event: DragEvent) => {
+		event.preventDefault();
+		event.stopPropagation();
+		if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+		if (!dropInFlight) dropTarget.dataset.state = 'active';
+	};
+	const handlePanelDragLeave = (event: DragEvent) => {
+		event.preventDefault();
+		if (!dropInFlight) dropTarget.dataset.state = 'ready';
+	};
+	const handlePanelDrop = (event: DragEvent) => {
+		event.preventDefault();
+		event.stopPropagation();
+		if (dropInFlight) return;
+		const fallbackImageUrl = droppedImageUrlFromTransfer(event.dataTransfer);
+		dropInFlight = true;
+		host.setAttribute('data-pastiche-drop-state', 'staging');
+		dropTarget.dataset.state = 'active';
+		dropTitle.textContent = 'Adding image…';
+		dropDetail.textContent = 'Preserving the resolved original and source information.';
+
+		void (async () => {
+			const pending = (await ext.runtime.sendMessage({
+				type: MSG_STAGE_PENDING_DRAG
+			})) as { ok?: boolean; error?: string } | undefined;
+			if (pending?.ok) return;
+			if (!fallbackImageUrl) {
+				throw new Error(pending?.error ?? 'The dragged image could not be staged.');
+			}
+			const fallback = (await ext.runtime.sendMessage({
+				type: 'PASTICHE_STAGE_DROPPED_URL',
+				imageUrl: fallbackImageUrl,
+				sourceUrl: window.location.href,
+				pageTitle: document.title
+			})) as { ok?: boolean; error?: string } | undefined;
+			if (!fallback?.ok) {
+				throw new Error(fallback?.error ?? 'The dragged image URL could not be staged.');
+			}
+		})()
+			.then(() => {
+				host.setAttribute('data-pastiche-drop-state', 'added');
+				dropTarget.dataset.state = 'added';
+				dropTitle.textContent = 'Image added';
+				dropDetail.textContent = 'It is ready in the capture tray.';
+				setTimeout(() => {
+					dropTarget.remove();
+					embeddedDropTarget = null;
+				}, 650);
+			})
+			.catch((error) => {
+				dropInFlight = false;
+				host.setAttribute('data-pastiche-drop-state', 'error');
+				dropTarget.dataset.state = 'error';
+				dropTitle.textContent = 'Could not add image';
+				dropDetail.textContent =
+					error instanceof Error ? error.message : 'The dragged image could not be staged.';
+			});
+	};
+
+	bar.append(mark, title, close);
+	body.append(frame);
+	if (forDrag) {
+		dropTarget.append(dropTitle, dropDetail);
+		dropTarget.addEventListener('dragover', handlePanelDragOver);
+		dropTarget.addEventListener('dragleave', handlePanelDragLeave);
+		dropTarget.addEventListener('drop', handlePanelDrop);
+		// Keeping the same listeners on the host covers browsers retargeting a
+		// composed drag event at the closed shadow boundary.
+		host.addEventListener('dragover', handlePanelDragOver);
+		host.addEventListener('dragleave', handlePanelDragLeave);
+		host.addEventListener('drop', handlePanelDrop);
+		body.append(dropTarget);
+		embeddedDropTarget = dropTarget;
+	}
+	panel.append(bar, body);
+	shadow.append(style, panel);
+	document.documentElement.append(host);
+	embeddedCaptureHost = host;
+
+	requestAnimationFrame(() => {
+		if (host.isConnected) panel.dataset.visible = 'true';
+	});
+}
+
+function hideEmbeddedCapturePanel(): void {
+	embeddedCaptureHost?.remove();
+	embeddedCaptureHost = null;
+	embeddedDropTarget = null;
+}
+
+function resolvedDragTarget(
+	event: Pick<MouseEvent, 'target' | 'clientX' | 'clientY'> & {
+		composedPath?(): EventTarget[];
+	}
+): { element: Element; resolved: ResolvedImage } | null {
+	const eventElements = [
+		event.target,
+		...(typeof event.composedPath === 'function' ? event.composedPath() : [])
+	].filter((target): target is Element => target instanceof Element);
+	for (const eventElement of eventElements) {
+		const direct = resolveElement(eventElement);
+		if (direct) return { element: eventElement, resolved: direct };
+		const imageElement = eventElement.closest(
+			'img, picture, video, canvas, [style*="background-image"]'
+		);
+		if (imageElement) {
+			const resolved = resolveElement(imageElement);
+			if (resolved) return { element: imageElement, resolved };
+		}
+	}
+	return resolveTargetAtPoint(event.clientX, event.clientY);
+}
+
+function looksLikeImageDrag(event: DragEvent): boolean {
+	const types = Array.from(event.dataTransfer?.types ?? []);
+	if (
+		types.includes('Files') ||
+		types.includes('DownloadURL') ||
+		types.includes('application/x-pastiche-image-url')
+	) {
+		return true;
+	}
+	return /<img\b/i.test(readTransferValue(event.dataTransfer, 'text/html'));
+}
+
+function droppedImageUrlFromTransfer(dataTransfer: DataTransfer | null): string | null {
+	if (!dataTransfer) return null;
+	for (const value of [
+		readTransferValue(dataTransfer, 'application/x-pastiche-image-url'),
+		urlFromDownloadTransfer(readTransferValue(dataTransfer, 'DownloadURL')),
+		firstTransferLine(readTransferValue(dataTransfer, 'text/uri-list')),
+		firstTransferLine(readTransferValue(dataTransfer, 'text/x-moz-url-data')),
+		firstTransferLine(readTransferValue(dataTransfer, 'application/x-moz-file-promise-url')),
+		firstTransferLine(readTransferValue(dataTransfer, 'text/x-moz-url')),
+		imageUrlFromTransferHtml(readTransferValue(dataTransfer, 'text/html')),
+		readTransferValue(dataTransfer, 'text/plain')
+	]) {
+		const url = validTransferImageUrl(value);
+		if (url) return url;
+	}
+	return null;
+}
+
+function readTransferValue(dataTransfer: DataTransfer | null, type: string): string {
+	try {
+		return dataTransfer?.getData(type)?.trim() ?? '';
+	} catch {
+		return '';
+	}
+}
+
+function firstTransferLine(value: string): string {
+	return (
+		value
+			.split(/\r?\n/)
+			.map((line) => line.trim())
+			.find((line) => line && !line.startsWith('#')) ?? ''
+	);
+}
+
+function urlFromDownloadTransfer(value: string): string {
+	const parts = value.split(':');
+	return parts.length >= 3 ? parts.slice(2).join(':') : '';
+}
+
+function imageUrlFromTransferHtml(value: string): string {
+	const match = value.match(/<img\b[^>]*\bsrc=(["']?)([^"'\s>]+)\1/i);
+	return match?.[2]?.replace(/&amp;/gi, '&') ?? '';
+}
+
+function validTransferImageUrl(value: string): string | null {
+	if (!value) return null;
+	try {
+		const url = new URL(value.startsWith('//') ? `https:${value}` : value, window.location.href);
+		return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : null;
+	} catch {
+		return null;
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -431,7 +918,19 @@ function isImageLikeDragTarget(target: EventTarget | null): boolean {
 // ---------------------------------------------------------------------------
 
 ext.runtime.onMessage.addListener(
-	(message: { type?: string; url?: string; minDimension?: number }, _sender, sendResponse) => {
+	(
+		message: {
+			type?: string;
+			url?: string;
+			minDimension?: number;
+			captureKey?: string;
+			imageUrl?: string;
+			sourceElementPath?: string | null;
+			pageUrl?: string;
+		},
+		_sender,
+		sendResponse
+	) => {
 		switch (message.type) {
 			case MSG_CONTENT_PING:
 				sendResponse({ ok: true });
@@ -442,14 +941,42 @@ ext.runtime.onMessage.addListener(
 				sendResponse({ ok: true });
 				break;
 
+			case MSG_SHOW_CAPTURE_PANEL:
+				if (isPasticheDocument()) {
+					sendResponse({ ok: false, error: 'Capture is disabled inside Pastiche.' });
+					break;
+				}
+				showEmbeddedCapturePanel(false);
+				sendResponse({ ok: true });
+				break;
+
 			case MSG_CAPTURE_ACTIVATE_LASSO:
-				enterLassoMode();
+				enterLassoMode(message.minDimension ?? DEFAULT_MIN_DIMENSION);
 				sendResponse({ ok: true });
 				break;
 
 			case MSG_SWEEP:
 				void runSweep(message.minDimension ?? DEFAULT_MIN_DIMENSION).then(sendResponse);
 				return true;
+
+			case MSG_EXTRACT_PAGE_METADATA: {
+				const target = targetForMetadataExtraction(message);
+				try {
+					const record = extractLiveMetadata(document, {
+						pageUrl: message.pageUrl ?? window.location.href,
+						imageUrl: message.imageUrl ?? message.captureKey ?? window.location.href,
+						targetElement: target
+					});
+					sendResponse({ ok: true, record });
+				} catch (error) {
+					sendResponse({
+						ok: false,
+						error:
+							error instanceof Error ? error.message : 'Metadata could not be read from this page.'
+					});
+				}
+				break;
+			}
 
 			case MSG_DESELECT_ITEM: {
 				const url = message.url;
@@ -480,6 +1007,34 @@ ext.runtime.onMessage.addListener(
 		return true;
 	}
 );
+
+function targetForMetadataExtraction(message: {
+	captureKey?: string;
+	imageUrl?: string;
+	sourceElementPath?: string | null;
+}): Element | null {
+	if (message.sourceElementPath) {
+		try {
+			const selected = document.querySelector(message.sourceElementPath);
+			if (selected) return selected;
+		} catch {
+			// Continue with captured element and URL lookup.
+		}
+	}
+	for (const key of [message.captureKey, message.imageUrl]) {
+		if (!key) continue;
+		const selected = selectedByUrl.get(key);
+		if (selected?.isConnected) return selected;
+	}
+	const urls = new Set([message.captureKey, message.imageUrl].filter(Boolean));
+	return (
+		[...document.images].find((image) =>
+			[image.currentSrc, image.src, image.dataset.original, image.dataset.fullSrc].some((url) =>
+				urls.has(url)
+			)
+		) ?? null
+	);
+}
 
 // ---------------------------------------------------------------------------
 // Sidebar close / document unload — clean up everything

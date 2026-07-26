@@ -41,14 +41,14 @@ describe('GET /api/atlas/search', () => {
 		expect(body).toMatchObject({
 			query: expect.objectContaining({ canonical: 'horse' }),
 			context: expect.objectContaining({ mode: expect.any(String) }),
-			page: expect.objectContaining({ limit: 25, nextCursor: null })
+			page: expect.objectContaining({ limit: 25, nextCursor: null, total: 0 })
 		});
 		expect(Array.isArray(body.results)).toBe(true);
 		expect(Array.isArray(body.sidebar)).toBe(true);
 		expect(Array.isArray(body.entityResults)).toBe(true);
 	});
 
-	it('returns Atlas search suggestions', async () => {
+	it('does not guide users toward unapproved seed vocabulary', async () => {
 		const { GET } = await import('./suggest/+server');
 
 		const response = await GET({
@@ -59,12 +59,7 @@ describe('GET /api/atlas/search', () => {
 		expect(response.status).toBe(200);
 		expect(body).toMatchObject({
 			token: 'exclude:hor',
-			suggestions: expect.arrayContaining([
-				expect.objectContaining({
-					kind: 'exclude',
-					query: 'exclude:horse'
-				})
-			])
+			suggestions: []
 		});
 	});
 });

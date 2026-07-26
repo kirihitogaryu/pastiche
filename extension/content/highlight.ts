@@ -176,16 +176,14 @@ export function addBadge(el: Element, state: BadgeState = 'confirmed'): void {
 		width: '20px',
 		height: '20px',
 		borderRadius: '50%',
+		color: 'oklch(98% 0.005 70)',
+		fontFamily: 'system-ui, sans-serif',
+		fontSize: '13px',
+		fontWeight: '700',
+		lineHeight: '1',
 		pointerEvents: 'none',
 		boxSizing: 'border-box'
 	});
-
-	// SVG checkmark — clean and crisp at small sizes.
-	badge.innerHTML = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-      <polyline points="2,6 5,9 10,3" stroke="#fff" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-  `.trim();
 
 	c.appendChild(badge);
 	badges.set(el, badge);
@@ -204,12 +202,7 @@ export function updateBadge(el: Element, state: BadgeState): void {
 				: 'Selected for Pastiche';
 	badge.style.background = state === 'pending' ? '#d0a85c' : state === 'error' ? '#e06c75' : ACCENT;
 	badge.style.opacity = state === 'pending' ? '0.82' : '1';
-	badge.innerHTML =
-		state === 'pending'
-			? `<span style="width:8px;height:8px;border-radius:999px;background:#fff;opacity:.95"></span>`
-			: state === 'error'
-				? `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M3 3l6 6M9 3L3 9" stroke="#fff" stroke-width="1.75" stroke-linecap="round"/></svg>`
-				: `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><polyline points="2,6 5,9 10,3" stroke="#fff" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+	badge.textContent = state === 'pending' ? '•' : state === 'error' ? '×' : '✓';
 }
 
 /**

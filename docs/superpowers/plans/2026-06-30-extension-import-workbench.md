@@ -75,13 +75,16 @@ function candidate(partial: Partial<ImageCandidate>): ImageCandidate {
 describe('candidate scoring', () => {
 	it('rejects tiny page-scan icons but keeps a reason', () => {
 		expect.assertions(3);
-		const scored = scoreCandidate(candidate({
-			url: 'https://example.com/icon.png',
-			width: 32,
-			height: 32,
-			visibleWidth: 16,
-			visibleHeight: 16
-		}), { minDimension: 300, directSelection: false });
+		const scored = scoreCandidate(
+			candidate({
+				url: 'https://example.com/icon.png',
+				width: 32,
+				height: 32,
+				visibleWidth: 16,
+				visibleHeight: 16
+			}),
+			{ minDimension: 300, directSelection: false }
+		);
 
 		expect(scored.rejectionReasons).toContain('below minimum page-scan size');
 		expect(scored.rejectionReasons).toContain('icon-like URL');
@@ -90,13 +93,16 @@ describe('candidate scoring', () => {
 
 	it('keeps directly selected small images but labels them low confidence', () => {
 		expect.assertions(2);
-		const scored = scoreCandidate(candidate({
-			url: 'https://example.com/small-reference.png',
-			width: 120,
-			height: 120,
-			visibleWidth: 120,
-			visibleHeight: 120
-		}), { minDimension: 300, directSelection: true });
+		const scored = scoreCandidate(
+			candidate({
+				url: 'https://example.com/small-reference.png',
+				width: 120,
+				height: 120,
+				visibleWidth: 120,
+				visibleHeight: 120
+			}),
+			{ minDimension: 300, directSelection: true }
+		);
 
 		expect(scored.rejectionReasons).toEqual([]);
 		expect(scored.confidence).toBe('low');
@@ -104,18 +110,24 @@ describe('candidate scoring', () => {
 
 	it('prefers original/full candidates over thumbnails from the same cluster', () => {
 		expect.assertions(2);
-		const thumb = scoreCandidate(candidate({
-			id: 'thumb',
-			url: 'https://cdn.example.com/thumb/work-small.jpg',
-			width: 320,
-			height: 320
-		}), { minDimension: 300, directSelection: false });
-		const original = scoreCandidate(candidate({
-			id: 'original',
-			url: 'https://cdn.example.com/original/work-full.jpg',
-			width: 2400,
-			height: 3200
-		}), { minDimension: 300, directSelection: false });
+		const thumb = scoreCandidate(
+			candidate({
+				id: 'thumb',
+				url: 'https://cdn.example.com/thumb/work-small.jpg',
+				width: 320,
+				height: 320
+			}),
+			{ minDimension: 300, directSelection: false }
+		);
+		const original = scoreCandidate(
+			candidate({
+				id: 'original',
+				url: 'https://cdn.example.com/original/work-full.jpg',
+				width: 2400,
+				height: 3200
+			}),
+			{ minDimension: 300, directSelection: false }
+		);
 
 		expect(original.score).toBeGreaterThan(thumb.score);
 		expect(chooseBestCandidate([thumb, original])?.id).toBe('original');
@@ -536,4 +548,3 @@ git diff --check
 ```
 
 Expected: no output.
-

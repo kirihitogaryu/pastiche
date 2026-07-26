@@ -1,27 +1,34 @@
 <script lang="ts">
+	import ArrowLeftIcon from 'phosphor-svelte/lib/ArrowLeftIcon';
+	import HouseIcon from 'phosphor-svelte/lib/HouseIcon';
 	import InfoIcon from 'phosphor-svelte/lib/InfoIcon';
 	import MagnifyingGlassIcon from 'phosphor-svelte/lib/MagnifyingGlassIcon';
+	import TagIcon from 'phosphor-svelte/lib/TagIcon';
 	import XIcon from 'phosphor-svelte/lib/XIcon';
-	import type {
-		AtlasSearchSuggestResponse,
-		AtlasSearchSuggestion
-	} from '$lib/atlas/searchTypes';
+	import AtlasSearchComposer from './AtlasSearchComposer.svelte';
+	import type { AtlasSearchSuggestResponse, AtlasSearchSuggestion } from '$lib/atlas/searchTypes';
 	import {
 		appState,
 		openAtlasHome,
 		openAtlasSearch,
-		openAtlasWiki
+		openAtlasWiki,
+		setMobileNavHidden,
+		setMode,
+		toggleAtlasContext
 	} from '$lib/state/app-state.svelte';
 
 	let draft = $state(appState.atlasSearchQuery || appState.query || '');
 	let searchFocused = $state(false);
 	let suggestions = $state<AtlasSearchSuggestion[]>([]);
 	let suggestionError = $state<string | null>(null);
+	let composerOpen = $state(false);
+	let helpOpen = $state(false);
 	let inputElement: HTMLInputElement | null = null;
 	let lastSyncedQuery = $state(appState.atlasSearchQuery || appState.query || '');
 
 	let suggestionsOpen = $derived(searchFocused && suggestions.length > 0);
 	let readableTokens = $derived(queryTokens(draft));
+	let activeSuggestionToken = $derived(draft.match(/\S+$/)?.[0] ?? draft.trim());
 
 	$effect(() => {
 		const externalQuery = appState.atlasSearchQuery || appState.query || '';
@@ -79,6 +86,7 @@
 		const trimmed = query.trim();
 		if (!trimmed) return;
 		lastSyncedQuery = trimmed;
+		composerOpen = false;
 		openAtlasSearch(trimmed);
 	}
 
@@ -89,6 +97,14 @@
 		lastSyncedQuery = '';
 		openAtlasSearch('');
 		window.setTimeout(() => inputElement?.focus(), 0);
+	}
+
+	function submitCommandSearch() {
+		if (suggestionsOpen && suggestions.length === 1) {
+			applySuggestion(suggestions[0]);
+			return;
+		}
+		submitSearch();
 	}
 
 	function applySuggestion(suggestion: AtlasSearchSuggestion) {
@@ -103,9 +119,93 @@
 		window.setTimeout(() => inputElement?.focus(), 0);
 	}
 
+	function updateDraft(query: string) {
+		draft = query;
+		lastSyncedQuery = query;
+	}
+
+	function searchEveryMeaning() {
+		suggestions = [];
+		searchFocused = false;
+		submitSearch(draft);
+	}
+
+	function toggleComposer() {
+		composerOpen = !composerOpen;
+		setMobileNavHidden(composerOpen);
+	}
+
+	function closeComposer() {
+		composerOpen = false;
+		setMobileNavHidden(false);
+	}
+
+	function handleWindowKeydown(event: KeyboardEvent) {
+		if (event.key !== 'Escape') return;
+		if (composerOpen) {
+			event.preventDefault();
+			closeComposer();
+			return;
+		}
+		if (helpOpen) {
+			helpOpen = false;
+			return;
+		}
+		if (suggestionsOpen || suggestionError) {
+			searchFocused = false;
+			suggestions = [];
+			suggestionError = null;
+			inputElement?.blur();
+		}
+	}
+
+	function focusSuggestion(index: number) {
+		const options = document.querySelectorAll<HTMLElement>(
+			'#atlas-search-suggestions [role="option"]'
+		);
+		options[index]?.focus();
+	}
+
+	function handleSearchKeydown(event: KeyboardEvent) {
+		if (event.key !== 'ArrowDown' || !suggestionsOpen) return;
+		event.preventDefault();
+		focusSuggestion(0);
+	}
+
+	function handleSuggestionKeydown(event: KeyboardEvent, index: number) {
+		if (event.key === 'ArrowDown') {
+			event.preventDefault();
+			focusSuggestion(Math.min(index + 1, suggestions.length));
+		} else if (event.key === 'ArrowUp') {
+			event.preventDefault();
+			if (index === 0) inputElement?.focus();
+			else focusSuggestion(index - 1);
+		}
+	}
+
+	function handleSearchBlur(event: FocusEvent) {
+		const next = event.relatedTarget;
+		const list = document.getElementById('atlas-search-suggestions');
+		if (next instanceof Node && list?.contains(next)) return;
+		window.setTimeout(() => (searchFocused = false), 120);
+	}
+
+	function handleSuggestionFocusOut(event: FocusEvent) {
+		const next = event.relatedTarget;
+		if (next === inputElement) return;
+		if (
+			next instanceof Node &&
+			event.currentTarget instanceof Node &&
+			event.currentTarget.contains(next)
+		)
+			return;
+		searchFocused = false;
+	}
+
 	function suggestionTone(suggestion: AtlasSearchSuggestion) {
 		if (suggestion.kind === 'exclude') return 'exclude';
-		if (suggestion.kind === 'classifier' || suggestion.kind === 'classifier_value') return 'classifier';
+		if (suggestion.kind === 'classifier' || suggestion.kind === 'classifier_value')
+			return 'classifier';
 		if (suggestion.kind === 'correction') return 'correction';
 		return 'concept';
 	}
@@ -157,7 +257,13 @@
 	}
 
 	function openWikiForSearch() {
-		openAtlasWiki(firstSearchTag(draft || appState.atlasSearchQuery) ?? appState.activeAtlasWikiSlug);
+		if (appState.atlasView === 'home') {
+			openAtlasWiki();
+			return;
+		}
+		openAtlasWiki(
+			firstSearchTag(draft || appState.atlasSearchQuery) ?? appState.activeAtlasWikiSlug
+		);
 	}
 
 	function firstSearchTag(query: string) {
@@ -184,28 +290,64 @@
 	}
 </script>
 
-<header class="atlas-command" aria-label="Atlas search command">
+<svelte:window onkeydown={handleWindowKeydown} />
+
+<header
+	class="atlas-command"
+	class:home={appState.atlasView === 'home'}
+	class:wiki={appState.atlasView === 'wiki'}
+	aria-label="Atlas search command"
+>
 	<div class="command-row">
-		<button type="button" class="brand-mark" aria-label="Open Atlas browse" onclick={openAtlasHome}>
-			pastiche.
-		</button>
-		<button type="button" class="mode-pill" onclick={openAtlasHome}>Atlas</button>
-		<form class="search-box" onsubmit={(event) => (event.preventDefault(), submitSearch())}>
+		<h1 class="atlas-title">Atlas</h1>
+		{#if appState.atlasView === 'home'}
+			<button
+				type="button"
+				class="shell-home"
+				aria-label="Pastiche Home"
+				onclick={() => setMode('home')}
+			>
+				<HouseIcon size={18} />
+			</button>
+		{:else}
+			<button
+				type="button"
+				class="mode-pill"
+				aria-label="Back to Atlas browse"
+				onclick={openAtlasHome}
+			>
+				<ArrowLeftIcon class="mobile-back" size={18} />
+				<span>Atlas</span>
+			</button>
+		{/if}
+		<form class="search-box" onsubmit={(event) => (event.preventDefault(), submitCommandSearch())}>
 			<MagnifyingGlassIcon size={21} />
 			<input
 				bind:this={inputElement}
 				value={draft}
 				aria-label="Atlas search"
+				aria-autocomplete="list"
+				aria-controls="atlas-search-suggestions"
+				aria-expanded={suggestionsOpen}
 				placeholder="Search tags, classifiers, or exclusions..."
-				onfocus={() => (searchFocused = true)}
-				onblur={() => window.setTimeout(() => (searchFocused = false), 120)}
+				onfocus={() => {
+					searchFocused = true;
+					setMobileNavHidden(false);
+				}}
+				onblur={handleSearchBlur}
 				oninput={(event) => {
 					draft = event.currentTarget.value;
 					suggestionError = null;
 				}}
+				onkeydown={handleSearchKeydown}
 			/>
 			{#if draft}
-				<button type="button" class="icon clear" aria-label="Clear Atlas search" onclick={clearSearch}>
+				<button
+					type="button"
+					class="icon clear"
+					aria-label="Clear Atlas search"
+					onclick={clearSearch}
+				>
 					<XIcon size={16} />
 				</button>
 			{/if}
@@ -216,24 +358,64 @@
 
 		<button
 			type="button"
+			class="build-search desktop-build"
+			class:active={composerOpen}
+			aria-expanded={composerOpen}
+			aria-controls="atlas-search-composer"
+			onclick={toggleComposer}
+		>
+			Build a search
+		</button>
+
+		{#if appState.atlasView === 'search'}
+			<button
+				type="button"
+				class="icon context-quick"
+				aria-label="Open Atlas context"
+				aria-expanded={appState.atlasContextOpen}
+				aria-controls="atlas-mobile-context-sheet"
+				disabled={!appState.atlasContextAvailable}
+				onclick={toggleAtlasContext}
+			>
+				<TagIcon size={18} />
+			</button>
+		{/if}
+
+		<button
+			type="button"
 			class="icon help"
 			aria-label="Search syntax help"
+			aria-expanded={helpOpen}
+			onclick={() => (helpOpen = !helpOpen)}
 		>
 			<InfoIcon size={18} />
-			<span class="help-tip" role="tooltip">
-				<code>horse saddle</code> requires both tags. <code>shirt.color:blue</code> scopes blue to the
-				shirt. <code>enchi,albino</code> means either, <code>enchi+albino</code> means both.
+			<span class:open={helpOpen} class="help-tip" role="tooltip">
+				<code>horse saddle</code> requires both tags. <code>shirt.color:blue</code> scopes blue to
+				the shirt. <code>enchi,albino</code> means either, <code>enchi+albino</code> means both.
 				<code>exclude:tree</code> removes tree matches.
 			</span>
 		</button>
 
 		{#if suggestionsOpen}
-			<div class="suggestions" role="listbox" aria-label="Atlas search suggestions">
-				{#each suggestions as suggestion (`${suggestion.kind}-${suggestion.query}`)}
+			<div
+				id="atlas-search-suggestions"
+				class="suggestions"
+				role="listbox"
+				aria-label="Atlas search suggestions"
+				onfocusout={handleSuggestionFocusOut}
+			>
+				<div class="suggestion-head" role="presentation">
+					<strong>What does “{activeSuggestionToken}” mean?</strong>
+					<span>Approved Atlas vocabulary</span>
+				</div>
+				{#each suggestions as suggestion, index (`${suggestion.kind}-${suggestion.query}`)}
 					<button
 						type="button"
+						role="option"
+						aria-selected="false"
 						class={suggestionTone(suggestion)}
 						onmousedown={(event) => event.preventDefault()}
+						onkeydown={(event) => handleSuggestionKeydown(event, index)}
 						onclick={() => applySuggestion(suggestion)}
 					>
 						<span>{suggestion.label}</span>
@@ -241,14 +423,63 @@
 						<code>{suggestion.insertText}</code>
 					</button>
 				{/each}
+				<button
+					type="button"
+					class="search-all"
+					role="option"
+					aria-selected="false"
+					onkeydown={(event) => handleSuggestionKeydown(event, suggestions.length)}
+					onclick={searchEveryMeaning}
+				>
+					<span>Search every meaning</span>
+					<small>Keep the literal query without choosing a qualifier.</small>
+					<code>{activeSuggestionToken}</code>
+				</button>
 			</div>
 		{:else if searchFocused && suggestionError}
 			<div class="suggestion-error">{suggestionError}</div>
 		{/if}
 	</div>
 
+	<div class="mobile-query-row">
+		<button
+			type="button"
+			class="build-search mobile-build"
+			class:active={composerOpen}
+			aria-expanded={composerOpen}
+			aria-controls="atlas-search-composer"
+			onclick={toggleComposer}
+		>
+			Build a search
+		</button>
+		{#if readableTokens.length}
+			<div class="query-pills" aria-label="Readable Atlas query">
+				{#each readableTokens as token, index (`mobile-${index}-${token.kind}-${token.label}-${token.value}`)}
+					<span class:pending={token.value === 'choose value'}>
+						<small>{token.kind}</small>
+						<strong>{token.label}</strong>
+						{#if token.value}
+							<em>{token.value}</em>
+						{/if}
+					</span>
+				{/each}
+			</div>
+		{/if}
+	</div>
+
+	{#if composerOpen}
+		<div id="atlas-search-composer" class="composer-wrap">
+			<AtlasSearchComposer
+				query={draft}
+				onChange={updateDraft}
+				onSubmit={submitSearch}
+				onClose={closeComposer}
+			/>
+		</div>
+	{/if}
+
 	{#if readableTokens.length}
-		<div class="query-pills" aria-label="Readable Atlas query">
+		<div class="query-pills desktop-query-pills" aria-label="Readable Atlas query">
 			{#each readableTokens as token, index (`${index}-${token.kind}-${token.label}-${token.value}`)}
 				<span class:pending={token.value === 'choose value'}>
 					<small>{token.kind}</small>
@@ -262,11 +493,7 @@
 	{/if}
 
 	<nav class="local-modes" aria-label="Atlas local modes">
-		<button
-			type="button"
-			class:active={appState.atlasView === 'home'}
-			onclick={openAtlasHome}
-		>
+		<button type="button" class:active={appState.atlasView === 'home'} onclick={openAtlasHome}>
 			Browse
 		</button>
 		<button
@@ -276,15 +503,10 @@
 		>
 			Search
 		</button>
-		<button
-			type="button"
-			class:active={appState.atlasView === 'wiki'}
-			onclick={openWikiForSearch}
-		>
+		<button type="button" class:active={appState.atlasView === 'wiki'} onclick={openWikiForSearch}>
 			Wiki
 		</button>
 	</nav>
-
 </header>
 
 <style>
@@ -301,24 +523,28 @@
 	.command-row {
 		position: relative;
 		display: grid;
-		grid-template-columns: auto auto minmax(0, 1fr) auto;
+		grid-template-columns: auto minmax(0, 1fr) auto auto auto;
 		gap: 0.75rem;
 		align-items: center;
 	}
 
-	.brand-mark {
-		border: 0;
-		background: transparent;
+	.atlas-title {
+		margin: 0;
 		color: var(--color-text);
 		font-family: var(--font-heading);
-		font-size: 1.45rem;
-		font-style: italic;
+		font-size: 1.75rem;
+		font-weight: 600;
 		line-height: 1;
-		padding: 0 0.1rem;
-		cursor: pointer;
+	}
+
+	.mobile-back,
+	.mobile-query-row,
+	.context-quick {
+		display: none;
 	}
 
 	.mode-pill {
+		display: none;
 		min-height: 3.05rem;
 		border: 1px solid var(--color-border);
 		border-radius: 10px;
@@ -327,21 +553,61 @@
 		padding: 0 1rem;
 		font-weight: 650;
 		cursor: pointer;
+		align-items: center;
+		justify-content: center;
+		gap: 0.4rem;
 		transition:
 			border-color 160ms ease,
 			background 160ms ease,
 			color 160ms ease;
 	}
 
-	.mode-pill:hover,
-	.mode-pill:focus-visible,
-	.brand-mark:hover,
-	.brand-mark:focus-visible {
-		color: var(--color-accent-strong);
+	.shell-home {
+		display: none;
+		width: 3.05rem;
+		height: 3.05rem;
+		place-items: center;
+		border: 1px solid var(--color-border);
+		border-radius: 50%;
+		background: transparent;
+		color: var(--color-muted);
+		padding: 0;
+		cursor: pointer;
+		transition:
+			border-color 160ms ease,
+			background 160ms ease,
+			color 160ms ease;
+	}
+
+	.build-search {
+		min-height: 3.05rem;
+		border: 1px solid var(--color-border);
+		border-radius: 10px;
+		background: oklch(15% 0.007 70);
+		color: var(--color-muted);
+		padding: 0 0.9rem;
+		font-size: 0.82rem;
+		font-weight: 650;
+		white-space: nowrap;
+		cursor: pointer;
+	}
+
+	.build-search:hover,
+	.build-search:focus-visible,
+	.build-search.active {
+		border-color: oklch(78% 0.08 78 / 0.45);
+		background: oklch(78% 0.08 78 / 0.09);
+		color: var(--color-text);
 	}
 
 	.mode-pill:hover,
-	.mode-pill:focus-visible {
+	.mode-pill:focus-visible,
+	.shell-home:hover,
+	.shell-home:focus-visible,
+	.mode-pill:hover,
+	.mode-pill:focus-visible,
+	.shell-home:hover,
+	.shell-home:focus-visible {
 		border-color: var(--color-border-strong);
 		background: var(--color-surface-soft);
 	}
@@ -455,6 +721,10 @@
 		padding: 0.45rem;
 	}
 
+	.suggestion-head {
+		display: none;
+	}
+
 	.suggestions button {
 		min-width: 0;
 		display: grid;
@@ -473,6 +743,17 @@
 	.suggestions button:hover,
 	.suggestions button:focus-visible {
 		background: var(--color-surface-soft);
+	}
+
+	.suggestions .search-all {
+		border-top: 1px solid var(--color-border-soft);
+		border-radius: 0 0 7px 7px;
+		margin-top: 0.25rem;
+		padding-top: 0.7rem;
+	}
+
+	.suggestions .search-all span {
+		color: var(--color-accent-strong);
 	}
 
 	.suggestions span,
@@ -605,16 +886,23 @@
 	}
 
 	.help:hover .help-tip,
-	.help:focus-visible .help-tip {
+	.help:focus-visible .help-tip,
+	.help-tip.open {
 		opacity: 1;
 		transform: translateY(0);
+	}
+
+	.composer-wrap {
+		position: relative;
+		z-index: 9;
+		margin-top: 0.7rem;
 	}
 
 	code {
 		color: var(--color-text);
 	}
 
-	@media (max-width: 760px) {
+	@media (max-width: 980px), (pointer: coarse) and (max-width: 1180px) {
 		.atlas-command {
 			padding: 0.75rem 0.85rem 0;
 		}
@@ -623,13 +911,88 @@
 			grid-template-columns: auto minmax(0, 1fr) auto;
 		}
 
-		.brand-mark {
+		.atlas-command:not(.home) {
+			padding-bottom: 0.65rem;
+		}
+
+		.atlas-title {
 			display: none;
 		}
 
 		.mode-pill {
+			display: inline-flex;
 			min-height: 2.7rem;
 			padding: 0 0.75rem;
+		}
+
+		.shell-home {
+			display: grid;
+			width: 2.7rem;
+			height: 2.7rem;
+		}
+
+		.desktop-build,
+		.help {
+			display: none;
+		}
+
+		.context-quick {
+			display: grid;
+			grid-column: 3;
+			grid-row: 1;
+		}
+
+		.context-quick:disabled {
+			opacity: 0.42;
+			cursor: default;
+		}
+
+		.search-box {
+			grid-column: 2;
+			grid-row: 1;
+		}
+
+		.mode-pill {
+			grid-column: 1;
+			grid-row: 1;
+		}
+
+		.shell-home {
+			grid-column: 1;
+			grid-row: 1;
+		}
+
+		.atlas-command:not(.home) :global(.mobile-back) {
+			display: block;
+		}
+
+		.mobile-query-row {
+			min-width: 0;
+			display: flex;
+			align-items: center;
+			gap: 0.45rem;
+			overflow: hidden;
+			padding-top: 0.55rem;
+		}
+
+		.mobile-build {
+			min-height: 2.75rem;
+			flex: 0 0 auto;
+			padding: 0 0.7rem;
+		}
+
+		.mobile-query-row .query-pills {
+			min-width: 0;
+			flex: 1;
+			padding: 0;
+		}
+
+		.desktop-query-pills {
+			display: none;
+		}
+
+		.atlas-command:not(.home) .local-modes {
+			display: none;
 		}
 
 		input {
@@ -646,8 +1009,92 @@
 			gap: 0.2rem;
 		}
 
+		.suggestions,
+		.suggestion-error {
+			position: fixed;
+			z-index: var(--z-modal, 400);
+			top: auto;
+			left: max(0.65rem, env(safe-area-inset-left));
+			right: max(0.65rem, env(safe-area-inset-right));
+			bottom: calc(var(--bottom-nav-height, 0px) + max(0.65rem, env(safe-area-inset-bottom)));
+			max-height: min(62vh, 34rem);
+			overflow: auto;
+			border-radius: 14px;
+		}
+
+		.suggestion-head {
+			display: grid;
+			gap: 0.15rem;
+			border-bottom: 1px solid var(--color-border-soft);
+			padding: 0.75rem 0.7rem;
+		}
+
+		.suggestion-head strong {
+			color: var(--color-text);
+			font-family: var(--font-heading);
+			font-size: 1.12rem;
+			font-weight: 500;
+		}
+
+		.suggestion-head span {
+			color: var(--color-muted);
+			font-size: 0.72rem;
+		}
+
 		.suggestions code {
 			justify-self: start;
+		}
+
+		.query-pills {
+			flex-wrap: nowrap;
+			overflow-x: auto;
+			scrollbar-width: none;
+		}
+
+		.composer-wrap {
+			position: fixed;
+			z-index: var(--z-modal, 400);
+			top: max(0.55rem, env(safe-area-inset-top));
+			left: max(0.65rem, env(safe-area-inset-left));
+			right: max(0.65rem, env(safe-area-inset-right));
+			bottom: max(0.55rem, env(safe-area-inset-bottom));
+			display: grid;
+			overflow: hidden;
+			border-radius: 14px;
+			margin: 0;
+		}
+	}
+
+	@media (max-width: 820px), (pointer: coarse) and (max-width: 1180px) {
+		.atlas-command.wiki {
+			display: none;
+		}
+	}
+
+	@media (min-width: 760px) and (max-width: 980px),
+		(pointer: coarse) and (min-width: 760px) and (max-width: 1180px) {
+		.suggestions,
+		.suggestion-error {
+			bottom: max(0.65rem, env(safe-area-inset-bottom));
+		}
+	}
+
+	@media (max-width: 520px) {
+		.atlas-command {
+			padding-inline: 0.65rem;
+		}
+
+		.command-row {
+			gap: 0.45rem;
+		}
+
+		.mode-pill {
+			padding: 0 0.6rem;
+		}
+
+		.mobile-build {
+			min-height: 2.75rem;
+			font-size: 0.78rem;
 		}
 	}
 </style>

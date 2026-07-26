@@ -5,7 +5,8 @@ type TransferLike = {
 };
 
 export type DroppedFilePayloadInput = {
-	dataUrl: string;
+	captureUrl: string;
+	storedBlobKey: string;
 	fileName: string;
 	mimeType: string | null;
 	width: number;
@@ -15,27 +16,44 @@ export type DroppedFilePayloadInput = {
 	capturedAt: string;
 };
 
-export function droppedImageUrlFromDataTransfer(dataTransfer: TransferLike): string | null {
+export function droppedImageUrlFromDataTransfer(
+	dataTransfer: TransferLike,
+	baseUrl?: string
+): string | null {
 	return (
-		urlFromDownloadUrl(dataTransfer.getData('DownloadURL')) ??
-		firstUrlFromUriList(dataTransfer.getData('text/uri-list')) ??
-		firstImageUrlFromHtml(dataTransfer.getData('text/html')) ??
-		validDroppedUrl(dataTransfer.getData('text/plain'))
+		validDroppedUrl(dataTransfer.getData('application/x-pastiche-image-url'), baseUrl) ??
+		urlFromDownloadUrl(dataTransfer.getData('DownloadURL'), baseUrl) ??
+		firstUrlFromUriList(dataTransfer.getData('text/uri-list'), baseUrl) ??
+		firstMozillaUrl(dataTransfer.getData('text/x-moz-url-data'), baseUrl) ??
+		firstMozillaUrl(dataTransfer.getData('application/x-moz-file-promise-url'), baseUrl) ??
+		firstMozillaUrl(dataTransfer.getData('text/x-moz-url'), baseUrl) ??
+		firstImageUrlFromHtml(dataTransfer.getData('text/html'), baseUrl) ??
+		validDroppedUrl(dataTransfer.getData('text/plain'), baseUrl)
 	);
 }
 
 export function droppedImageFileFromDataTransfer(dataTransfer: DataTransfer): File | null {
-	return [...dataTransfer.files].find((file) => file.type.startsWith('image/')) ?? null;
+	return (
+		[...dataTransfer.files].find(
+			(file) => file.type.startsWith('image/') || imageFilename(file.name)
+		) ?? null
+	);
 }
 
 export async function capturedPayloadForDroppedImageFile(
 	file: File,
-	context: { sourceUrl: string; pageTitle: string; capturedAt?: string }
+	context: { sourceUrl: string; pageTitle: string; capturedAt?: string },
+	storeImage: (key: string, image: Blob) => Promise<void>
 ): Promise<CapturedItemPayload> {
-	const dataUrl = await readFileAsDataUrl(file);
-	const dimensions = await dimensionsForDataUrl(dataUrl);
+	const [dimensions, contentHash] = await Promise.all([
+		dimensionsForFile(file),
+		sha256ForFile(file)
+	]);
+	const storedBlobKey = `dropped-image:${contentHash}`;
+	await storeImage(storedBlobKey, file);
 	return buildDroppedFilePayload({
-		dataUrl,
+		captureUrl: `pastiche-drop://sha256/${contentHash}`,
+		storedBlobKey,
 		fileName: file.name,
 		mimeType: file.type || mimeTypeFromFileName(file.name),
 		width: dimensions.width,
@@ -52,12 +70,12 @@ export function buildDroppedFilePayload(input: DroppedFilePayloadInput): Capture
 	const pageHost = hostnameFrom(input.sourceUrl) ?? '';
 
 	return {
-		url: input.dataUrl,
+		url: input.captureUrl,
 		selectedCandidateId: candidateId,
 		candidates: [
 			{
 				id: candidateId,
-				url: input.dataUrl,
+				url: input.captureUrl,
 				kind: 'link',
 				width: input.width,
 				height: input.height,
@@ -68,7 +86,7 @@ export function buildDroppedFilePayload(input: DroppedFilePayloadInput): Capture
 				altText: input.fileName,
 				sourceElementPath: null,
 				detailUrl: null,
-				inlineData: input.dataUrl,
+				inlineData: null,
 				score: 100,
 				confidence: 'high',
 				rejectionReasons: [],
@@ -102,7 +120,8 @@ export function buildDroppedFilePayload(input: DroppedFilePayloadInput): Capture
 		naturalWidth: input.width,
 		naturalHeight: input.height,
 		mimeType: input.mimeType,
-		inlineData: input.dataUrl,
+		inlineData: null,
+		storedBlobKey: input.storedBlobKey,
 		altText: input.fileName,
 		sourceUrl: input.sourceUrl,
 		pageTitle: input.pageTitle,
@@ -110,57 +129,75 @@ export function buildDroppedFilePayload(input: DroppedFilePayloadInput): Capture
 	};
 }
 
-function firstUrlFromUriList(value: string): string | null {
+function firstUrlFromUriList(value: string, baseUrl?: string): string | null {
 	for (const line of value.split(/\r?\n/)) {
 		const candidate = line.trim();
 		if (!candidate || candidate.startsWith('#')) continue;
-		const url = validDroppedUrl(candidate);
+		const url = validDroppedUrl(candidate, baseUrl);
 		if (url) return url;
 	}
 	return null;
 }
 
-function urlFromDownloadUrl(value: string): string | null {
+function urlFromDownloadUrl(value: string, baseUrl?: string): string | null {
 	const parts = value.split(':');
 	if (parts.length < 3) return null;
-	return validDroppedUrl(parts.slice(2).join(':'));
+	return validDroppedUrl(parts.slice(2).join(':'), baseUrl);
 }
 
-function firstImageUrlFromHtml(value: string): string | null {
+function firstMozillaUrl(value: string, baseUrl?: string): string | null {
+	const firstLine = value.split(/\r?\n/, 1)[0]?.trim() ?? '';
+	return validDroppedUrl(firstLine, baseUrl);
+}
+
+function firstImageUrlFromHtml(value: string, baseUrl?: string): string | null {
 	const match = value.match(/<img\b[^>]*\bsrc=(["']?)([^"'\s>]+)\1/i);
-	return match ? validDroppedUrl(match[2]) : null;
+	return match ? validDroppedUrl(decodeHtmlUrl(match[2]), baseUrl) : null;
 }
 
-function validDroppedUrl(value: string): string | null {
+function validDroppedUrl(value: string, baseUrl?: string): string | null {
 	const trimmed = value.trim();
 	if (!trimmed) return null;
 	try {
-		const url = new URL(trimmed.startsWith('//') ? `https:${trimmed}` : trimmed);
+		const candidate = trimmed.startsWith('//') ? `https:${trimmed}` : trimmed;
+		const url = baseUrl ? new URL(candidate, baseUrl) : new URL(candidate);
 		return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : null;
 	} catch {
 		return null;
 	}
 }
 
-function readFileAsDataUrl(file: File): Promise<string> {
+function decodeHtmlUrl(value: string): string {
+	return value
+		.replace(/&amp;/gi, '&')
+		.replace(/&#38;/g, '&')
+		.replace(/&quot;/gi, '"')
+		.replace(/&#39;/g, "'");
+}
+
+function imageFilename(value: string): boolean {
+	return /\.(?:avif|bmp|gif|jpe?g|png|svg|tiff?|webp)$/i.test(value);
+}
+
+function dimensionsForFile(file: File): Promise<{ width: number; height: number }> {
 	return new Promise((resolve, reject) => {
-		const reader = new FileReader();
-		reader.onerror = () => reject(new Error('Could not read dropped image file.'));
-		reader.onload = () =>
-			typeof reader.result === 'string'
-				? resolve(reader.result)
-				: reject(new Error('Dropped image file could not be read as a data URL.'));
-		reader.readAsDataURL(file);
+		const objectUrl = URL.createObjectURL(file);
+		const image = new Image();
+		image.onload = () => {
+			URL.revokeObjectURL(objectUrl);
+			resolve({ width: image.naturalWidth, height: image.naturalHeight });
+		};
+		image.onerror = () => {
+			URL.revokeObjectURL(objectUrl);
+			reject(new Error('Could not read dropped image dimensions.'));
+		};
+		image.src = objectUrl;
 	});
 }
 
-function dimensionsForDataUrl(dataUrl: string): Promise<{ width: number; height: number }> {
-	return new Promise((resolve, reject) => {
-		const image = new Image();
-		image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
-		image.onerror = () => reject(new Error('Could not read dropped image dimensions.'));
-		image.src = dataUrl;
-	});
+async function sha256ForFile(file: File): Promise<string> {
+	const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+	return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 function titleFromFilename(fileName: string): string | null {

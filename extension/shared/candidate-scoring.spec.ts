@@ -7,10 +7,10 @@ function candidate(partial: Partial<ImageCandidate>): ImageCandidate {
 		id: partial.id ?? crypto.randomUUID(),
 		url: partial.url ?? 'https://example.com/image.jpg',
 		kind: partial.kind ?? 'img',
-		width: partial.width ?? 1200,
-		height: partial.height ?? 900,
-		visibleWidth: partial.visibleWidth ?? 600,
-		visibleHeight: partial.visibleHeight ?? 450,
+		width: partial.width === undefined ? 1200 : partial.width,
+		height: partial.height === undefined ? 900 : partial.height,
+		visibleWidth: partial.visibleWidth === undefined ? 600 : partial.visibleWidth,
+		visibleHeight: partial.visibleHeight === undefined ? 450 : partial.visibleHeight,
 		mimeType: partial.mimeType ?? 'image/jpeg',
 		byteSize: partial.byteSize ?? null,
 		altText: partial.altText ?? null,
@@ -83,5 +83,37 @@ describe('candidate scoring', () => {
 
 		expect(original.score).toBeGreaterThan(thumb.score);
 		expect(chooseBestCandidate([thumb, original])?.id).toBe('original');
+	});
+
+	it('does not let unverified page metadata replace the image the user dragged', () => {
+		expect.assertions(3);
+		const draggedImage = scoreCandidate(
+			candidate({
+				id: 'dragged-image',
+				url: 'https://cdn.example.com/characters/valen.png',
+				kind: 'img',
+				width: 1200,
+				height: 1600,
+				visibleWidth: 500,
+				visibleHeight: 620
+			}),
+			{ minDimension: 300, directSelection: true }
+		);
+		const pageThumbnail = scoreCandidate(
+			candidate({
+				id: 'page-thumbnail',
+				url: 'https://cdn.example.com/characters/valen-avatar.png',
+				kind: 'meta',
+				width: null,
+				height: null,
+				visibleWidth: null,
+				visibleHeight: null
+			}),
+			{ minDimension: 300, directSelection: true }
+		);
+
+		expect(draggedImage.scoreReasons).toContain('directly selected element');
+		expect(pageThumbnail.scoreReasons).toContain('unverified page metadata fallback');
+		expect(chooseBestCandidate([pageThumbnail, draggedImage])?.id).toBe('dragged-image');
 	});
 });

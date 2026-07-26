@@ -1,7 +1,4 @@
-import {
-	buildAtlasVocabularyExport,
-	vocabularyExportToMarkdown
-} from '$lib/server/atlas/export';
+import { buildAtlasVocabularyExport, vocabularyExportToMarkdown } from '$lib/server/atlas/export';
 import { applyAtlasWikiSeed } from '$lib/server/atlas/wiki';
 import { openLibraryDatabase } from '$lib/server/library/schema';
 

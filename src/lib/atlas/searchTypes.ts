@@ -16,9 +16,7 @@ export type AtlasQueryClause =
 	| { kind: 'role'; raw: string; include?: string[]; exclude?: string[] }
 	| { kind: 'evidence'; raw: string; include?: string[]; exclude?: string[] };
 
-export type AtlasQueryValueExpr =
-	| { op: 'any'; values: string[] }
-	| { op: 'all'; values: string[] };
+export type AtlasQueryValueExpr = { op: 'any'; values: string[] } | { op: 'all'; values: string[] };
 
 export type AtlasParsedSearchQuery = {
 	raw: string;
@@ -83,6 +81,9 @@ export type AtlasSearchResult = {
 	id: string;
 	title: string;
 	thumbnailUrl: string | null;
+	mimeType: string | null;
+	width: number;
+	height: number;
 	sourceUrl: string;
 	subtitle: string;
 	score: number;
@@ -109,6 +110,7 @@ export type AtlasSearchWikiExample = {
 	id: string;
 	title: string;
 	thumbnailUrl: string | null;
+	mimeType: string | null;
 	width: number;
 	height: number;
 	sourceUrl: string;
@@ -132,6 +134,8 @@ export type AtlasSearchResponse = {
 	page: {
 		limit: number;
 		nextCursor: string | null;
+		total: number;
+		/** @deprecated Use total. Retained while existing Atlas consumers migrate. */
 		totalEstimate: number;
 	};
 };

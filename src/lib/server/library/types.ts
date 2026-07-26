@@ -1,6 +1,7 @@
 import type {
 	AiGenerationMetadata,
 	LibraryAsset,
+	LibraryAtlasTag,
 	LibraryAssetFacts,
 	LibraryAssetImage,
 	LibraryAssetRecord,
@@ -15,6 +16,7 @@ import type {
 } from '$lib/library/types';
 
 export type ImportRequest = {
+	import_job_id?: string;
 	destination_folder_id: string | null;
 	create_folder_name?: string;
 	items: ImportItem[];
@@ -62,6 +64,11 @@ export type LibraryImportMetadata = {
 	rights?: string | null;
 	tags?: string[];
 	acceptedConceptSlugs?: string[];
+	acceptedAnnotations?: Array<{
+		label: string;
+		concepts: string[];
+		classifiers: Record<string, string>;
+	}>;
 	rawMetadata?: Record<string, unknown>;
 };
 
@@ -84,11 +91,18 @@ export type ImportResponse = {
 
 export type StatusResponse = {
 	connected: true;
+	status_cursor: string;
 	unassigned_count: number;
 	recent_folders: Array<{
 		id: string;
 		name: string;
 		last_used: string;
+	}>;
+	folders: Array<{
+		id: string;
+		name: string;
+		parent_id: string | null;
+		path: string;
 	}>;
 	imported_sources: Array<{
 		source_hash: string;
@@ -100,6 +114,7 @@ export type StatusResponse = {
 export type {
 	AiGenerationMetadata,
 	LibraryAsset,
+	LibraryAtlasTag,
 	LibraryAssetFacts,
 	LibraryAssetImage,
 	LibraryAssetRecord,

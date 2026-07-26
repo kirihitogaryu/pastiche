@@ -93,6 +93,152 @@ describe('POST /api/library/save-explore', () => {
 		expect(getById).toHaveBeenCalledWith('met-1');
 	});
 
+	it('bookmarks an Explore item without downloading image bytes', async () => {
+		getById.mockResolvedValue({
+			...sampleItem,
+			id: 'danbooru-42',
+			source: 'danbooru',
+			detailUrl: 'https://danbooru.donmai.us/posts/42',
+			imageUrl: 'https://cdn.donmai.us/original/test.png',
+			rawMetadata: {
+				danbooru: {
+					width: 1200,
+					height: 900,
+					artistTags: ['test_artist']
+				}
+			}
+		});
+		const imageFetch = vi.mocked(fetch);
+		const { POST } = await import('./+server');
+		const { getLibrarySnapshot } = await import('$lib/server/library/read');
+		const { openLibraryDatabase } = await import('$lib/server/library/schema');
+
+		const response = await POST({
+			request: new Request('http://localhost/api/library/save-explore', {
+				method: 'POST',
+				body: JSON.stringify({
+					item_id: 'danbooru-42',
+					destination_folder_id: null,
+					storage_mode: 'url_reference'
+				})
+			})
+		});
+		const snapshot = getLibrarySnapshot();
+		const db = openLibraryDatabase();
+		const artistLink = db
+			.prepare("select url from atlas_entity_links where host = 'danbooru.donmai.us'")
+			.get() as { url: string } | undefined;
+		db.close();
+
+		expect(response.status).toBe(200);
+		expect(imageFetch).not.toHaveBeenCalled();
+		expect(artistLink?.url).toBe('https://danbooru.donmai.us/posts?tags=test_artist');
+		expect(snapshot.assets[0]).toMatchObject({
+			storageMode: 'url_reference',
+			sourceName: 'Danbooru',
+			width: 1200,
+			height: 900,
+			record: {
+				source: {
+					type: 'booru'
+				}
+			}
+		});
+	});
+
+	it('saves the selected image from a multi-image Explore post', async () => {
+		getById.mockResolvedValue({
+			...sampleItem,
+			id: 'bluesky-post',
+			source: 'bluesky',
+			detailUrl: 'https://bsky.app/profile/did:plc:test/post/3abc',
+			imageUrl: 'https://cdn.bsky.app/first.jpg',
+			additionalImages: ['https://cdn.bsky.app/second.jpg'],
+			rawMetadata: {
+				bluesky: {
+					authorHandle: 'artist.example',
+					authorProfileUrl: 'https://bsky.app/profile/artist.example'
+				}
+			}
+		});
+		const { POST } = await import('./+server');
+		const { getLibrarySnapshot } = await import('$lib/server/library/read');
+
+		const response = await POST({
+			request: new Request('http://localhost/api/library/save-explore', {
+				method: 'POST',
+				body: JSON.stringify({
+					item_id: 'bluesky-post',
+					image_index: 1,
+					destination_folder_id: null,
+					storage_mode: 'url_reference'
+				})
+			})
+		});
+
+		expect(response.status).toBe(200);
+		expect(getLibrarySnapshot().assets[0]).toMatchObject({
+			sourceUrl: 'https://bsky.app/profile/did:plc:test/post/3abc',
+			sourceImageUrl: 'https://cdn.bsky.app/second.jpg',
+			sourceName: 'Bluesky'
+		});
+	});
+
+	it('preserves DeviantArt artist identity and profile links on import', async () => {
+		getById.mockResolvedValue({
+			...sampleItem,
+			id: 'deviantart-9B52BC18-A3C0-8F6E-9A3D-CC30EE0EB4BC',
+			source: 'deviantart',
+			detailUrl: 'https://www.deviantart.com/loish/art/teeth-935239062',
+			title: 'teeth',
+			artistRaw: 'loish',
+			imageUrl: 'https://images.example.test/teeth.png',
+			rawMetadata: {
+				deviantart: {
+					width: 700,
+					height: 998,
+					authorUsername: 'loish',
+					authorProfileUrl: 'https://www.deviantart.com/loish'
+				}
+			}
+		});
+		const { POST } = await import('./+server');
+		const { getLibrarySnapshot } = await import('$lib/server/library/read');
+		const { openLibraryDatabase } = await import('$lib/server/library/schema');
+
+		const response = await POST({
+			request: new Request('http://localhost/api/library/save-explore', {
+				method: 'POST',
+				body: JSON.stringify({
+					item_id: 'deviantart-9B52BC18-A3C0-8F6E-9A3D-CC30EE0EB4BC',
+					destination_folder_id: null,
+					storage_mode: 'url_reference'
+				})
+			})
+		});
+		const snapshot = getLibrarySnapshot();
+		const db = openLibraryDatabase();
+		const artistLink = db
+			.prepare("select url from atlas_entity_links where host = 'deviantart.com'")
+			.get() as { url: string } | undefined;
+		db.close();
+
+		expect(response.status).toBe(200);
+		expect(fetch).not.toHaveBeenCalled();
+		expect(artistLink?.url).toBe('https://deviantart.com/loish');
+		expect(snapshot.assets[0]).toMatchObject({
+			storageMode: 'url_reference',
+			sourceName: 'DeviantArt',
+			width: 700,
+			height: 998,
+			record: {
+				source: {
+					type: 'gallery'
+				}
+			}
+		});
+	});
+
 	it('stores real image dimensions and Explore metadata instead of placeholder dimensions', async () => {
 		getById.mockResolvedValue({
 			...sampleItem,
@@ -119,6 +265,7 @@ describe('POST /api/library/save-explore', () => {
 		expect(response.status).toBe(200);
 		expect(snapshot.assets[0]).toMatchObject({
 			title: 'Félicien Rops',
+			storageMode: 'download',
 			creator: 'Frères Ghemar',
 			year: '1860s–70s',
 			medium: 'Albumen silver print from glass negative',
@@ -187,10 +334,22 @@ describe('POST /api/library/save-explore', () => {
 		expect(snapshot.assets[0].tags).toEqual([]);
 	});
 
-	it('uses Art Institute thumbnail dimensions when IIIF info is unavailable', async () => {
+	it('falls back to the Art Institute thumbnail when the full IIIF image is unavailable', async () => {
+		const image = await sharp({
+			create: { width: 843, height: 1280, channels: 3, background: '#bada55' }
+		})
+			.jpeg()
+			.toBuffer();
 		vi.stubGlobal(
 			'fetch',
-			vi.fn(async () => new Response(null, { status: 403 }))
+			vi.fn(async (input: string | URL | Request) =>
+				String(input).includes('/full/full/')
+					? new Response(null, { status: 403 })
+					: new Response(new Uint8Array(image), {
+							status: 200,
+							headers: { 'content-type': 'image/jpeg' }
+						})
+			)
 		);
 		getById.mockResolvedValue({
 			...sampleItem,
@@ -228,7 +387,7 @@ describe('POST /api/library/save-explore', () => {
 		});
 	});
 
-	it('saves Wikimedia items with fallback dimensions when remote image probing is throttled', async () => {
+	it('does not create a fragile URL-only Wikimedia asset when the image download is throttled', async () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async () => new Response(null, { status: 429 }))
@@ -255,12 +414,32 @@ describe('POST /api/library/save-explore', () => {
 		});
 		const snapshot = getLibrarySnapshot();
 
-		expect(response.status).toBe(200);
-		expect(snapshot.assets[0]).toMatchObject({
-			sourceName: 'Wikidata',
-			sourceUrl: 'https://www.wikidata.org/wiki/Q12418',
-			width: 1,
-			height: 1
+		expect(response.status).toBe(502);
+		expect(snapshot.assets).toHaveLength(0);
+	});
+
+	it('rejects remote image downloads that exceed the configured size limit', async () => {
+		vi.stubEnv('PASTICHE_MAX_IMAGE_BYTES', `${1024 * 1024}`);
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				async () =>
+					new Response(null, { status: 200, headers: { 'content-length': `${2 * 1024 * 1024}` } })
+			)
+		);
+		getById.mockResolvedValue(sampleItem);
+		const { POST } = await import('./+server');
+
+		const response = await POST({
+			request: new Request('http://localhost/api/library/save-explore', {
+				method: 'POST',
+				body: JSON.stringify({ item_id: 'met-1', destination_folder_id: null })
+			})
+		});
+
+		expect(response.status).toBe(502);
+		await expect(response.json()).resolves.toEqual({
+			error: 'Remote images are limited to 1 MB'
 		});
 	});
 });

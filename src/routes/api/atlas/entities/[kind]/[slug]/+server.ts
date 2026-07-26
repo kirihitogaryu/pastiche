@@ -6,16 +6,26 @@ import {
 	type AtlasEntityProfileUpdate
 } from '$lib/server/atlas/entityProfile';
 import { openLibraryDatabase } from '$lib/server/library/schema';
+import { requireTrustedLocalAccess } from '../../../../localAccess';
 
-export function GET({ params }: { params: { kind: string; slug: string } }) {
+export function GET({
+	params,
+	request
+}: {
+	params: { kind: string; slug: string };
+	request?: Request;
+}) {
+	const access = requireTrustedLocalAccess(request);
+	if (!access.ok) return access.response;
 	if (!isAtlasEntityKind(params.kind)) {
-		return json({ error: 'Unsupported entity kind' }, { status: 400 });
+		return json({ error: 'Unsupported entity kind' }, { status: 400, headers: access.headers });
 	}
 	const db = openLibraryDatabase();
 	try {
 		const entity = readAtlasEntityProfile(db, params.kind, params.slug);
-		if (!entity) return json({ error: 'Entity not found' }, { status: 404 });
-		return json({ entity });
+		if (!entity)
+			return json({ error: 'Entity not found' }, { status: 404, headers: access.headers });
+		return json({ entity }, { headers: access.headers });
 	} finally {
 		db.close();
 	}
@@ -28,17 +38,27 @@ export async function PATCH({
 	params: { kind: string; slug: string };
 	request: Request;
 }) {
+	const access = requireTrustedLocalAccess(request);
+	if (!access.ok) return access.response;
+
 	if (!isAtlasEntityKind(params.kind)) {
-		return json({ error: 'Unsupported entity kind' }, { status: 400 });
+		return json({ error: 'Unsupported entity kind' }, { status: 400, headers: access.headers });
 	}
 	const body = await request.json().catch(() => null);
-	if (!isRecord(body)) return json({ error: 'Invalid request body' }, { status: 400 });
+	if (!isRecord(body))
+		return json({ error: 'Invalid request body' }, { status: 400, headers: access.headers });
 
 	const db = openLibraryDatabase();
 	try {
-		const entity = updateAtlasEntityProfile(db, params.kind, params.slug, profileUpdateFromBody(body));
-		if (!entity) return json({ error: 'Entity not found' }, { status: 404 });
-		return json({ entity });
+		const entity = updateAtlasEntityProfile(
+			db,
+			params.kind,
+			params.slug,
+			profileUpdateFromBody(body)
+		);
+		if (!entity)
+			return json({ error: 'Entity not found' }, { status: 404, headers: access.headers });
+		return json({ entity }, { headers: access.headers });
 	} finally {
 		db.close();
 	}

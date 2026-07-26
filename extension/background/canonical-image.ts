@@ -154,6 +154,7 @@ function scoreCandidate(candidate: string, visibleUrl: string) {
 async function fetchDetailPageHtml(url: string) {
 	const response = await fetch(url, {
 		headers: { accept: 'text/html,application/xhtml+xml' },
+		credentials: 'include',
 		signal: AbortSignal.timeout(5000)
 	});
 	if (!response.ok) throw new Error(`HTTP ${response.status}`);

@@ -29,6 +29,7 @@ const RESERVED_PROFILE_SEGMENTS = new Set([
 	'about',
 	'accounts',
 	'art',
+	'artists',
 	'channel',
 	'collections',
 	'explore',
@@ -56,6 +57,14 @@ export function normalizeArtistProfileUrl(
 	try {
 		const url = new URL(value);
 		const host = normalizeProfileHost(url.hostname);
+		const danbooruArtist = danbooruArtistFromUrl(host, url);
+		if (danbooruArtist) {
+			return {
+				normalizedUrl: `https://${host}/posts?tags=${encodeURIComponent(danbooruArtist)}`,
+				host,
+				username: danbooruArtist
+			};
+		}
 		const username = usernameFromProfilePath(host, url.pathname);
 		if (!username) return null;
 		return {
@@ -66,6 +75,13 @@ export function normalizeArtistProfileUrl(
 	} catch {
 		return null;
 	}
+}
+
+function danbooruArtistFromUrl(host: string, url: URL): string | null {
+	if (host !== 'danbooru.donmai.us' || url.pathname !== '/posts') return null;
+	const tags = url.searchParams.get('tags')?.trim();
+	if (!tags || /\s/.test(tags)) return null;
+	return normalizeArtistAlias(tags);
 }
 
 export function normalizeArtistAlias(value: string): string {
@@ -97,7 +113,13 @@ export function resolveOrCreateArtistEntity(
 
 	upsertArtistAlias(db, entity.id, entity.label, input.sourceLabel ?? input.provenance, input.now);
 	if (input.username) {
-		upsertArtistAlias(db, entity.id, input.username, input.sourceLabel ?? input.provenance, input.now);
+		upsertArtistAlias(
+			db,
+			entity.id,
+			input.username,
+			input.sourceLabel ?? input.provenance,
+			input.now
+		);
 	}
 	if (input.label && input.label !== entity.label) {
 		upsertArtistAlias(db, entity.id, input.label, input.sourceLabel ?? input.provenance, input.now);

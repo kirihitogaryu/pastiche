@@ -23,6 +23,7 @@ const LAZY_IMAGE_ATTRIBUTES = [
 	'data-lazy',
 	'data-load',
 	'data-image',
+	'data-srcset',
 	'data-original-src',
 	'data-hi-res-src',
 	'data-lazy-src',
@@ -42,6 +43,36 @@ export function scanDocumentForCandidates(options: ScanDocumentOptions): ImageCa
 	}
 	candidates.push(...metadataCandidates(options.document, options.pageUrl));
 
+	return uniqueCandidates(candidates);
+}
+
+/**
+ * Candidate set for an explicit user target. In addition to the element itself,
+ * include sibling <source> elements from its <picture> and page-level metadata.
+ * The resolver still scores the visible target highly, while source adapters can
+ * promote an authoritative original such as Instagram's media endpoint.
+ */
+export function candidatesForTarget(
+	element: Element,
+	document: Document,
+	pageUrl: string
+): ImageCandidate[] {
+	const candidates = [...candidatesForElement(element, pageUrl)];
+	const picture =
+		element instanceof HTMLPictureElement
+			? element
+			: element instanceof HTMLImageElement || element instanceof HTMLSourceElement
+				? element.closest('picture')
+				: null;
+
+	if (picture) {
+		for (const related of picture.querySelectorAll('source, img')) {
+			if (related === element) continue;
+			candidates.push(...candidatesForElement(related, pageUrl));
+		}
+	}
+
+	candidates.push(...metadataCandidates(document, pageUrl));
 	return uniqueCandidates(candidates);
 }
 
@@ -144,6 +175,21 @@ export function candidatesForElement(element: Element, pageUrl: string): ImageCa
 				visibleWidth: positiveNumber(rect.width),
 				visibleHeight: positiveNumber(rect.height),
 				altText: null
+			})
+		);
+	}
+
+	for (const srcset of extractSrcsetUrls(element.getAttribute('data-srcset') ?? '')) {
+		candidates.push(
+			createCandidate({
+				url: srcset.url,
+				kind: 'srcset',
+				pageUrl,
+				width: srcset.width,
+				height: null,
+				visibleWidth: positiveNumber(rect.width),
+				visibleHeight: positiveNumber(rect.height),
+				altText: element instanceof HTMLImageElement ? element.alt || null : null
 			})
 		);
 	}
@@ -303,7 +349,6 @@ function extractLazyAttributeUrls(element: Element): string[] {
 		const value = element.getAttribute(attribute);
 		if (!value) continue;
 		if (attribute === 'data-srcset') {
-			urls.push(...extractSrcsetUrls(value).map((candidate) => candidate.url));
 			continue;
 		}
 		urls.push(value);

@@ -4,13 +4,21 @@
 	import CaretRightIcon from 'phosphor-svelte/lib/CaretRightIcon';
 	import GridFourIcon from 'phosphor-svelte/lib/GridFourIcon';
 	import ListBulletsIcon from 'phosphor-svelte/lib/ListBulletsIcon';
-	import { appState, openAtlasAsset, openAtlasSearch, openAtlasWiki } from '$lib/state/app-state.svelte';
+	import AtlasMobileContext from './AtlasMobileContext.svelte';
+	import { isGifMedia } from '$lib/library/media';
+	import {
+		appState,
+		openAtlasAsset,
+		openAtlasSearch,
+		openAtlasWiki,
+		rememberAtlasSearchScroll,
+		setMobileNavHidden
+	} from '$lib/state/app-state.svelte';
 	import type {
 		AtlasSearchResponse,
 		AtlasSearchEntityResult,
 		AtlasSearchResult,
 		AtlasSearchWikiPreview,
-		AtlasSidebarClassifierGroup,
 		AtlasSidebarItem,
 		AtlasSidebarSection
 	} from '$lib/atlas/searchTypes';
@@ -29,7 +37,9 @@
 
 	let response = $state<AtlasSearchResponse | null>(null);
 	let loading = $state(false);
+	let loadingMore = $state(false);
 	let error = $state<string | null>(null);
+	let continuationError = $state<string | null>(null);
 	let viewMode = $state<ViewMode>('grid');
 	let pageSize = $state<PageSize>('50');
 	let sort = $state<SearchSort>('relevance');
@@ -39,6 +49,12 @@
 	let openSections = $state<Record<string, boolean>>({});
 	let expandedMiniLists = $state<Record<string, boolean>>({});
 	let imageErrors = $state<Record<string, boolean>>({});
+	let animatedResultId = $state<string | null>(null);
+	let loadSentinel = $state<HTMLDivElement | null>(null);
+	let mainScrollElement = $state<HTMLElement | null>(null);
+	let restoredScroll = $state(false);
+	let lastScrollTop = 0;
+	let scrollIntent = 0;
 
 	let activeQuery = $derived(appState.atlasSearchQuery.trim());
 	let results = $derived(response?.results ?? []);
@@ -46,6 +62,30 @@
 	let hasQuery = $derived(activeQuery.length > 0);
 	let wikiPreview = $derived(response?.wikiPreview ?? null);
 	let showWikiPreview = $derived(Boolean(wikiPreview));
+	let nextCursor = $derived(response?.page.nextCursor ?? null);
+
+	function resultIsGif(
+		result: Pick<AtlasSearchResult, 'id' | 'title' | 'thumbnailUrl' | 'mimeType'>
+	) {
+		return isGifMedia(result.mimeType, result.title, result.thumbnailUrl);
+	}
+
+	function resultOriginalUrl(result: Pick<AtlasSearchResult, 'id'>) {
+		return `/api/library/assets/${encodeURIComponent(result.id)}/image?variant=original`;
+	}
+
+	function startResultPreview(
+		result: Pick<AtlasSearchResult, 'id' | 'title' | 'thumbnailUrl' | 'mimeType'>
+	) {
+		if (!resultIsGif(result) || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+			return;
+		}
+		animatedResultId = result.id;
+	}
+
+	function stopResultPreview(result: Pick<AtlasSearchResult, 'id'>) {
+		if (animatedResultId === result.id) animatedResultId = null;
+	}
 
 	$effect(() => {
 		const query = appState.atlasSearchQuery.trim();
@@ -55,11 +95,17 @@
 			error = null;
 			return;
 		}
+		setMobileNavHidden(false);
+		lastScrollTop = 0;
+		scrollIntent = 0;
+		restoredScroll = false;
 
 		let cancelled = false;
 		const controller = new AbortController();
 		loading = true;
+		loadingMore = false;
 		error = null;
+		continuationError = null;
 		const params = new URLSearchParams({ q: query, limit: pageSize, sort });
 		void fetch(`/api/atlas/search?${params.toString()}`, { signal: controller.signal })
 			.then(async (searchResponse) => {
@@ -67,7 +113,10 @@
 				if (!searchResponse.ok || !('results' in body)) {
 					throw new Error('error' in body && body.error ? body.error : 'Atlas search failed.');
 				}
-				if (!cancelled) response = body;
+				if (!cancelled) {
+					response = body;
+					window.requestAnimationFrame(() => restoreSearchScroll(query));
+				}
 			})
 			.catch((searchError) => {
 				if (cancelled || searchError instanceof DOMException) return;
@@ -83,6 +132,85 @@
 			controller.abort();
 		};
 	});
+
+	function restoreSearchScroll(query: string) {
+		if (restoredScroll || !mainScrollElement) return;
+		restoredScroll = true;
+		if (appState.atlasSearchScrollQuery !== query) return;
+		mainScrollElement.scrollTop = appState.atlasSearchScrollTop;
+	}
+
+	function handleMainScroll(event: Event & { currentTarget: HTMLElement }) {
+		const scrollTop = event.currentTarget.scrollTop;
+		const delta = scrollTop - lastScrollTop;
+
+		if (scrollTop <= 24) {
+			scrollIntent = 0;
+			setMobileNavHidden(false);
+		} else if (Math.abs(delta) >= 1) {
+			if (Math.sign(delta) !== Math.sign(scrollIntent)) scrollIntent = 0;
+			scrollIntent += delta;
+			if (scrollIntent > 18 && scrollTop > 64) {
+				setMobileNavHidden(true);
+				scrollIntent = 0;
+			} else if (scrollIntent < -12) {
+				setMobileNavHidden(false);
+				scrollIntent = 0;
+			}
+		}
+
+		lastScrollTop = scrollTop;
+	}
+
+	$effect(() => {
+		const sentinel = loadSentinel;
+		const cursor = nextCursor;
+		if (!sentinel || !cursor || typeof IntersectionObserver === 'undefined') return;
+		const root = sentinel.closest('.main-scroll');
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries.some((entry) => entry.isIntersecting)) void loadNextPage();
+			},
+			{ root, rootMargin: '700px 0px' }
+		);
+		observer.observe(sentinel);
+		return () => observer.disconnect();
+	});
+
+	async function loadNextPage() {
+		const cursor = response?.page.nextCursor;
+		if (!cursor || loading || loadingMore) return;
+		loadingMore = true;
+		continuationError = null;
+		const params = new URLSearchParams({
+			q: activeQuery,
+			limit: pageSize,
+			sort,
+			cursor
+		});
+		try {
+			const searchResponse = await fetch(`/api/atlas/search?${params.toString()}`);
+			const body = (await searchResponse.json()) as AtlasSearchResponse | { error?: string };
+			if (!searchResponse.ok || !('results' in body)) {
+				throw new Error(
+					'error' in body && body.error ? body.error : 'More Atlas results could not be loaded.'
+				);
+			}
+			const known = new Set(response?.results.map((result) => result.id) ?? []);
+			response = {
+				...body,
+				results: [
+					...(response?.results ?? []),
+					...body.results.filter((result) => !known.has(result.id))
+				]
+			};
+		} catch (loadError) {
+			continuationError =
+				loadError instanceof Error ? loadError.message : 'More Atlas results could not be loaded.';
+		} finally {
+			loadingMore = false;
+		}
+	}
 
 	function applySidebarItem(item: AtlasSidebarItem) {
 		openAtlasSearch(item.query ?? item.slug ?? item.value);
@@ -116,9 +244,21 @@
 		return result.subtitle || result.sourceUrl;
 	}
 
+	function resultAspect(result: AtlasSearchResult) {
+		if (!result.width || !result.height) return '4 / 3';
+		return `${result.width} / ${result.height}`;
+	}
+
+	function inspectResult(result: AtlasSearchResult) {
+		rememberAtlasSearchScroll(activeQuery, mainScrollElement?.scrollTop ?? 0);
+		openAtlasAsset(result.id);
+	}
+
 	function entitySubtitle(entity: AtlasSearchEntityResult) {
 		const link = entity.links[0];
-		const account = link ? [link.host, link.username ? `@${link.username}` : null].filter(Boolean).join(' ') : '';
+		const account = link
+			? [link.host, link.username ? `@${link.username}` : null].filter(Boolean).join(' ')
+			: '';
 		const count = `${entity.workCount.toLocaleString()} ${entity.workCount === 1 ? 'work' : 'works'}`;
 		return [count, account].filter(Boolean).join(' · ');
 	}
@@ -152,7 +292,11 @@
 	}
 </script>
 
-<section class="atlas-search" class:sidebar-collapsed={!sidebarOpen} aria-label="Atlas search browser">
+<section
+	class="atlas-search"
+	class:sidebar-collapsed={!sidebarOpen}
+	aria-label="Atlas search browser"
+>
 	<aside class="facet-panel" aria-label="Atlas related tags">
 		<div class="facet-head">
 			<span>Tag Map</span>
@@ -185,7 +329,10 @@
 							{#if section.kind === 'classifiers' && section.classifierGroups?.length}
 								<div class="classifier-list">
 									{#each section.classifierGroups as group, groupIndex (group.value)}
-										<details class="classifier-group" open={groupIndex < 2 && group.values.length > 0}>
+										<details
+											class="classifier-group"
+											open={groupIndex < 2 && group.values.length > 0}
+										>
 											<summary>
 												<span>{displayLabel(group.value)}</span>
 												<CaretDownIcon class="chev" size={13} />
@@ -234,7 +381,13 @@
 		{/if}
 	</aside>
 
-	<main class="main-scroll" aria-label="Atlas search results">
+	<main
+		bind:this={mainScrollElement}
+		class="main-scroll"
+		aria-label="Atlas search results"
+		aria-busy={loading || loadingMore}
+		onscroll={handleMainScroll}
+	>
 		{#if error}
 			<div class="empty">{error}</div>
 		{:else if !hasQuery}
@@ -252,7 +405,9 @@
 				>
 					<summary>
 						<span class="label">Wiki Preview</span>
-						<span class="hint">{titleLabel(wikiPreview.kind)} wiki preview <CaretDownIcon size={14} /></span>
+						<span class="hint"
+							>{titleLabel(wikiPreview.kind)} wiki preview <CaretDownIcon size={14} /></span
+						>
 					</summary>
 					<div class="preview-body">
 						<section
@@ -263,10 +418,35 @@
 								<button
 									type="button"
 									class="example-thumb"
-									aria-label={`Open ${wikiPreview.exampleAsset.title}`}
+									aria-label={`${resultIsGif(wikiPreview.exampleAsset) ? 'Animated GIF. ' : ''}Open ${wikiPreview.exampleAsset.title}`}
 									onclick={() => openAtlasAsset(wikiPreview.exampleAsset?.id ?? '')}
+									onpointerenter={() => startResultPreview(wikiPreview.exampleAsset!)}
+									onpointerleave={() => stopResultPreview(wikiPreview.exampleAsset!)}
+									onfocus={() => startResultPreview(wikiPreview.exampleAsset!)}
+									onblur={() => stopResultPreview(wikiPreview.exampleAsset!)}
 								>
-									<img src={wikiPreview.exampleAsset.thumbnailUrl} alt="" />
+									<img
+										class:static-hidden={resultIsGif(wikiPreview.exampleAsset) &&
+											animatedResultId === wikiPreview.exampleAsset.id}
+										src={wikiPreview.exampleAsset.thumbnailUrl}
+										alt=""
+									/>
+									{#if resultIsGif(wikiPreview.exampleAsset) && animatedResultId === wikiPreview.exampleAsset.id}
+										<img
+											class="animated-preview"
+											src={resultOriginalUrl(wikiPreview.exampleAsset)}
+											alt=""
+											aria-hidden="true"
+											onerror={() => stopResultPreview(wikiPreview.exampleAsset!)}
+										/>
+									{/if}
+									{#if resultIsGif(wikiPreview.exampleAsset)}
+										<span
+											class="gif-badge"
+											aria-hidden="true"
+											title="Animated GIF; hover or focus to preview">GIF</span
+										>
+									{/if}
 								</button>
 							{/if}
 							<div>
@@ -275,7 +455,9 @@
 									<span aria-hidden="true">☆</span>
 								</div>
 								<p class="concept-type">
-									{titleLabel(wikiPreview.kind)} · {titleLabel(wikiPreview.category)} · {titleLabel(wikiPreview.maturity)}
+									{titleLabel(wikiPreview.kind)} · {titleLabel(wikiPreview.category)} · {titleLabel(
+										wikiPreview.maturity
+									)}
 								</p>
 								<p class="preview-copy">{wikiSummary(wikiPreview)}</p>
 								<button
@@ -291,7 +473,7 @@
 						<section class="preview-block">
 							<h2>Implications</h2>
 							<div class="mini-list">
-								{#each miniValues(wikiPreview.automaticImplications, implicationKey, implicationLimit) as implication}
+								{#each miniValues(wikiPreview.automaticImplications, implicationKey, implicationLimit) as implication (implication)}
 									<span class="mini-chip visual">{implication}</span>
 								{/each}
 								{#if wikiPreview.automaticImplications.length > implicationLimit}
@@ -318,7 +500,7 @@
 						<section class="preview-block">
 							<h2>Allowed Classifiers</h2>
 							<div class="mini-list">
-								{#each miniValues(wikiPreview.allowedClassifiers, classifierKey, classifierLimit) as classifier}
+								{#each miniValues(wikiPreview.allowedClassifiers, classifierKey, classifierLimit) as classifier (classifier)}
 									<button
 										type="button"
 										class="mini-chip classifier"
@@ -364,9 +546,13 @@
 					</div>
 					<div class="entity-row">
 						{#each entityResults as entity (`${entity.kind}-${entity.slug}`)}
-							<button type="button" class="entity-card" onclick={() => openAtlasWiki(`artist:${entity.slug}`)}>
+							<button
+								type="button"
+								class="entity-card"
+								onclick={() => openAtlasWiki(`artist:${entity.slug}`)}
+							>
 								<span class="entity-thumbs" aria-hidden="true">
-									{#each entity.thumbnailUrls.slice(0, 3) as thumbnailUrl}
+									{#each entity.thumbnailUrls.slice(0, 3) as thumbnailUrl (thumbnailUrl)}
 										<img src={thumbnailUrl} alt="" loading="lazy" />
 									{/each}
 									{#if entity.thumbnailUrls.length === 0}
@@ -388,13 +574,22 @@
 					{#if loading}
 						Searching...
 					{:else}
-						Showing {(response?.page.totalEstimate ?? results.length).toLocaleString()} results for
-						<span>{displayQueryLabel(response?.query.canonical || activeQuery)}</span>
+						<strong>
+							{(
+								response?.page.total ??
+								response?.page.totalEstimate ??
+								results.length
+							).toLocaleString()}
+							results
+						</strong>
+						<span class="result-query">
+							for {displayQueryLabel(response?.query.canonical || activeQuery)}
+						</span>
 					{/if}
 				</div>
 
 				<div class="toolbar-actions">
-					<label>
+					<label class="sort-filter">
 						<span>Sort:</span>
 						<select
 							value={sort}
@@ -406,7 +601,7 @@
 							<option value="title">Title</option>
 						</select>
 					</label>
-					<label>
+					<label class="page-size">
 						<span>Show:</span>
 						<select
 							value={pageSize}
@@ -450,9 +645,9 @@
 				</div>
 			</section>
 
-			{#if loading}
+			{#if loading && results.length === 0}
 				<div class="result-grid skeleton" aria-label="Loading Atlas results">
-					{#each Array.from({ length: 8 }) as _, index}
+					{#each Array.from({ length: 8 }, (_, index) => index) as index (index)}
 						<div class="result-card" aria-hidden="true">
 							<span class="thumb"></span>
 							<span class="identity"><strong>Loading</strong><small>Atlas result</small></span>
@@ -464,15 +659,42 @@
 			{:else}
 				<div class:list-view={viewMode === 'list'} class="result-grid">
 					{#each results as result (result.id)}
-						<button type="button" class="result-card" onclick={() => openAtlasAsset(result.id)}>
+						<button
+							type="button"
+							class="result-card"
+							style={`--asset-aspect: ${resultAspect(result)}`}
+							aria-label={`${resultIsGif(result) ? 'Animated GIF. ' : ''}Inspect ${result.title}`}
+							onclick={() => inspectResult(result)}
+							onpointerenter={() => startResultPreview(result)}
+							onpointerleave={() => stopResultPreview(result)}
+							onfocus={() => startResultPreview(result)}
+							onblur={() => stopResultPreview(result)}
+						>
 							<span class="thumb">
 								{#if result.thumbnailUrl && !imageErrors[result.id]}
 									<img
+										class:static-hidden={resultIsGif(result) && animatedResultId === result.id}
 										src={result.thumbnailUrl}
 										alt=""
 										loading="lazy"
 										onerror={() => (imageErrors[result.id] = true)}
 									/>
+									{#if resultIsGif(result) && animatedResultId === result.id}
+										<img
+											class="animated-preview"
+											src={resultOriginalUrl(result)}
+											alt=""
+											aria-hidden="true"
+											onerror={() => stopResultPreview(result)}
+										/>
+									{/if}
+									{#if resultIsGif(result)}
+										<span
+											class="gif-badge"
+											aria-hidden="true"
+											title="Animated GIF; hover or focus to preview">GIF</span
+										>
+									{/if}
 								{:else}
 									<span class="thumb-empty">{result.title}</span>
 								{/if}
@@ -488,10 +710,26 @@
 						</button>
 					{/each}
 				</div>
+				<div class="continuation" bind:this={loadSentinel} aria-live="polite">
+					{#if continuationError}
+						<span>{continuationError}</span>
+						<button type="button" onclick={loadNextPage}>Try again</button>
+					{:else if loadingMore}
+						<span>Loading more references…</span>
+					{:else if nextCursor}
+						<button type="button" onclick={loadNextPage}>Load more</button>
+					{:else}
+						<span
+							>All {(response?.page.total ?? results.length).toLocaleString()} results loaded</span
+						>
+					{/if}
+				</div>
 			{/if}
 		{/if}
 	</main>
 </section>
+
+<AtlasMobileContext {response} />
 
 <style>
 	.atlas-search {
@@ -946,6 +1184,7 @@
 	}
 
 	.example-thumb {
+		position: relative;
 		overflow: hidden;
 		align-self: start;
 		aspect-ratio: 1;
@@ -960,6 +1199,12 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
+	}
+
+	.example-thumb .animated-preview {
+		position: absolute;
+		inset: 0;
+		z-index: 1;
 	}
 
 	.concept-title {
@@ -1079,6 +1324,10 @@
 		font-size: 0.98rem;
 	}
 
+	.result-count strong {
+		font-weight: 500;
+	}
+
 	.result-count span {
 		color: var(--color-muted);
 	}
@@ -1129,6 +1378,12 @@
 		outline: 0;
 		background: transparent;
 		color: var(--color-text);
+		color-scheme: dark;
+	}
+
+	.toolbar-actions option {
+		background: oklch(14% 0.007 70);
+		color: var(--color-text);
 	}
 
 	.role-filter {
@@ -1163,6 +1418,33 @@
 			background 160ms ease;
 	}
 
+	.continuation {
+		min-height: 5rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.7rem;
+		color: var(--color-muted);
+		font-size: 0.8rem;
+		text-align: center;
+	}
+
+	.continuation button {
+		min-height: 2.75rem;
+		border: 1px solid var(--color-border);
+		border-radius: 9px;
+		background: var(--color-surface);
+		color: var(--color-text);
+		padding: 0 0.9rem;
+		cursor: pointer;
+	}
+
+	.continuation button:hover,
+	.continuation button:focus-visible {
+		border-color: var(--color-border-strong);
+		background: var(--color-surface-soft);
+	}
+
 	.result-card:hover,
 	.result-card:focus-visible {
 		border-color: var(--color-border-strong);
@@ -1177,6 +1459,7 @@
 	}
 
 	.thumb {
+		position: relative;
 		min-height: 0;
 		display: grid;
 		place-items: center;
@@ -1191,6 +1474,36 @@
 		filter: saturate(0.9) contrast(1.02);
 	}
 
+	.thumb .animated-preview {
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+	}
+
+	.thumb img.static-hidden,
+	.example-thumb img.static-hidden {
+		opacity: 0;
+	}
+
+	.gif-badge {
+		position: absolute;
+		right: var(--space-2);
+		bottom: var(--space-2);
+		z-index: 2;
+		min-width: 2.2rem;
+		min-height: 1.55rem;
+		display: inline-grid;
+		place-items: center;
+		padding: 0 0.45rem;
+		border: 1px solid oklch(82% 0.012 75 / 0.26);
+		border-radius: var(--radius-sm);
+		background: oklch(8% 0.006 70 / 0.86);
+		color: var(--color-text);
+		font-size: 0.66rem;
+		font-weight: 800;
+		letter-spacing: 0.08em;
+	}
+
 	.thumb-empty {
 		width: 100%;
 		height: 100%;
@@ -1198,11 +1511,7 @@
 		place-items: center;
 		background:
 			linear-gradient(135deg, oklch(18% 0.009 70), oklch(11% 0.007 70)),
-			repeating-linear-gradient(
-				135deg,
-				oklch(25% 0.01 70 / 0.26) 0 1px,
-				transparent 1px 9px
-			);
+			repeating-linear-gradient(135deg, oklch(25% 0.01 70 / 0.26) 0 1px, transparent 1px 9px);
 		color: var(--color-muted);
 		font-size: 0.82rem;
 		line-height: 1.25;
@@ -1258,7 +1567,12 @@
 	.skeleton strong,
 	.skeleton small {
 		color: transparent;
-		background: linear-gradient(90deg, oklch(18% 0.008 70), oklch(24% 0.01 70), oklch(18% 0.008 70));
+		background: linear-gradient(
+			90deg,
+			oklch(18% 0.008 70),
+			oklch(24% 0.01 70),
+			oklch(18% 0.008 70)
+		);
 		background-size: 200% 100%;
 		animation: shimmer 1200ms linear infinite;
 		border-radius: 6px;
@@ -1292,7 +1606,7 @@
 		}
 	}
 
-	@media (max-width: 900px) {
+	@media (max-width: 1023px), (pointer: coarse) and (max-width: 1366px) {
 		.atlas-search {
 			grid-template-columns: 1fr;
 		}
@@ -1302,32 +1616,126 @@
 		}
 
 		.facet-panel {
-			max-height: 42vh;
-			border-right: 0;
-			border-bottom: 1px solid var(--color-border-soft);
-		}
-
-		.sidebar-collapsed .facet-panel {
-			max-height: 3rem;
+			display: none;
 		}
 
 		.main-scroll {
-			overflow: visible;
+			overflow: auto;
+			padding-bottom: calc(var(--bottom-nav-height, 0px) + 1.25rem);
+		}
+
+		.wiki-preview,
+		.query-context {
+			display: none;
 		}
 
 		.result-toolbar {
-			align-items: stretch;
-			flex-direction: column;
+			align-items: center;
+			gap: 0.55rem;
 		}
 
 		.toolbar-actions {
-			flex-wrap: wrap;
+			min-width: 0;
+			flex: 0 0 auto;
+			gap: 0.4rem;
+		}
+
+		.toolbar-actions .page-size,
+		.toolbar-actions > button {
+			display: none;
+		}
+
+		.toolbar-actions label {
+			min-width: 0;
+			height: 2.75rem;
+			padding-inline: 0.6rem;
+		}
+
+		.toolbar-actions select {
+			min-width: 0;
+			width: auto;
+			max-width: 7.5rem;
+		}
+
+		.result-grid:not(.list-view) {
+			display: block;
+			column-count: 3;
+			column-gap: 0.65rem;
+		}
+
+		.result-grid:not(.list-view) .result-card {
+			width: 100%;
+			break-inside: avoid;
+			grid-template-rows: auto auto;
+			margin-bottom: 0.65rem;
+		}
+
+		.result-grid:not(.list-view) .thumb {
+			aspect-ratio: var(--asset-aspect, 4 / 3);
+		}
+
+		.result-grid:not(.list-view) .match {
+			display: none;
+		}
+
+		.result-grid:not(.list-view) .identity {
+			padding: 0.55rem 0.65rem 0.65rem;
+		}
+
+		.result-grid:not(.list-view) .identity strong {
+			font-size: 0.86rem;
 		}
 	}
 
 	@media (max-width: 680px) {
 		.main-scroll {
-			padding: 0.75rem;
+			padding: 0.45rem 0.65rem calc(var(--bottom-nav-height, 0px) + 1rem);
+		}
+
+		.entity-results {
+			display: none;
+		}
+
+		.result-grid:not(.list-view) {
+			column-count: 2;
+			column-gap: 0.5rem;
+		}
+
+		.result-grid:not(.list-view) .result-card {
+			margin-bottom: 0.5rem;
+			border-radius: 8px;
+		}
+
+		.result-grid:not(.list-view) .identity small {
+			display: none;
+		}
+
+		.result-toolbar {
+			gap: 0.45rem;
+			margin-inline: 0.15rem;
+		}
+
+		.result-count {
+			min-width: max-content;
+			flex: 1;
+			font-size: 0.86rem;
+		}
+
+		.result-query {
+			display: none;
+		}
+
+		.toolbar-actions label {
+			gap: 0.3rem;
+			padding-inline: 0.5rem;
+		}
+
+		.toolbar-actions label span {
+			font-size: 0.62rem;
+		}
+
+		.role-filter {
+			min-width: 0;
 		}
 
 		.preview-body,
@@ -1348,7 +1756,25 @@
 		.example-thumb {
 			width: min(10rem, 100%);
 		}
+	}
 
+	@media (min-width: 681px) and (max-width: 1023px) {
+		.result-grid:not(.list-view) {
+			column-count: 3;
+		}
+	}
+
+	@media (min-width: 1024px) and (pointer: coarse) and (max-width: 1366px) {
+		.result-grid:not(.list-view) {
+			column-count: 4;
+		}
+	}
+
+	@media (min-width: 760px) and (max-width: 1023px),
+		(pointer: coarse) and (min-width: 760px) and (max-width: 1366px) {
+		.main-scroll {
+			padding-bottom: 1.25rem;
+		}
 	}
 
 	@media (prefers-reduced-motion: reduce) {

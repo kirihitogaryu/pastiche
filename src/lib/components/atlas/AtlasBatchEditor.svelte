@@ -86,9 +86,15 @@
 		<div class="batch-rules">
 			<strong>Formatting rules for AI agents</strong>
 			<ul>
-				<li>Return one strict JSON object only. No Markdown fences, comments, YAML, or trailing commas.</li>
+				<li>
+					Return one strict JSON object only. No Markdown fences, comments, YAML, or trailing
+					commas.
+				</li>
 				<li>Use top-level keys: identity, concepts, entities, claims, annotations.</li>
-				<li>Use slugs for tags and classifiers. Use labels for entities. Separate observed, metadata, inferred, and interpretive claims.</li>
+				<li>
+					Use slugs for tags and classifiers. Use labels for entities. Separate observed, metadata,
+					inferred, and interpretive claims.
+				</li>
 			</ul>
 		</div>
 		<textarea

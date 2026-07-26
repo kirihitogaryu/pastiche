@@ -1,41 +1,88 @@
 import { json } from '@sveltejs/kit';
-import { importLibraryItems } from '$lib/server/library/import';
+import {
+	importLibraryItems,
+	ImportJobInProgressError,
+	importResourceLimits,
+	validateImportRequestLimits
+} from '$lib/server/library/import';
 import type { ImportRequest } from '$lib/server/library/types';
-import { EXTENSION_CORS_HEADERS } from '../cors';
+import { requireTrustedLocalAccess, trustedLocalPreflight } from '../localAccess';
 
-export function OPTIONS() {
-	return new Response(null, { status: 204, headers: EXTENSION_CORS_HEADERS });
+export function OPTIONS({ request }: { request: Request }) {
+	return trustedLocalPreflight(request);
 }
 
 export async function POST({ request }: { request: Request }) {
-	const body = await readJson(request);
+	const access = requireTrustedLocalAccess(request);
+	if (!access.ok) return access.response;
+
+	let body: unknown;
+	try {
+		body = await readJson(request);
+	} catch (error) {
+		if (error instanceof ImportBodyTooLargeError) {
+			return json({ error: error.message }, { status: 413, headers: access.headers });
+		}
+		body = null;
+	}
 	if (!isImportRequest(body)) {
-		return json(
-			{ error: 'Invalid import request' },
-			{ status: 400, headers: EXTENSION_CORS_HEADERS }
-		);
+		return json({ error: 'Invalid import request' }, { status: 400, headers: access.headers });
+	}
+	const limitError = validateImportRequestLimits(body);
+	if (limitError) {
+		return json({ error: limitError }, { status: 400, headers: access.headers });
 	}
 
 	try {
-		return json(await importLibraryItems(body), { headers: EXTENSION_CORS_HEADERS });
+		return json(await importLibraryItems(body), { headers: access.headers });
 	} catch (error) {
+		const status = error instanceof ImportJobInProgressError ? 409 : 400;
 		return json(
 			{ error: error instanceof Error ? error.message : 'Import failed' },
-			{ status: 400, headers: EXTENSION_CORS_HEADERS }
+			{ status, headers: access.headers }
 		);
 	}
 }
 
 async function readJson(request: Request): Promise<unknown> {
-	try {
-		return await request.json();
-	} catch {
-		return null;
+	const { maxBatchBytes } = importResourceLimits();
+	const maxJsonBytes = Math.ceil((maxBatchBytes * 4) / 3) + 16 * 1024 * 1024;
+	const contentLength = Number(request.headers.get('content-length'));
+	if (Number.isFinite(contentLength) && contentLength > maxJsonBytes) {
+		throw new ImportBodyTooLargeError(maxJsonBytes);
+	}
+	if (!request.body) return null;
+	const reader = request.body.getReader();
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		total += value.byteLength;
+		if (total > maxJsonBytes) {
+			await reader.cancel();
+			throw new ImportBodyTooLargeError(maxJsonBytes);
+		}
+		chunks.push(value);
+	}
+	const bytes = new Uint8Array(total);
+	let offset = 0;
+	for (const chunk of chunks) {
+		bytes.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	return JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+}
+
+class ImportBodyTooLargeError extends Error {
+	constructor(maxBytes: number) {
+		super(`Import request bodies are limited to ${Math.round(maxBytes / (1024 * 1024))} MB`);
 	}
 }
 
 function isImportRequest(value: unknown): value is ImportRequest {
 	if (!isRecord(value)) return false;
+	if (value.import_job_id !== undefined && !isImportJobId(value.import_job_id)) return false;
 	if (!(value.destination_folder_id === null || typeof value.destination_folder_id === 'string')) {
 		return false;
 	}
@@ -43,6 +90,10 @@ function isImportRequest(value: unknown): value is ImportRequest {
 		return false;
 	}
 	return Array.isArray(value.items) && value.items.every(isImportItem);
+}
+
+function isImportJobId(value: unknown) {
+	return typeof value === 'string' && /^[a-zA-Z0-9._:-]{1,128}$/.test(value);
 }
 
 function isImportItem(value: unknown): value is ImportRequest['items'][number] {
@@ -89,7 +140,21 @@ function isImportMetadata(
 		(value.acceptedConceptSlugs === undefined ||
 			(Array.isArray(value.acceptedConceptSlugs) &&
 				value.acceptedConceptSlugs.every((slug) => typeof slug === 'string'))) &&
+		(value.acceptedAnnotations === undefined ||
+			(Array.isArray(value.acceptedAnnotations) &&
+				value.acceptedAnnotations.every(isAcceptedAnnotation))) &&
 		(value.rawMetadata === undefined || isRecord(value.rawMetadata))
+	);
+}
+
+function isAcceptedAnnotation(value: unknown) {
+	return (
+		isRecord(value) &&
+		typeof value.label === 'string' &&
+		Array.isArray(value.concepts) &&
+		value.concepts.every((concept) => typeof concept === 'string') &&
+		isRecord(value.classifiers) &&
+		Object.values(value.classifiers).every((classifier) => typeof classifier === 'string')
 	);
 }
 

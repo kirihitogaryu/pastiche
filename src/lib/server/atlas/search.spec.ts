@@ -126,8 +126,58 @@ describe('searchAtlasAssets', () => {
 
 			const results = searchAtlasAssets(db, 'horse');
 
-			expect(results.results.map((result) => result.id)).toEqual(['focal-horse', 'background-horse']);
+			expect(results.results.map((result) => result.id)).toEqual([
+				'focal-horse',
+				'background-horse'
+			]);
 			expect(results.results[0]?.score).toBeGreaterThan(results.results[1]?.score ?? 0);
+		} finally {
+			db.close();
+		}
+	});
+
+	it('returns stable continuation batches with an exact total', () => {
+		const db = openLibraryDatabase();
+		try {
+			seedSearchConcepts(db, ['horse']);
+			for (const id of ['alpha', 'beta', 'gamma']) {
+				insertAsset(db, id, `${id} horse`);
+				insertAnnotation(db, id, 'horse', ['horse'], { visual_role: 'focal_point' });
+			}
+
+			const first = searchAtlasAssets(db, 'horse', { limit: 2, sort: 'title' });
+			const second = searchAtlasAssets(db, 'horse', {
+				limit: 2,
+				sort: 'title',
+				cursor: first.page.nextCursor
+			});
+
+			expect(first.page).toMatchObject({ total: 3, nextCursor: '2' });
+			expect(first.results.map((result) => result.id)).toEqual(['alpha', 'beta']);
+			expect(second.page).toMatchObject({ total: 3, nextCursor: null });
+			expect(second.results.map((result) => result.id)).toEqual(['gamma']);
+		} finally {
+			db.close();
+		}
+	});
+
+	it('limits guided suggestions to active established vocabulary', () => {
+		const db = openLibraryDatabase();
+		try {
+			seedSearchConcepts(db, ['pink']);
+			insertConcept(db, 'pink_draft');
+			db.prepare(
+				`update atlas_concepts set status = 'needs_review', maturity = 'draft' where slug = 'pink_draft'`
+			).run();
+
+			const suggestions = suggestAtlasSearch(db, 'pink');
+
+			expect(suggestions.suggestions).toEqual(
+				expect.arrayContaining([expect.objectContaining({ query: 'pink' })])
+			);
+			expect(suggestions.suggestions).not.toEqual(
+				expect.arrayContaining([expect.objectContaining({ query: 'pink_draft' })])
+			);
 		} finally {
 			db.close();
 		}
@@ -347,7 +397,7 @@ describe('searchAtlasAssets', () => {
 		}
 	});
 
-	it('matches broader wiki relationships as searchable implications', () => {
+	it('keeps broader relationships navigational until an automatic implication is approved', () => {
 		const db = openLibraryDatabase();
 		try {
 			seedSearchConcepts(db, ['test_horse', 'test_animal']);
@@ -357,10 +407,18 @@ describe('searchAtlasAssets', () => {
 				visual_role: 'focal_point'
 			});
 
-			const results = searchAtlasAssets(db, 'test_animal');
+			const navigationalOnly = searchAtlasAssets(db, 'test_animal');
 
-			expect(results.results.map((result) => result.id)).toEqual(['focal-horse']);
-			expect(results.results[0]?.primaryExplanation).toContain('through test horse implication');
+			expect(navigationalOnly.results).toEqual([]);
+
+			updateWikiLists(db, 'test_horse', { automaticImplications: ['test_animal'] });
+			applyAtlasWikiSeed(db, NOW);
+			const approvedImplication = searchAtlasAssets(db, 'test_animal');
+
+			expect(approvedImplication.results.map((result) => result.id)).toEqual(['focal-horse']);
+			expect(approvedImplication.results[0]?.primaryExplanation).toContain(
+				'through test horse implication'
+			);
 		} finally {
 			db.close();
 		}
@@ -670,6 +728,52 @@ describe('searchAtlasAssets', () => {
 			db.close();
 		}
 	});
+
+	it('discovers approved classifier values from plain-language color searches', () => {
+		const db = openLibraryDatabase();
+		try {
+			applyAtlasWikiSeed(db, NOW);
+			insertConcept(db, 'scales');
+			db.prepare(
+				`update atlas_concepts
+				 set status = 'active', maturity = 'usable'
+				 where slug = 'scales'`
+			).run();
+			db.prepare(
+				`update atlas_wiki_entries set allowed_classifiers_json = ?
+				 where concept_id = (select id from atlas_concepts where slug = 'scales')`
+			).run(JSON.stringify(['scale_color', 'visual_role']));
+			insertAsset(db, 'green-scaled-dragon', 'Green Scaled Dragon');
+			insertAnnotation(db, 'green-scaled-dragon', 'dragon_body', ['dragon', 'scales'], {
+				scale_color: 'green',
+				visual_role: 'focal_point'
+			});
+
+			const plain = suggestAtlasSearch(db, 'green');
+			const phrase = suggestAtlasSearch(db, 'green scales');
+			const shorthand = suggestAtlasSearch(db, 'scales:green');
+			const readableClassifier = suggestAtlasSearch(db, 'scale color:green');
+
+			expect(plain.suggestions).toContainEqual(
+				expect.objectContaining({
+					kind: 'classifier_value',
+					label: 'Scale Color: Green',
+					query: 'scales.scale_color:green'
+				})
+			);
+			expect(phrase.suggestions[0]).toEqual(
+				expect.objectContaining({ query: 'scales.scale_color:green' })
+			);
+			expect(shorthand.suggestions).toContainEqual(
+				expect.objectContaining({ query: 'scales.scale_color:green' })
+			);
+			expect(readableClassifier.suggestions[0]).toEqual(
+				expect.objectContaining({ query: 'scales.scale_color:green' })
+			);
+		} finally {
+			db.close();
+		}
+	});
 });
 
 function seedSearchConcepts(db: TestDb, slugs: string[]) {
@@ -687,6 +791,9 @@ function insertConcept(db: TestDb, slug: string) {
 		) values (?, ?, ?, 'visual_tag', 'object', 'Objects', 'active', 'reviewed', ?, 'test', ?, ?)
 		on conflict(slug) do nothing`
 	).run(`concept-${slug}`, slug, labelFor(slug), `Test concept for ${labelFor(slug)}.`, NOW, NOW);
+	db.prepare(
+		`update atlas_concepts set status = 'active', maturity = 'reviewed' where slug = ?`
+	).run(slug);
 	db.prepare(
 		`insert into atlas_wiki_entries (
 			concept_id, long_description, use_when_json, do_not_use_when_json, aliases_json,
@@ -786,13 +893,7 @@ function insertAnnotation(
 	}
 }
 
-function insertEntity(
-	db: TestDb,
-	assetId: string,
-	kind: string,
-	slug: string,
-	label: string
-) {
+function insertEntity(db: TestDb, assetId: string, kind: string, slug: string, label: string) {
 	db.prepare(
 		`insert into atlas_entities (id, kind, slug, label, external_url, created_at, updated_at)
 		 values (?, ?, ?, ?, null, ?, ?)
@@ -805,12 +906,7 @@ function insertEntity(
 	).run(assetId, kind, slug, NOW);
 }
 
-function insertEntityAlias(
-	db: TestDb,
-	kind: string,
-	slug: string,
-	alias: string
-) {
+function insertEntityAlias(db: TestDb, kind: string, slug: string, alias: string) {
 	db.prepare(
 		`insert into atlas_entity_aliases (
 			id, entity_id, alias, normalized_alias, source, confidence, created_at
@@ -876,5 +972,9 @@ function labelFor(slug: string) {
 }
 
 function displaySlug(value: string) {
-	return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+	return value
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '_')
+		.replace(/^_+|_+$/g, '');
 }

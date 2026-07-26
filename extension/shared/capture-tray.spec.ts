@@ -5,12 +5,14 @@ import {
 	mergeCaptureTrayItem,
 	mergeCaptureTrayItems,
 	removeCaptureTrayItem,
-	removeCaptureTrayIndexes
+	removeCaptureTrayIndexes,
+	setCaptureTrayItemStorageMode
 } from './capture-tray';
 
 function item(partial: Partial<EnrichedItem>): EnrichedItem {
 	return {
 		id: partial.id ?? 'item-1',
+		revision: partial.revision ?? 0,
 		url: partial.url ?? 'https://cdn.example.com/work.jpg',
 		selectedCandidateId: partial.selectedCandidateId ?? 'candidate-original',
 		candidates: partial.candidates ?? [],
@@ -50,7 +52,8 @@ function item(partial: Partial<EnrichedItem>): EnrichedItem {
 		storageModeReason: partial.storageModeReason ?? 'Remote URL',
 		fetchStatus: partial.fetchStatus ?? { state: 'idle' },
 		destinationFolderId: partial.destinationFolderId ?? null,
-		alreadyInLibrary: partial.alreadyInLibrary ?? false
+		alreadyInLibrary: partial.alreadyInLibrary ?? false,
+		enrichment: partial.enrichment ?? { state: 'idle' }
 	};
 }
 
@@ -90,6 +93,24 @@ describe('capture tray persistence helpers', () => {
 		expect(removeCaptureTrayIndexes(items, new Set([0, 2])).map((entry) => entry.id)).toEqual([
 			'b'
 		]);
+	});
+
+	it('atomically switches originals to Bookmarks and back to pending downloads', () => {
+		expect.assertions(4);
+		const original = item({
+			id: 'a',
+			storageMode: 'download',
+			storageModeReason: 'Original stored locally',
+			fetchStatus: { state: 'done', blobKey: 'blob-a', mimeType: 'image/jpeg' }
+		});
+
+		const [bookmarked] = setCaptureTrayItemStorageMode([original], 'a', 'lazy_download');
+		expect(bookmarked.storageMode).toBe('lazy_download');
+		expect(bookmarked.fetchStatus).toEqual({ state: 'idle' });
+
+		const [downloading] = setCaptureTrayItemStorageMode([bookmarked], 'a', 'download');
+		expect(downloading.storageModeReason).toBe('Original not stored yet');
+		expect(downloading.fetchStatus).toEqual({ state: 'fetching' });
 	});
 
 	it('ignores malformed stored tray values', () => {

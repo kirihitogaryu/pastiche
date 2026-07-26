@@ -185,10 +185,13 @@ async function main() {
 		model,
 		modelsUrl: stringArg(args['models-url'], DEFAULT_MODEL_ENDPOINT),
 		freeOnly: booleanArg(args['free-only'], true),
-		allowedModels: configuredAllowedModels.length ? configuredAllowedModels : DEFAULT_ALLOWED_MODELS,
-		blockedPatterns: listArg(args['blocked-model-patterns'], process.env.ATLAS_BLOCKED_MODEL_PATTERNS).concat(
-			DEFAULT_BLOCKED_MODEL_PATTERNS
-		),
+		allowedModels: configuredAllowedModels.length
+			? configuredAllowedModels
+			: DEFAULT_ALLOWED_MODELS,
+		blockedPatterns: listArg(
+			args['blocked-model-patterns'],
+			process.env.ATLAS_BLOCKED_MODEL_PATTERNS
+		).concat(DEFAULT_BLOCKED_MODEL_PATTERNS),
 		allowUnknownModel: booleanArg(args['allow-unknown-model'], false)
 	});
 
@@ -230,10 +233,7 @@ async function main() {
 		response = await callNanoGpt({
 			apiKey,
 			model,
-			messages: [
-				{ role: 'system', content: prompt.system },
-				userMessage
-			],
+			messages: [{ role: 'system', content: prompt.system }, userMessage],
 			temperature: numberArg(args.temperature, 0.1),
 			maxTokens,
 			reasoningEffort: optionalString(args['reasoning-effort']),
@@ -277,9 +277,17 @@ async function main() {
 
 	const extracted = extractJson(text);
 	if (extracted) {
-		await writeFile(join(outDir, 'response.extracted.json'), JSON.stringify(extracted, null, 2), 'utf8');
+		await writeFile(
+			join(outDir, 'response.extracted.json'),
+			JSON.stringify(extracted, null, 2),
+			'utf8'
+		);
 	} else {
-		await writeFile(join(outDir, 'response.extract-error.txt'), 'No parseable JSON object found.', 'utf8');
+		await writeFile(
+			join(outDir, 'response.extract-error.txt'),
+			'No parseable JSON object found.',
+			'utf8'
+		);
 	}
 	const usageRecord = buildUsageRecord({
 		args,
@@ -349,10 +357,14 @@ function resolveModelSelection(input) {
 	if (input.requestedModel && input.requestedModel !== 'auto') return input.requestedModel;
 	if (input.tier) {
 		const models = MODEL_TIERS[input.tier];
-		if (!models) fail(`Unknown model tier "${input.tier}". Use one of: ${Object.keys(MODEL_TIERS).join(', ')}`);
+		if (!models)
+			fail(
+				`Unknown model tier "${input.tier}". Use one of: ${Object.keys(MODEL_TIERS).join(', ')}`
+			);
 		return models[0];
 	}
-	if (input.requestedModel === 'auto') return DEFAULT_MODEL_BY_JOB[input.jobName] ?? MODEL_TIERS.routineText[0];
+	if (input.requestedModel === 'auto')
+		return DEFAULT_MODEL_BY_JOB[input.jobName] ?? MODEL_TIERS.routineText[0];
 	return '';
 }
 
@@ -428,7 +440,9 @@ async function imageInputFromUrl(value, baseUrl) {
 	}
 	const response = await fetch(absoluteUrl);
 	if (!response.ok) {
-		fail(`Could not fetch local asset image ${absoluteUrl}: ${response.status} ${response.statusText}`);
+		fail(
+			`Could not fetch local asset image ${absoluteUrl}: ${response.status} ${response.statusText}`
+		);
 	}
 	const bytes = Buffer.from(await response.arrayBuffer());
 	const mimeType = response.headers.get('content-type')?.split(';')[0] ?? 'image/jpeg';
@@ -453,7 +467,8 @@ async function fetchText(url) {
 async function fetchJson(url) {
 	const response = await fetch(url);
 	const text = await response.text();
-	if (!response.ok) fail(`Could not fetch ${url}: ${response.status} ${response.statusText}\n${text}`);
+	if (!response.ok)
+		fail(`Could not fetch ${url}: ${response.status} ${response.statusText}\n${text}`);
 	try {
 		return JSON.parse(text);
 	} catch {
@@ -481,7 +496,8 @@ async function callNanoGpt(input) {
 		body: JSON.stringify(body)
 	});
 	const text = await response.text();
-	if (!response.ok) fail(`NanoGPT request failed: ${response.status} ${response.statusText}\n${text}`);
+	if (!response.ok)
+		fail(`NanoGPT request failed: ${response.status} ${response.statusText}\n${text}`);
 	try {
 		return JSON.parse(text);
 	} catch {
@@ -543,21 +559,30 @@ async function checkModelAccess(input) {
 			return {
 				status: 'unknown_model',
 				model: input.model,
-				message: 'Model was not found in NanoGPT model metadata. Proceeding because --allow-unknown-model is set.'
+				message:
+					'Model was not found in NanoGPT model metadata. Proceeding because --allow-unknown-model is set.'
 			};
 		}
-		fail(`Model "${input.model}" was not found in NanoGPT model metadata. Use --list-models to find the exact id, or pass --allow-unknown-model if you intentionally want to skip this guard.`);
+		fail(
+			`Model "${input.model}" was not found in NanoGPT model metadata. Use --list-models to find the exact id, or pass --allow-unknown-model if you intentionally want to skip this guard.`
+		);
 	}
 	const blockedMatch = findBlockedModelPattern(metadata, input.blockedPatterns);
 	if (blockedMatch) {
-		fail(`Model "${input.model}" is blocked by pattern "${blockedMatch}". Refusing before request.`);
+		fail(
+			`Model "${input.model}" is blocked by pattern "${blockedMatch}". Refusing before request.`
+		);
 	}
 	const cost = classifyModelCost(metadata);
 	if (input.freeOnly && cost.status === 'paid') {
-		fail(`Model "${input.model}" appears to be paid (${cost.reason}). Refusing because --free-only defaults to true.`);
+		fail(
+			`Model "${input.model}" appears to be paid (${cost.reason}). Refusing because --free-only defaults to true.`
+		);
 	}
 	if (input.freeOnly && cost.status === 'unknown') {
-		console.warn(`Model "${input.model}" pricing was not obvious in metadata. Proceeding, but check NanoGPT if this looks suspicious.`);
+		console.warn(
+			`Model "${input.model}" pricing was not obvious in metadata. Proceeding, but check NanoGPT if this looks suspicious.`
+		);
 	}
 	return {
 		status: cost.status,
@@ -565,7 +590,11 @@ async function checkModelAccess(input) {
 		model: input.model,
 		displayName: metadata.name ?? metadata.label ?? metadata.id ?? input.model,
 		contextLength:
-			metadata.context_length ?? metadata.contextLength ?? metadata.max_context_tokens ?? metadata.maxContextTokens ?? null
+			metadata.context_length ??
+			metadata.contextLength ??
+			metadata.max_context_tokens ??
+			metadata.maxContextTokens ??
+			null
 	};
 }
 
@@ -589,11 +618,14 @@ async function getModelMetadata(apiKey, endpoint, modelId) {
 			headers: { authorization: `Bearer ${apiKey}` }
 		});
 		const text = await response.text();
-		if (!response.ok) fail(`Model metadata failed: ${response.status} ${response.statusText}\n${text}`);
+		if (!response.ok)
+			fail(`Model metadata failed: ${response.status} ${response.statusText}\n${text}`);
 		const body = JSON.parse(text);
 		models = Array.isArray(body) ? body : (body.data ?? body.models ?? []);
 	} catch (error) {
-		fail(`Could not read NanoGPT model metadata before request: ${error instanceof Error ? error.message : String(error)}`);
+		fail(
+			`Could not read NanoGPT model metadata before request: ${error instanceof Error ? error.message : String(error)}`
+		);
 	}
 	return models.find((model) => {
 		const ids = [model.id, model.model, model.name, model.slug].filter(Boolean).map(String);
@@ -603,16 +635,32 @@ async function getModelMetadata(apiKey, endpoint, modelId) {
 
 function classifyModelCost(model) {
 	const serialized = JSON.stringify(model).toLowerCase();
-	if (serialized.includes('"free":true') || serialized.includes('"is_free":true') || serialized.includes('"isfree":true')) {
+	if (
+		serialized.includes('"free":true') ||
+		serialized.includes('"is_free":true') ||
+		serialized.includes('"isfree":true')
+	) {
 		return { status: 'free', reason: 'model metadata marks it free' };
 	}
-	if (serialized.includes('"free":false') || serialized.includes('"is_free":false') || serialized.includes('"isfree":false')) {
+	if (
+		serialized.includes('"free":false') ||
+		serialized.includes('"is_free":false') ||
+		serialized.includes('"isfree":false')
+	) {
 		return { status: 'paid', reason: 'model metadata marks it not free' };
 	}
-	if (/\bfree\b/.test(String(model.tier ?? model.plan ?? model.access ?? model.pricing_tier ?? '').toLowerCase())) {
+	if (
+		/\bfree\b/.test(
+			String(model.tier ?? model.plan ?? model.access ?? model.pricing_tier ?? '').toLowerCase()
+		)
+	) {
 		return { status: 'free', reason: 'model tier appears free' };
 	}
-	if (/\bpaid\b|\bpremium\b/.test(String(model.tier ?? model.plan ?? model.access ?? model.pricing_tier ?? '').toLowerCase())) {
+	if (
+		/\bpaid\b|\bpremium\b/.test(
+			String(model.tier ?? model.plan ?? model.access ?? model.pricing_tier ?? '').toLowerCase()
+		)
+	) {
 		return { status: 'paid', reason: 'model tier appears paid' };
 	}
 	const priceEntries = collectPriceEntries(model).filter((entry) => entry.path !== 'cost_estimate');
@@ -662,7 +710,9 @@ function printTokenPreflight(input) {
 		`Prompt: ${input.promptChars.toLocaleString()} chars, ~${input.estimatedPromptTokens.toLocaleString()} input tokens; requested max output ${input.maxTokens.toLocaleString()} tokens.`
 	);
 	if (input.modelCheck?.status) {
-		console.log(`Model check: ${input.modelCheck.status}${input.modelCheck.reason ? ` (${input.modelCheck.reason})` : ''}`);
+		console.log(
+			`Model check: ${input.modelCheck.status}${input.modelCheck.reason ? ` (${input.modelCheck.reason})` : ''}`
+		);
 	}
 }
 
@@ -691,8 +741,14 @@ function buildUsageRecord(input) {
 		tokenCountForBudget: reported.totalTokens ?? estimated.totalTokens,
 		modelCheck: input.modelCheck,
 		budget: {
-			weeklyTokenBudget: numberArg(input.args['budget-tokens'], envNumber('ATLAS_WEEKLY_TOKEN_BUDGET', DEFAULT_WEEKLY_TOKEN_BUDGET)),
-			warnAtTokens: numberArg(input.args['warn-at-tokens'], envNumber('ATLAS_WARN_AT_TOKENS', DEFAULT_WARN_AT_TOKENS)),
+			weeklyTokenBudget: numberArg(
+				input.args['budget-tokens'],
+				envNumber('ATLAS_WEEKLY_TOKEN_BUDGET', DEFAULT_WEEKLY_TOKEN_BUDGET)
+			),
+			warnAtTokens: numberArg(
+				input.args['warn-at-tokens'],
+				envNumber('ATLAS_WARN_AT_TOKENS', DEFAULT_WARN_AT_TOKENS)
+			),
 			weekStartsAt: startOfLocalWeek(new Date()).toISOString()
 		}
 	};
@@ -700,7 +756,12 @@ function buildUsageRecord(input) {
 
 function normalizeUsage(usage) {
 	if (!usage || typeof usage !== 'object') return {};
-	const promptTokens = firstNumber(usage.prompt_tokens, usage.promptTokens, usage.input_tokens, usage.inputTokens);
+	const promptTokens = firstNumber(
+		usage.prompt_tokens,
+		usage.promptTokens,
+		usage.input_tokens,
+		usage.inputTokens
+	);
 	const completionTokens = firstNumber(
 		usage.completion_tokens,
 		usage.completionTokens,
@@ -741,8 +802,14 @@ async function appendUsageRecord(args, record) {
 
 async function printUsageSummary(args) {
 	const ledgerPath = resolve(stringArg(args['usage-ledger'], DEFAULT_LEDGER_PATH));
-	const budget = numberArg(args['budget-tokens'], envNumber('ATLAS_WEEKLY_TOKEN_BUDGET', DEFAULT_WEEKLY_TOKEN_BUDGET));
-	const warnAt = numberArg(args['warn-at-tokens'], envNumber('ATLAS_WARN_AT_TOKENS', DEFAULT_WARN_AT_TOKENS));
+	const budget = numberArg(
+		args['budget-tokens'],
+		envNumber('ATLAS_WEEKLY_TOKEN_BUDGET', DEFAULT_WEEKLY_TOKEN_BUDGET)
+	);
+	const warnAt = numberArg(
+		args['warn-at-tokens'],
+		envNumber('ATLAS_WARN_AT_TOKENS', DEFAULT_WARN_AT_TOKENS)
+	);
 	const sinceDays = numberArg(args['since-days'], 7);
 	const now = new Date();
 	const weekStart = startOfLocalWeek(now);
@@ -756,11 +823,15 @@ async function printUsageSummary(args) {
 	console.log(`Ledger: ${ledgerPath}`);
 	console.log(`This week: ${weeklyTotal.toLocaleString()} / ${budget.toLocaleString()} tokens`);
 	console.log(`Warning threshold: ${warnAt.toLocaleString()} tokens`);
-	console.log(`Last ${sinceDays} days: ${recentTotal.toLocaleString()} tokens across ${recent.length} runs`);
+	console.log(
+		`Last ${sinceDays} days: ${recentTotal.toLocaleString()} tokens across ${recent.length} runs`
+	);
 	if (weeklyTotal >= warnAt) {
 		console.log(`Status: warning threshold reached`);
 	} else {
-		console.log(`Status: ${(budget - weeklyTotal).toLocaleString()} weekly project tokens remaining`);
+		console.log(
+			`Status: ${(budget - weeklyTotal).toLocaleString()} weekly project tokens remaining`
+		);
 	}
 	for (const record of topTokenRuns(weekly, 5)) {
 		console.log(
@@ -795,9 +866,13 @@ function printBudgetWarning(args, currentRecord) {
 	readUsageLedger(resolve(stringArg(args['usage-ledger'], DEFAULT_LEDGER_PATH)))
 		.then((records) => {
 			const weekStart = startOfLocalWeek(new Date());
-			const weeklyTotal = sumTokens(records.filter((record) => new Date(record.timestamp) >= weekStart));
+			const weeklyTotal = sumTokens(
+				records.filter((record) => new Date(record.timestamp) >= weekStart)
+			);
 			if (weeklyTotal >= budget) {
-				console.warn(`Token budget exceeded: ${weeklyTotal.toLocaleString()} / ${budget.toLocaleString()} tokens this week.`);
+				console.warn(
+					`Token budget exceeded: ${weeklyTotal.toLocaleString()} / ${budget.toLocaleString()} tokens this week.`
+				);
 			} else if (weeklyTotal >= warnAt) {
 				console.warn(
 					`Token warning: ${weeklyTotal.toLocaleString()} / ${budget.toLocaleString()} project tokens used this week.`
@@ -813,7 +888,10 @@ function sumTokens(records) {
 
 function topTokenRuns(records, limit) {
 	return [...records]
-		.sort((left, right) => (Number(right.tokenCountForBudget) || 0) - (Number(left.tokenCountForBudget) || 0))
+		.sort(
+			(left, right) =>
+				(Number(right.tokenCountForBudget) || 0) - (Number(left.tokenCountForBudget) || 0)
+		)
 		.slice(0, limit);
 }
 
@@ -979,10 +1057,7 @@ function fail(message) {
 
 function formatError(error) {
 	if (!(error instanceof Error)) return String(error);
-	return [
-		error.stack || error.message,
-		error.cause ? `Cause: ${formatError(error.cause)}` : ''
-	]
+	return [error.stack || error.message, error.cause ? `Cause: ${formatError(error.cause)}` : '']
 		.filter(Boolean)
 		.join('\n');
 }

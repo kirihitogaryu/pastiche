@@ -24,6 +24,19 @@ export class RetryableMetError extends Error {
 	}
 }
 
+export function isRetryableMetError(error: unknown): error is RetryableMetError {
+	return (
+		error instanceof RetryableMetError ||
+		(typeof error === 'object' &&
+			error !== null &&
+			(error as { name?: unknown }).name === 'RetryableMetError' &&
+			typeof (error as { status?: unknown }).status === 'number' &&
+			typeof (error as { message?: unknown }).message === 'string' &&
+			((error as { retryAfterSeconds?: unknown }).retryAfterSeconds === null ||
+				typeof (error as { retryAfterSeconds?: unknown }).retryAfterSeconds === 'number'))
+	);
+}
+
 export function isRetryableMetStatus(status: number) {
 	return RETRYABLE_STATUSES.has(status);
 }

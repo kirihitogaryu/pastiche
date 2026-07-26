@@ -2,6 +2,8 @@ import { readFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { inflateSync } from 'node:zlib';
 
+const MAX_TEXT_CHUNK_BYTES = 8 * 1024 * 1024;
+
 export type EmbeddedImageMetadata = {
 	kind: 'png' | 'unknown';
 	pngText: Record<string, string>;
@@ -18,9 +20,7 @@ export async function extractEmbeddedImageMetadata(
 		return {
 			kind: 'unknown',
 			pngText: {},
-			warnings: [
-				error instanceof Error ? error.message : 'Could not read embedded image metadata.'
-			]
+			warnings: [error instanceof Error ? error.message : 'Could not read embedded image metadata.']
 		};
 	}
 }
@@ -35,9 +35,7 @@ export function extractEmbeddedImageMetadataSync(
 		return {
 			kind: 'unknown',
 			pngText: {},
-			warnings: [
-				error instanceof Error ? error.message : 'Could not read embedded image metadata.'
-			]
+			warnings: [error instanceof Error ? error.message : 'Could not read embedded image metadata.']
 		};
 	}
 }
@@ -88,6 +86,7 @@ function extractPngTextChunks(buffer: Buffer): Record<string, string> {
 }
 
 function parseTextChunk(type: string, data: Buffer): { keyword: string; value: string } | null {
+	if (data.byteLength > MAX_TEXT_CHUNK_BYTES) return null;
 	if (type === 'tEXt') {
 		const separator = data.indexOf(0);
 		if (separator <= 0) return null;
@@ -103,7 +102,9 @@ function parseTextChunk(type: string, data: Buffer): { keyword: string; value: s
 		try {
 			return {
 				keyword: data.subarray(0, separator).toString('latin1'),
-				value: inflateSync(data.subarray(separator + 2)).toString('latin1')
+				value: inflateSync(data.subarray(separator + 2), {
+					maxOutputLength: MAX_TEXT_CHUNK_BYTES
+				}).toString('latin1')
 			};
 		} catch {
 			return null;
@@ -137,7 +138,7 @@ function parseInternationalTextChunk(data: Buffer): { keyword: string; value: st
 		const encodedText = data.subarray(offset);
 		const value =
 			compressionFlag === 1 && compressionMethod === 0
-				? inflateSync(encodedText).toString('utf8')
+				? inflateSync(encodedText, { maxOutputLength: MAX_TEXT_CHUNK_BYTES }).toString('utf8')
 				: encodedText.toString('utf8');
 		return {
 			keyword: data.subarray(0, keywordEnd).toString('latin1'),

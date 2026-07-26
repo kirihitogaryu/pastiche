@@ -215,4 +215,3 @@ This set should be used for Explore, Library, Inspector, and later color/canvas 
 4. Save one Explore result into Library using the same asset contract.
 5. Build the extension capture path against that same contract.
 6. Only then begin canvas and color tools, since they depend on stable image records, dimensions, thumbnails, and asset ids.
-

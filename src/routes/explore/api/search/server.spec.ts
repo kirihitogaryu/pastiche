@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ExploreItem } from '$lib/explore/types';
 import { WikimediaTemporaryError } from '$lib/explore/wikimedia-request';
+import { RetryableMetError } from '$lib/explore/connectors/met-scheduler';
 
 const search = vi.fn();
 const searchArtic = vi.fn();
 const searchWikidata = vi.fn();
+const searchDanbooru = vi.fn();
+const searchDeviantArt = vi.fn();
 
 vi.mock('$lib/explore/connectors', () => ({
 	getExploreConnector: (source = 'met') =>
@@ -12,8 +15,17 @@ vi.mock('$lib/explore/connectors', () => ({
 			? { search: searchArtic }
 			: source === 'wikidata'
 				? { search: searchWikidata }
-				: { search },
-	isSourceId: (value: string) => value === 'met' || value === 'artic' || value === 'wikidata'
+				: source === 'danbooru'
+					? { search: searchDanbooru }
+					: source === 'deviantart'
+						? { search: searchDeviantArt }
+						: { search },
+	isSourceId: (value: string) =>
+		value === 'met' ||
+		value === 'artic' ||
+		value === 'wikidata' ||
+		value === 'danbooru' ||
+		value === 'deviantart'
 }));
 
 const sampleItem: ExploreItem = {
@@ -49,6 +61,8 @@ describe('POST /explore/api/search', () => {
 		search.mockReset();
 		searchArtic.mockReset();
 		searchWikidata.mockReset();
+		searchDanbooru.mockReset();
+		searchDeviantArt.mockReset();
 		vi.resetModules();
 	});
 
@@ -89,6 +103,66 @@ describe('POST /explore/api/search', () => {
 		expect(response.status).toBe(200);
 		expect(searchArtic).toHaveBeenCalledWith({ keyword: 'seurat', limit: 20 });
 		expect(search).not.toHaveBeenCalled();
+	});
+
+	it('accepts Danbooru artist, safety, and blacklist search fields', async () => {
+		searchDanbooru.mockResolvedValue({ items: [], total: null, nextCursor: null });
+		const { POST } = await import('./+server');
+		const query = {
+			artist: 'test artist',
+			contentSafety: 'blur',
+			blacklist: 'ai-generated rating:e',
+			limit: 40
+		};
+
+		const response = await POST({
+			request: new Request('http://localhost/explore/api/search', {
+				method: 'POST',
+				body: JSON.stringify({ source: 'danbooru', query })
+			})
+		});
+
+		expect(response.status).toBe(200);
+		expect(searchDanbooru).toHaveBeenCalledWith(query);
+	});
+
+	it('routes DeviantArt artist searches to the configured provider', async () => {
+		searchDeviantArt.mockResolvedValue({ items: [], total: null, nextCursor: null });
+		const { POST } = await import('./+server');
+		const query = { artist: 'loish', contentSafety: 'blur', limit: 24 };
+
+		const response = await POST({
+			request: new Request('http://localhost/explore/api/search', {
+				method: 'POST',
+				body: JSON.stringify({ source: 'deviantart', query })
+			})
+		});
+
+		expect(response.status).toBe(200);
+		expect(searchDeviantArt).toHaveBeenCalledWith(query);
+	});
+
+	it('accepts DeviantArt date bounds and loaded-result sort order', async () => {
+		searchDeviantArt.mockResolvedValue({ items: [], total: null, nextCursor: null });
+		const { POST } = await import('./+server');
+		const query = {
+			artist: 'loish',
+			dateFrom: '2010-01-01',
+			dateTo: '2016-01-01',
+			sort: 'popular',
+			contentSafety: 'blur',
+			limit: 24
+		};
+
+		const response = await POST({
+			request: new Request('http://localhost/explore/api/search', {
+				method: 'POST',
+				body: JSON.stringify({ source: 'deviantart', query })
+			})
+		});
+
+		expect(response.status).toBe(200);
+		expect(searchDeviantArt).toHaveBeenCalledWith(query);
 	});
 
 	it('accepts Wikidata subject search queries', async () => {
@@ -279,6 +353,30 @@ describe('POST /explore/api/search', () => {
 		await expect(response.json()).resolves.toEqual({
 			error: 'Wikidata is taking a breather. Try again in a moment.',
 			retryAfterSeconds: 12
+		});
+	});
+
+	it('returns retry-aware rate-limit responses for other Explore providers', async () => {
+		searchDanbooru.mockRejectedValue(
+			new RetryableMetError(429, 'Danbooru is rate-limiting searches. Try again in a moment.', 7)
+		);
+		const { POST } = await import('./+server');
+
+		const response = await POST({
+			request: new Request('http://localhost/explore/api/search', {
+				method: 'POST',
+				body: JSON.stringify({
+					source: 'danbooru',
+					query: { tag: 'dragon', contentSafety: 'blur', limit: 40 }
+				})
+			})
+		});
+
+		expect(response.status).toBe(429);
+		expect(response.headers.get('retry-after')).toBe('7');
+		await expect(response.json()).resolves.toEqual({
+			error: 'Danbooru is rate-limiting searches. Try again in a moment.',
+			retryAfterSeconds: 7
 		});
 	});
 

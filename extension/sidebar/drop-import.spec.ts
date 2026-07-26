@@ -49,9 +49,49 @@ describe('sidebar drop import helpers', () => {
 		expect(url).toBe('https://cdn.example.com/work.webp');
 	});
 
+	it('extracts Firefox native image URLs', () => {
+		const url = droppedImageUrlFromDataTransfer({
+			getData(type) {
+				if (type === 'text/x-moz-url') {
+					return 'https://cdn.example.com/original/work.jpg\nwork.jpg';
+				}
+				return '';
+			}
+		});
+
+		expect(url).toBe('https://cdn.example.com/original/work.jpg');
+	});
+
+	it('resolves relative HTML image sources against the dragged page', () => {
+		const url = droppedImageUrlFromDataTransfer(
+			{
+				getData(type) {
+					if (type === 'text/html') return '<img src="/media/work.jpg?x=1&amp;y=2">';
+					return '';
+				}
+			},
+			'https://example.com/gallery/post'
+		);
+
+		expect(url).toBe('https://example.com/media/work.jpg?x=1&y=2');
+	});
+
+	it('prefers the extension-owned drag URL when native formats are stripped', () => {
+		const url = droppedImageUrlFromDataTransfer({
+			getData(type) {
+				return type === 'application/x-pastiche-image-url'
+					? 'https://cdn.example.com/full-size.webp'
+					: '';
+			}
+		});
+
+		expect(url).toBe('https://cdn.example.com/full-size.webp');
+	});
+
 	it('builds captured payloads for dropped image files', () => {
 		const payload = buildDroppedFilePayload({
-			dataUrl: 'data:image/png;base64,aaaa',
+			captureUrl: 'pastiche-drop://sha256/abc123',
+			storedBlobKey: 'dropped-image:abc123',
 			fileName: 'novelai-dragon.png',
 			mimeType: 'image/png',
 			width: 1216,
@@ -62,8 +102,9 @@ describe('sidebar drop import helpers', () => {
 		});
 
 		expect(payload).toMatchObject({
-			url: 'data:image/png;base64,aaaa',
-			inlineData: 'data:image/png;base64,aaaa',
+			url: 'pastiche-drop://sha256/abc123',
+			inlineData: null,
+			storedBlobKey: 'dropped-image:abc123',
 			naturalWidth: 1216,
 			naturalHeight: 832,
 			mimeType: 'image/png',

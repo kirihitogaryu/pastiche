@@ -9,7 +9,8 @@ describe('Atlas edit sessions', () => {
 			concepts: [{ slug: 'dragon', evidence: 'observed' }]
 		});
 		const merged = mergeAtlasEditPatches(third, {
-			annotations: [{ label: 'python_as_dragon', concepts: ['wing'] }]
+			annotations: [{ label: 'python_as_dragon', concepts: ['wing'] }],
+			tagSuggestions: [{ id: 'metadata-horse', action: 'accept', expression: 'horse' }]
 		});
 
 		expect(merged.identity).toEqual({
@@ -18,6 +19,9 @@ describe('Atlas edit sessions', () => {
 		});
 		expect(merged.concepts).toEqual([{ slug: 'dragon', evidence: 'observed' }]);
 		expect(merged.annotations).toEqual([{ label: 'python_as_dragon', concepts: ['wing'] }]);
+		expect(merged.tagSuggestions).toEqual([
+			{ id: 'metadata-horse', action: 'accept', expression: 'horse' }
+		]);
 	});
 
 	it('counts staged identity fields and list operations', () => {
@@ -27,8 +31,9 @@ describe('Atlas edit sessions', () => {
 				concepts: [{ slug: 'dragon' }, { slug: 'wing', action: 'remove' }],
 				entities: [{ kind: 'artist', label: 'Hendrick Goltzius' }],
 				claims: [{ kind: 'medium', value: 'Engraving' }],
-				annotations: [{ label: 'python_as_dragon', concepts: ['dragon'] }]
+				annotations: [{ label: 'python_as_dragon', concepts: ['dragon'] }],
+				tagSuggestions: [{ id: 'metadata-horse', action: 'reject' }]
 			})
-		).toBe(7);
+		).toBe(8);
 	});
 });

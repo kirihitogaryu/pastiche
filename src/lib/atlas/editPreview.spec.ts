@@ -77,7 +77,10 @@ describe('previewAtlasEditSession', () => {
 
 	it('previews staged concept additions and removals', () => {
 		const preview = previewAtlasEditSession(asset, atlas, {
-			concepts: [{ slug: 'dragon', action: 'remove' }, { slug: 'wing', evidence: 'observed' }]
+			concepts: [
+				{ slug: 'dragon', action: 'remove' },
+				{ slug: 'wing', evidence: 'observed' }
+			]
 		});
 
 		expect(preview.atlas?.approvedConcepts.map((concept) => concept.slug)).toEqual(['wing']);

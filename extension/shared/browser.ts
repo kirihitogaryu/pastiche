@@ -42,6 +42,7 @@ type RuntimeApi = {
 type StorageArea = {
 	get(keys?: string[] | Record<string, unknown> | string | null): Promise<Record<string, unknown>>;
 	set(items: Record<string, unknown>): Promise<void>;
+	remove(keys: string | string[]): Promise<void>;
 };
 
 type StorageChange = {
@@ -51,6 +52,7 @@ type StorageChange = {
 
 type StorageApi = {
 	local: StorageArea;
+	session?: StorageArea;
 	onChanged?: {
 		addListener(listener: (changes: Record<string, StorageChange>, areaName: string) => void): void;
 		removeListener(
@@ -71,6 +73,7 @@ export type TabInfo = {
 	windowId?: number;
 	url?: string;
 	title?: string;
+	active?: boolean;
 };
 
 type TabsApi = {
@@ -104,6 +107,12 @@ type CommandsApi = {
 	};
 };
 
+type ActionApi = {
+	onClicked: {
+		addListener(listener: (tab: TabInfo) => void): void;
+	};
+};
+
 export type ContextMenuInfo = {
 	menuItemId: string | number;
 	srcUrl?: string;
@@ -129,15 +138,9 @@ type ExtensionApi = {
 	storage: StorageApi;
 	tabs: TabsApi;
 	commands: CommandsApi;
+	action?: ActionApi;
 	contextMenus?: ContextMenusApi;
 	scripting?: ScriptingApi;
-	sidePanel?: {
-		setPanelBehavior(options: { openPanelOnActionClick: boolean }): Promise<void>;
-		open?(options?: { windowId?: number }): Promise<void>;
-	};
-	sidebarAction?: {
-		open(): Promise<void>;
-	};
 };
 
 // ---------------------------------------------------------------------------

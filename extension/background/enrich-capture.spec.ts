@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CapturedItemPayload } from '../shared/types';
 import type { ImageCandidate } from '../shared/candidates';
-import { enrichCapturedItem, wireImportItemForEnrichedItem } from './enrich-capture';
+import {
+	enrichCapturedItem,
+	wireImportItemForEnrichedItem,
+	wireImportItemForEnrichedItemAsync
+} from './enrich-capture';
 
 function candidate(partial: Partial<ImageCandidate>): ImageCandidate {
 	return {
@@ -26,6 +30,45 @@ function candidate(partial: Partial<ImageCandidate>): ImageCandidate {
 }
 
 describe('capture enrichment', () => {
+	it('does not replace an authoritative Instagram original with a later page candidate', async () => {
+		const original = candidate({
+			id: 'instagram-original',
+			url: 'https://www.instagram.com/p/abc/media?size=l',
+			kind: 'meta',
+			score: 500,
+			confidence: 'high',
+			scoreReasons: ['Instagram large media endpoint']
+		});
+		const resolveCanonicalImage = vi.fn();
+
+		const item = await enrichCapturedItem(
+			{
+				url: original.url,
+				detailUrl: 'https://www.instagram.com/p/abc/',
+				naturalWidth: 0,
+				naturalHeight: 0,
+				mimeType: null,
+				inlineData: null,
+				altText: null,
+				sourceUrl: 'https://www.instagram.com/p/abc/',
+				pageTitle: 'Instagram post',
+				capturedAt: '2026-07-22T00:00:00.000Z',
+				selectedCandidateId: original.id,
+				candidates: [original]
+			} as CapturedItemPayload,
+			{
+				resolveCanonicalImage,
+				policyForSource: () => ({ mode: 'download', reason: 'Original stored locally' }),
+				computeSourceHash: async () => 'instagram-hash',
+				checkDuplicate: async () => false
+			}
+		);
+
+		expect(item.url).toBe(original.url);
+		expect(item.selectedCandidateId).toBe(original.id);
+		expect(resolveCanonicalImage).not.toHaveBeenCalled();
+	});
+
 	it('uses the selected candidate as the import URL and preserves alternates', async () => {
 		expect.assertions(9);
 		const thumbnail = candidate({
@@ -75,6 +118,13 @@ describe('capture enrichment', () => {
 					date: '2026',
 					tags: ['illustration'],
 					acceptedConceptSlugs: ['dragon', 'Black Hair'],
+					acceptedAnnotations: [
+						{
+							label: ' scales ',
+							concepts: [' scales '],
+							classifiers: { 'Scale Color': 'Green' }
+						}
+					],
 					suggestedTags: ['green'],
 					sourceTags: [
 						{
@@ -93,7 +143,11 @@ describe('capture enrichment', () => {
 				}
 			} as CapturedItemPayload,
 			{
-				resolveCanonicalImage: vi.fn(),
+				resolveCanonicalImage: vi.fn(async () => ({
+					url: original.url,
+					detailUrl: 'https://example.com/post/1',
+					candidates: [thumbnail.url, original.url]
+				})),
 				policyForSource: () => ({ mode: 'url_reference', reason: 'Remote URL' }),
 				computeSourceHash,
 				checkDuplicate: async () => false
@@ -120,7 +174,14 @@ describe('capture enrichment', () => {
 				artistUsername: 'exampleartist',
 				dateDisplay: '2026',
 				tags: ['illustration'],
-				acceptedConceptSlugs: ['dragon', 'black_hair']
+				acceptedConceptSlugs: ['dragon', 'black_hair'],
+				acceptedAnnotations: [
+					{
+						label: 'scales',
+						concepts: ['scales'],
+						classifiers: { scale_color: 'green' }
+					}
+				]
 			}
 		});
 		expect(wireImportItemForEnrichedItem(item).metadata?.rawMetadata).toMatchObject({
@@ -175,5 +236,48 @@ describe('capture enrichment', () => {
 		expect(wireItem.image_data).toBe('abc123');
 		expect(wireItem.source_image_url).toBeNull();
 		expect(wireItem.source_url).toBe('https://example.com/post/1');
+	});
+
+	it('keeps blob-backed imports valid when stored image data is missing', async () => {
+		expect.assertions(3);
+		const item = await enrichCapturedItem(
+			{
+				url: 'https://cdn.example.com/original/work.jpg',
+				detailUrl: 'https://example.com/post/1',
+				naturalWidth: 1200,
+				naturalHeight: 900,
+				mimeType: 'image/jpeg',
+				inlineData: null,
+				altText: null,
+				sourceUrl: 'https://example.com/post/1',
+				pageTitle: 'Page Title',
+				capturedAt: '2026-06-30T12:00:00.000Z'
+			} as CapturedItemPayload,
+			{
+				resolveCanonicalImage: vi.fn(async () => ({
+					url: 'https://cdn.example.com/original/work.jpg',
+					detailUrl: 'https://example.com/post/1',
+					candidates: ['https://cdn.example.com/original/work.jpg']
+				})),
+				policyForSource: () => ({ mode: 'download', reason: 'Ephemeral' }),
+				computeSourceHash: vi.fn(async () => 'hash-for-download'),
+				checkDuplicate: async () => false
+			}
+		);
+		const wireItem = await wireImportItemForEnrichedItemAsync(
+			{
+				...item,
+				fetchStatus: {
+					state: 'done',
+					blobKey: 'image-data:item-1',
+					mimeType: 'image/jpeg'
+				}
+			},
+			async () => null
+		);
+
+		expect(wireItem).toHaveProperty('image_data', null);
+		expect(wireItem.storage_mode).toBe('download');
+		expect(JSON.stringify({ items: [wireItem] })).toContain('"image_data":null');
 	});
 });

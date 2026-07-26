@@ -1,14 +1,14 @@
 import { json } from '@sveltejs/kit';
-import {
-	attachTagToAsset,
-	createTag,
-	detachTagFromAsset
-} from '$lib/server/library/organization';
-import { getLibrarySnapshot } from '$lib/server/library/read';
+import { attachTagToAsset, createTag, detachTagFromAsset } from '$lib/server/library/organization';
+import { requireTrustedLocalAccess } from '../../../../localAccess';
 
 export async function POST({ params, request }: { params: { id: string }; request: Request }) {
+	const access = requireTrustedLocalAccess(request);
+	if (!access.ok) return access.response;
+
 	const body = await readJson(request);
-	if (!isRecord(body)) return json({ error: 'Tag is required' }, { status: 400 });
+	if (!isRecord(body))
+		return json({ error: 'Tag is required' }, { status: 400, headers: access.headers });
 	try {
 		const tag =
 			typeof body.tag_id === 'string'
@@ -19,22 +19,25 @@ export async function POST({ params, request }: { params: { id: string }; reques
 						value: typeof body.value === 'string' ? body.value : null
 					});
 		attachTagToAsset(params.id, tag.id);
-		return json({ tag, snapshot: getLibrarySnapshot() });
+		return json({ tag }, { headers: access.headers });
 	} catch (error) {
-		return json({ error: errorMessage(error) }, { status: 400 });
+		return json({ error: errorMessage(error) }, { status: 400, headers: access.headers });
 	}
 }
 
 export async function DELETE({ params, request }: { params: { id: string }; request: Request }) {
+	const access = requireTrustedLocalAccess(request);
+	if (!access.ok) return access.response;
+
 	const body = await readJson(request);
 	if (!isRecord(body) || typeof body.tag_id !== 'string') {
-		return json({ error: 'tag_id is required' }, { status: 400 });
+		return json({ error: 'tag_id is required' }, { status: 400, headers: access.headers });
 	}
 	try {
 		detachTagFromAsset(params.id, body.tag_id);
-		return json({ snapshot: getLibrarySnapshot() });
+		return new Response(null, { status: 204, headers: access.headers });
 	} catch (error) {
-		return json({ error: errorMessage(error) }, { status: 400 });
+		return json({ error: errorMessage(error) }, { status: 400, headers: access.headers });
 	}
 }
 

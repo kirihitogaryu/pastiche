@@ -7,26 +7,32 @@
 
 	type Props = {
 		item: EnrichedItem | null;
+		imageDataUrl: string | null;
 		onselectcandidate: (itemId: string, candidateId: string) => void;
 		onselectinstagramlarge: (itemId: string) => void;
 		onmetadatachange: (itemId: string, patch: Partial<CaptureMetadata>) => void;
 		onsourcechange: (itemId: string, patch: Partial<CaptureSource>) => void;
+		onbookmark: (itemId: string) => void;
+		onimportoriginal: (itemId: string) => void;
+		onaddmetadata: (itemId: string) => void;
 	};
 
 	let {
 		item,
+		imageDataUrl,
 		onselectcandidate,
 		onselectinstagramlarge,
 		onmetadatachange,
-		onsourcechange
+		onsourcechange,
+		onbookmark,
+		onimportoriginal,
+		onaddmetadata
 	}: Props = $props();
 	let alternatesOpen = $state(false);
 
 	const thumbSrc = $derived(() => {
 		if (!item) return null;
-		if (item.fetchStatus.state === 'done') {
-			return `data:${item.fetchStatus.mimeType};base64,${item.fetchStatus.base64}`;
-		}
+		if (imageDataUrl) return imageDataUrl;
 		if (item.storageMode !== 'download') return item.previewUrl ?? item.url;
 		return item.previewUrl ?? null;
 	});
@@ -40,11 +46,16 @@
 	const instagramLargeUrl = $derived(() =>
 		item
 			? instagramLargeMediaUrl(
-					item.source.detailUrl ?? item.source.canonicalPageUrl ?? item.source.pageUrl ?? item.sourceUrl
+					item.source.detailUrl ??
+						item.source.canonicalPageUrl ??
+						item.source.pageUrl ??
+						item.sourceUrl
 				)
 			: null
 	);
-	const usingInstagramLarge = $derived(Boolean(instagramLargeUrl() && item?.url === instagramLargeUrl()));
+	const usingInstagramLarge = $derived(
+		Boolean(instagramLargeUrl() && item?.url === instagramLargeUrl())
+	);
 </script>
 
 {#if item}
@@ -83,7 +94,67 @@
 			{/if}
 		</div>
 
+		{#if item.fetchStatus.state === 'error'}
+			<div class="fetch-failure" role="alert">
+				<div>
+					<strong>Original not stored</strong>
+					<span>{item.fetchStatus.error}</span>
+				</div>
+				<div class="failure-actions">
+					<button type="button" onclick={() => onimportoriginal(item.id)}>Retry original</button>
+					<button type="button" onclick={() => onbookmark(item.id)}>Bookmark instead</button>
+				</div>
+			</div>
+		{/if}
+
+		<div class="item-actions" aria-label="Capture options">
+			<button
+				type="button"
+				class:active={item.storageMode === 'download'}
+				disabled={item.fetchStatus.state === 'fetching'}
+				onclick={() => onimportoriginal(item.id)}
+			>
+				{item.fetchStatus.state === 'fetching' ? 'Saving original…' : 'Save original'}
+			</button>
+			<button
+				type="button"
+				class:active={item.storageMode === 'lazy_download'}
+				onclick={() => onbookmark(item.id)}
+			>
+				Bookmark
+			</button>
+		</div>
+
+		<div class="metadata-action">
+			<div>
+				<strong>Metadata</strong>
+				{#if item.enrichment.state === 'loading'}
+					<span>Reading the live page…</span>
+				{:else if item.enrichment.state === 'success' || item.enrichment.state === 'partial'}
+					<span>{item.enrichment.summary}</span>
+				{:else if item.enrichment.state === 'error'}
+					<span class="metadata-error">{item.enrichment.error}</span>
+				{:else}
+					<span>Optional creator, date, source tags, and post details.</span>
+				{/if}
+			</div>
+			<button
+				type="button"
+				disabled={item.enrichment.state === 'loading'}
+				onclick={() => onaddmetadata(item.id)}
+			>
+				{item.enrichment.state === 'loading'
+					? 'Reading…'
+					: item.enrichment.state === 'success' || item.enrichment.state === 'partial'
+						? 'Refresh metadata'
+						: item.enrichment.state === 'error'
+							? 'Retry'
+							: 'Add metadata'}
+			</button>
+		</div>
+
 		<MetadataEditor
+			itemId={item.id}
 			metadata={item.metadata}
 			source={item.source}
 			onmetadatachange={(patch) => onmetadatachange(item.id, patch)}
@@ -205,5 +276,126 @@
 	.ig-large:disabled {
 		color: var(--ext-dim);
 		cursor: default;
+	}
+
+	.fetch-failure {
+		display: grid;
+		gap: 8px;
+		border: 1px solid color-mix(in oklch, var(--ext-danger) 42%, var(--ext-border));
+		border-radius: var(--ext-radius-md);
+		background: color-mix(in oklch, var(--ext-danger) 9%, var(--ext-panel));
+		padding: 9px;
+	}
+
+	.fetch-failure strong,
+	.fetch-failure span {
+		display: block;
+	}
+
+	.fetch-failure strong {
+		color: var(--ext-text);
+		font-size: 11px;
+	}
+
+	.fetch-failure span {
+		margin-top: 2px;
+		color: var(--ext-muted);
+		font-size: 10px;
+		line-height: 1.35;
+		overflow-wrap: anywhere;
+	}
+
+	.failure-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+
+	.failure-actions button {
+		min-height: 30px;
+		border: 1px solid var(--ext-border);
+		border-radius: var(--ext-radius-sm);
+		background: var(--ext-control);
+		color: var(--ext-text);
+		font: inherit;
+		font-size: 10px;
+		padding: 0 8px;
+		cursor: pointer;
+	}
+
+	.failure-actions button:hover {
+		border-color: var(--ext-border-strong);
+		background: var(--ext-control-hover);
+	}
+
+	.item-actions {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 6px;
+	}
+
+	.item-actions button,
+	.metadata-action > button {
+		min-height: 36px;
+		border: 1px solid var(--ext-border);
+		border-radius: var(--ext-radius-sm);
+		background: var(--ext-control);
+		color: var(--ext-text);
+		font: inherit;
+		font-size: 11px;
+		padding: 0 9px;
+		cursor: pointer;
+	}
+
+	.item-actions button.active {
+		border-color: var(--ext-accent);
+		background: var(--ext-accent-soft);
+		color: var(--ext-accent-strong);
+	}
+
+	.item-actions button:hover:not(:disabled),
+	.metadata-action > button:hover:not(:disabled) {
+		border-color: var(--ext-border-strong);
+		background: var(--ext-control-hover);
+	}
+
+	.item-actions button:focus-visible,
+	.metadata-action > button:focus-visible {
+		outline: 2px solid var(--ext-accent);
+		outline-offset: 1px;
+	}
+
+	.item-actions button:disabled,
+	.metadata-action > button:disabled {
+		color: var(--ext-dim);
+		cursor: default;
+	}
+
+	.metadata-action {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: center;
+		gap: 10px;
+		padding-block: 8px;
+		border-block: 1px solid var(--ext-border-soft);
+	}
+
+	.metadata-action div {
+		min-width: 0;
+		display: grid;
+		gap: 2px;
+	}
+
+	.metadata-action strong {
+		font-size: 11px;
+	}
+
+	.metadata-action span {
+		white-space: normal;
+		line-height: 1.35;
+	}
+
+	.metadata-action .metadata-error {
+		color: var(--ext-danger);
 	}
 </style>

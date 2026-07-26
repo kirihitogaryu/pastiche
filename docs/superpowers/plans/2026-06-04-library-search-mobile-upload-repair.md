@@ -22,19 +22,19 @@
 
 ### Design Health Score
 
-| # | Heuristic | Score | Key Issue |
-|---|-----------|-------|-----------|
-| 1 | Visibility of System Status | 1 | Library search accepts input but shows no state, no count, no results, and no empty message. |
-| 2 | Match System / Real World | 2 | Upload actions promise gallery/folder/clipboard imports but are static buttons. |
-| 3 | User Control and Freedom | 2 | Mobile tags expand into a long list with weak escape/summary controls. |
-| 4 | Consistency and Standards | 2 | Library hub search, top-bar search, folder-view search, and Add sheet use different control vocabularies. |
-| 5 | Error Prevention | 1 | Upload has no validation, import progress, duplicate feedback, or failure state in the UI. |
-| 6 | Recognition Rather Than Recall | 2 | Tags expose empty groups instead of useful summaries; users must inspect too many rows. |
-| 7 | Flexibility and Efficiency | 1 | Search does not support direct navigation or filtered browsing, so it cannot speed movement through the archive. |
-| 8 | Aesthetic and Minimalist Design | 1 | Mobile creates giant full-width buttons and expands low-value sections, consuming the task surface. |
-| 9 | Error Recovery | 1 | Upload/import failures are not surfaced because no import path is wired. |
-| 10 | Help and Documentation | 2 | Some labels are clear, but non-working controls mislead users. |
-| **Total** | | **16/40** | **Needs immediate UX repair before further visual polish.** |
+| #         | Heuristic                       | Score     | Key Issue                                                                                                        |
+| --------- | ------------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------- |
+| 1         | Visibility of System Status     | 1         | Library search accepts input but shows no state, no count, no results, and no empty message.                     |
+| 2         | Match System / Real World       | 2         | Upload actions promise gallery/folder/clipboard imports but are static buttons.                                  |
+| 3         | User Control and Freedom        | 2         | Mobile tags expand into a long list with weak escape/summary controls.                                           |
+| 4         | Consistency and Standards       | 2         | Library hub search, top-bar search, folder-view search, and Add sheet use different control vocabularies.        |
+| 5         | Error Prevention                | 1         | Upload has no validation, import progress, duplicate feedback, or failure state in the UI.                       |
+| 6         | Recognition Rather Than Recall  | 2         | Tags expose empty groups instead of useful summaries; users must inspect too many rows.                          |
+| 7         | Flexibility and Efficiency      | 1         | Search does not support direct navigation or filtered browsing, so it cannot speed movement through the archive. |
+| 8         | Aesthetic and Minimalist Design | 1         | Mobile creates giant full-width buttons and expands low-value sections, consuming the task surface.              |
+| 9         | Error Recovery                  | 1         | Upload/import failures are not surfaced because no import path is wired.                                         |
+| 10        | Help and Documentation          | 2         | Some labels are clear, but non-working controls mislead users.                                                   |
+| **Total** |                                 | **16/40** | **Needs immediate UX repair before further visual polish.**                                                      |
 
 ### Anti-Patterns Verdict
 
@@ -99,6 +99,7 @@ This does not look like generic AI-gradient slop; it fails in a more product-spe
 ## Task 1: Real Library Search View Model
 
 **Files:**
+
 - Modify: `src/lib/components/library/libraryOverviewModel.ts`
 - Modify: `src/lib/components/library/libraryOverviewModel.spec.ts`
 
@@ -257,8 +258,9 @@ export function searchLibrary(input: {
 	const tags = input.library.tagFacets
 		.flatMap((group) => group.tags)
 		.filter((tag) =>
-			[tag.value, tag.name, tag.facetName]
-				.some((value) => value.toLocaleLowerCase().includes(normalized))
+			[tag.value, tag.name, tag.facetName].some((value) =>
+				value.toLocaleLowerCase().includes(normalized)
+			)
 		);
 	const assets = filterAssetsByLibraryQuery(input.library.assets, normalized);
 	return {
@@ -300,6 +302,7 @@ git commit -m "Add library search view model"
 ## Task 2: Search UI That Shows Results
 
 **Files:**
+
 - Modify: `src/lib/components/library/LibrarySearch.svelte`
 - Modify: `src/lib/components/library/LibraryOverview.svelte`
 - Modify: `src/lib/components/library/FolderContents.svelte`
@@ -360,7 +363,7 @@ Render result rows when `appState.query.trim().length >= 2`:
 				</button>
 			{/each}
 			{#each results.assets as asset (asset.id)}
-				<button type="button" onclick={() => appState.selectedAssetId = asset.id}>
+				<button type="button" onclick={() => (appState.selectedAssetId = asset.id)}>
 					<span>Image</span>
 					<strong>{asset.title}</strong>
 					<small>{asset.creator || asset.sourceName}</small>
@@ -436,6 +439,7 @@ git commit -m "Wire library search results"
 ## Task 3: Mobile Hub Density Repair
 
 **Files:**
+
 - Modify: `src/lib/components/library/LibraryOverview.svelte`
 - Modify: `src/lib/components/library/ProjectCardGrid.svelte`
 
@@ -525,6 +529,7 @@ git commit -m "Compact mobile library hub actions"
 ## Task 4: Progressive Tag Groups For Mobile
 
 **Files:**
+
 - Modify: `src/lib/components/library/TagGroupList.svelte`
 - Modify: `src/lib/components/library/LibraryOverview.svelte`
 - Modify: `src/lib/components/library/libraryOverviewModel.ts`
@@ -535,8 +540,13 @@ git commit -m "Compact mobile library hub actions"
 In `libraryOverviewModel.ts`, add:
 
 ```ts
-export function visibleTagGroups(groups: LibraryTagFacet[], includeEmpty = false): LibraryTagFacet[] {
-	return groups.filter((group) => includeEmpty || group.tags.length > 0 || group.slug === 'general');
+export function visibleTagGroups(
+	groups: LibraryTagFacet[],
+	includeEmpty = false
+): LibraryTagFacet[] {
+	return groups.filter(
+		(group) => includeEmpty || group.tags.length > 0 || group.slug === 'general'
+	);
 }
 ```
 
@@ -636,6 +646,7 @@ git commit -m "Collapse mobile tag groups"
 ## Task 5: Folder View Search And Action Toolbar Cleanup
 
 **Files:**
+
 - Modify: `src/lib/components/library/FolderContents.svelte`
 - Modify: `src/lib/components/library/LibrarySearch.svelte`
 
@@ -738,6 +749,7 @@ git commit -m "Tighten folder view search actions"
 ## Task 6: Working Add To Library Imports
 
 **Files:**
+
 - Add: `src/lib/components/ui/addToLibraryImport.ts`
 - Add: `src/lib/components/ui/addToLibraryImport.spec.ts`
 - Modify: `src/lib/components/ui/AddToLibrarySheet.svelte`
@@ -907,8 +919,9 @@ Pass `library={libraryState.snapshot}` or `currentFolderId` from `AppShell.svelt
 ```ts
 const currentFolderId =
 	appState.libraryView === 'folder'
-		? library.folders.find((folder) => folder.path.join('/') === appState.activeLibraryFolderPath.join('/'))
-				?.id ?? null
+		? (library.folders.find(
+				(folder) => folder.path.join('/') === appState.activeLibraryFolderPath.join('/')
+			)?.id ?? null)
 		: null;
 ```
 
@@ -958,6 +971,7 @@ git commit -m "Wire add to library imports"
 ## Task 7: Final Verification And Visual Critique Loop
 
 **Files:**
+
 - No planned source changes unless verification fails.
 
 - [ ] **Step 1: Run full static and unit verification**

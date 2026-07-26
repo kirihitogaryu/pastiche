@@ -7,10 +7,9 @@
 		activeId?: string | null;
 		selectedIds?: string[];
 		mode?: 'library' | 'explore';
-		projectCoverId?: string | null;
+		editMode?: boolean;
 		onOpen: (asset: Asset) => void;
 		onSelect: (asset: Asset) => void;
-		onSetProjectCover?: (asset: Asset) => void;
 	};
 
 	let {
@@ -18,10 +17,9 @@
 		activeId = null,
 		selectedIds = [],
 		mode = 'library',
-		projectCoverId = null,
+		editMode = false,
 		onOpen,
-		onSelect,
-		onSetProjectCover
+		onSelect
 	}: Props = $props();
 </script>
 
@@ -30,12 +28,11 @@
 		<AssetCard
 			{asset}
 			{mode}
+			{editMode}
 			active={mode !== 'library' && asset.id === activeId}
 			selected={selectedIds.includes(asset.id)}
-			projectCover={asset.id === projectCoverId}
 			{onOpen}
 			{onSelect}
-			{onSetProjectCover}
 		/>
 	{/each}
 </section>
@@ -43,32 +40,24 @@
 <style>
 	.asset-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-		grid-auto-flow: dense;
-		gap: var(--space-4);
-		padding: var(--space-5);
+		grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+		align-items: start;
+		gap: var(--space-3);
+		padding: var(--space-4);
 		padding-bottom: var(--space-8);
-	}
-
-	.asset-grid :global(.asset-card:nth-child(5n + 1)) {
-		grid-row: span 2;
-	}
-
-	.asset-grid :global(.asset-card:nth-child(7n + 3)) {
-		grid-column: span 2;
 	}
 
 	@media (min-width: 1180px) {
 		.asset-grid {
-			grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-			gap: var(--space-5);
+			grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+			gap: var(--space-3);
 		}
 	}
 
 	@media (max-width: 759px) {
 		.asset-grid {
 			display: block;
-			columns: 9.25rem;
+			columns: 9rem;
 			column-gap: 0.45rem;
 			padding: var(--space-2);
 			padding-bottom: calc(var(--bottom-nav-height) + var(--space-3));

@@ -41,7 +41,9 @@
 		})
 			.then(async (response) => {
 				const body = (await response.json()) as { concepts?: ConceptSuggestion[] };
-				suggestions = (body.concepts ?? []).filter((suggestion) => !values.includes(suggestion.slug));
+				suggestions = (body.concepts ?? []).filter(
+					(suggestion) => !values.includes(suggestion.slug)
+				);
 			})
 			.catch(() => {
 				if (!controller.signal.aborted) suggestions = [];

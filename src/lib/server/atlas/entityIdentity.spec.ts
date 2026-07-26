@@ -40,6 +40,16 @@ describe('artist entity identity resolution', () => {
 		expect(normalizeArtistAlias('@Example Artist')).toBe('example_artist');
 	});
 
+	it('normalizes a Danbooru artist tag gallery as an artist profile', () => {
+		expect(
+			normalizeArtistProfileUrl('https://danbooru.donmai.us/posts?tags=test_artist')
+		).toEqual({
+			normalizedUrl: 'https://danbooru.donmai.us/posts?tags=test_artist',
+			host: 'danbooru.donmai.us',
+			username: 'test_artist'
+		});
+	});
+
 	it('resolves existing artists by host and username before display name', () => {
 		expect.assertions(4);
 		const db = openLibraryDatabase();
@@ -72,7 +82,9 @@ describe('artist entity identity resolution', () => {
 					normalized_url: 'https://deviantart.com/exampleartist'
 				}
 			]);
-			expect(db.prepare('select count(*) as count from atlas_entities').get()).toEqual({ count: 1 });
+			expect(db.prepare('select count(*) as count from atlas_entities').get()).toEqual({
+				count: 1
+			});
 		} finally {
 			db.close();
 		}

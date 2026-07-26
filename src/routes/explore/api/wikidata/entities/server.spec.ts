@@ -53,7 +53,9 @@ describe('GET /explore/api/wikidata/entities', () => {
 		const { GET } = await import('./+server');
 
 		const response = await GET({
-			url: new URL('http://localhost/explore/api/wikidata/entities?search=pythonidae&mode=depicts&context=reference')
+			url: new URL(
+				'http://localhost/explore/api/wikidata/entities?search=pythonidae&mode=depicts&context=reference'
+			)
 		});
 
 		expect(response.status).toBe(200);

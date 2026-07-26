@@ -18,12 +18,13 @@
 	let artistStyleInput = $state('');
 	let acceptedSlugSet = $derived(new Set(acceptedConceptSlugs));
 	let suggestedPromptTags = $derived(aiPromptTagSuggestions(generation, acceptedSlugSet));
-	let suggestedArtistStyles = $derived(artistStyleReferenceSuggestions(generation, acceptedSlugSet));
+	let suggestedArtistStyles = $derived(
+		artistStyleReferenceSuggestions(generation, acceptedSlugSet)
+	);
 	let promptTags = $derived(
 		(generation?.promptTokens ?? []).filter(
 			(token) =>
-				token.role === 'tag' &&
-				(token.scope === 'positive' || token.scope === 'character_positive')
+				token.role === 'tag' && (token.scope === 'positive' || token.scope === 'character_positive')
 		)
 	);
 	let styleReferences = $derived(

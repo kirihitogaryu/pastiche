@@ -79,13 +79,13 @@ Keep these rules intact while adding the seed corpus:
 
 ## Seed Corpus Roles
 
-| Seed | Source | Main Schema Pressure |
-| --- | --- | --- |
-| Digital dragon | Danbooru post 7806601 and local original by `nablange` | Modern artist handling, digital art claims, dragon anatomy classifiers, generic `dragon` vs specialist types, Danbooru artist/tag page adaptation |
-| Susano-o no Mikoto killing the eight-headed dragon | Art Institute of Chicago record 19386 and local JPG | Named mythological artwork, named deity, named/atypical dragon entity, Japanese myth lane, woodblock/print style, source-backed metadata |
-| Pokemon / Mega Dragonite | Danbooru post 9692781 and local `deepsea9013` file | Franchise/entity hierarchy, species vs character vs form, fan art, IP style vs visible artwork style, dragon-like Pokemon boundaries |
-| Human character design | Danbooru post 9692240 and local Ace Attorney file | Named human characters, franchise/IP grouping, clothing/attribute classifiers, visible design traits vs source identity |
-| Anthro / furry subject | Danbooru post 9692641 and local original by `egretfoooox` | Anthro qualifier, species vs anthropomorphic subject, furry retrieval boundaries, preventing animal searches from flooding with anthro results |
+| Seed                                               | Source                                                    | Main Schema Pressure                                                                                                                              |
+| -------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Digital dragon                                     | Danbooru post 7806601 and local original by `nablange`    | Modern artist handling, digital art claims, dragon anatomy classifiers, generic `dragon` vs specialist types, Danbooru artist/tag page adaptation |
+| Susano-o no Mikoto killing the eight-headed dragon | Art Institute of Chicago record 19386 and local JPG       | Named mythological artwork, named deity, named/atypical dragon entity, Japanese myth lane, woodblock/print style, source-backed metadata          |
+| Pokemon / Mega Dragonite                           | Danbooru post 9692781 and local `deepsea9013` file        | Franchise/entity hierarchy, species vs character vs form, fan art, IP style vs visible artwork style, dragon-like Pokemon boundaries              |
+| Human character design                             | Danbooru post 9692240 and local Ace Attorney file         | Named human characters, franchise/IP grouping, clothing/attribute classifiers, visible design traits vs source identity                           |
+| Anthro / furry subject                             | Danbooru post 9692641 and local original by `egretfoooox` | Anthro qualifier, species vs anthropomorphic subject, furry retrieval boundaries, preventing animal searches from flooding with anthro results    |
 
 ## Relation Vocabulary Draft
 
@@ -189,13 +189,13 @@ This corpus exists to make Atlas ontology decisions concrete. It deliberately mi
 
 ## Seed Assets
 
-| Key | Local file | Source URL | Ontology pressure |
-| --- | --- | --- | --- |
-| digital_dragon | `/home/kristoph/Downloads/imports/__original_drawn_by_nablange__157711c92221e96db5c444d791fd9698.jpg` | `https://danbooru.donmai.us/posts/7806601?q=ordfav%3AMillions_Knives` | Digital art, modern artist, generic dragon anatomy, Danbooru-style artist/tag metadata |
-| susanoo_orochi | `/home/kristoph/Downloads/imports/Susano-o_no_Mikoto_Killing_the_Eight-headed_Dragon.jpg` | `https://www.artic.edu/artworks/19386/susano-o-no-mikoto-killing-the-eight-headed-dragon` | Notable work, named deity, named dragon entity, Japanese mythology, color woodblock print |
-| mega_dragonite | `/home/kristoph/Downloads/imports/__dragonite_and_mega_dragonite_pokemon_drawn_by_deepsea9013__8c357f352c18d0a6549289b04f8d222a.jpg` | `https://danbooru.donmai.us/posts/9692781?q=user%3AMillions_Knives` | Pokemon franchise hierarchy, species/form distinction, IP style vs visible style |
-| ace_attorney_humans | `/home/kristoph/Downloads/imports/__klavier_gavin_and_kristoph_gavin_ace_attorney_and_1_more_drawn_by_lanfengzheyu__8db104fd15ee82f3b88efdccbe0c5463.png` | `https://danbooru.donmai.us/posts/9692240?q=user%3AMillions_Knives` | Human character entities, franchise grouping, clothing and design attributes |
-| anthro_subject | `/home/kristoph/Downloads/imports/__original_drawn_by_egretfoooox__ff263959d93080069b4b8c70856409b9.jpg` | `https://danbooru.donmai.us/posts/9692641?q=user%3AMillions_Knives` | Anthro qualifier, species boundary, furry search separation from ordinary animals |
+| Key                 | Local file                                                                                                                                                | Source URL                                                                                | Ontology pressure                                                                         |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| digital_dragon      | `/home/kristoph/Downloads/imports/__original_drawn_by_nablange__157711c92221e96db5c444d791fd9698.jpg`                                                     | `https://danbooru.donmai.us/posts/7806601?q=ordfav%3AMillions_Knives`                     | Digital art, modern artist, generic dragon anatomy, Danbooru-style artist/tag metadata    |
+| susanoo_orochi      | `/home/kristoph/Downloads/imports/Susano-o_no_Mikoto_Killing_the_Eight-headed_Dragon.jpg`                                                                 | `https://www.artic.edu/artworks/19386/susano-o-no-mikoto-killing-the-eight-headed-dragon` | Notable work, named deity, named dragon entity, Japanese mythology, color woodblock print |
+| mega_dragonite      | `/home/kristoph/Downloads/imports/__dragonite_and_mega_dragonite_pokemon_drawn_by_deepsea9013__8c357f352c18d0a6549289b04f8d222a.jpg`                      | `https://danbooru.donmai.us/posts/9692781?q=user%3AMillions_Knives`                       | Pokemon franchise hierarchy, species/form distinction, IP style vs visible style          |
+| ace_attorney_humans | `/home/kristoph/Downloads/imports/__klavier_gavin_and_kristoph_gavin_ace_attorney_and_1_more_drawn_by_lanfengzheyu__8db104fd15ee82f3b88efdccbe0c5463.png` | `https://danbooru.donmai.us/posts/9692240?q=user%3AMillions_Knives`                       | Human character entities, franchise grouping, clothing and design attributes              |
+| anthro_subject      | `/home/kristoph/Downloads/imports/__original_drawn_by_egretfoooox__ff263959d93080069b4b8c70856409b9.jpg`                                                  | `https://danbooru.donmai.us/posts/9692641?q=user%3AMillions_Knives`                       | Anthro qualifier, species boundary, furry search separation from ordinary animals         |
 
 ## Import Notes
 
@@ -417,9 +417,7 @@ it('separates androgynous appearance from known identity tags', () => {
 	const nonbinary = ATLAS_WIKI_SEED_CONCEPTS.find(
 		(concept) => concept.slug === 'nonbinary_subject'
 	);
-	const intersex = ATLAS_WIKI_SEED_CONCEPTS.find(
-		(concept) => concept.slug === 'intersex_subject'
-	);
+	const intersex = ATLAS_WIKI_SEED_CONCEPTS.find((concept) => concept.slug === 'intersex_subject');
 
 	expect(androgynous?.kind).toBe('visual_tag');
 	expect(nonbinary).toBeTruthy();
@@ -576,7 +574,8 @@ describe('ontology seed corpus', () => {
 	it('matches the five seed sources by source URL or local filename', () => {
 		expect(
 			shouldApplyOntologySeed({
-				title: '__dragonite_and_mega_dragonite_pokemon_drawn_by_deepsea9013__8c357f352c18d0a6549289b04f8d222a.jpg',
+				title:
+					'__dragonite_and_mega_dragonite_pokemon_drawn_by_deepsea9013__8c357f352c18d0a6549289b04f8d222a.jpg',
 				sourceUrl: 'https://danbooru.donmai.us/posts/9692781?q=user%3AMillions_Knives'
 			})
 		).toBe('mega_dragonite');
@@ -624,7 +623,10 @@ describe('ontology seed corpus', () => {
 			)
 			.all('asset-digital-dragon') as Array<{ classifier_type: string; classifier_value: string }>;
 
-		expect(classifiers).toContainEqual({ classifier_type: 'visual_role', classifier_value: 'focal_point' });
+		expect(classifiers).toContainEqual({
+			classifier_type: 'visual_role',
+			classifier_value: 'focal_point'
+		});
 	});
 });
 ```
@@ -664,7 +666,8 @@ export function shouldApplyOntologySeed(input: {
 		return 'susanoo_orochi';
 	}
 	if (haystack.includes('9692781') || haystack.includes('mega_dragonite')) return 'mega_dragonite';
-	if (haystack.includes('9692240') || haystack.includes('ace_attorney')) return 'ace_attorney_humans';
+	if (haystack.includes('9692240') || haystack.includes('ace_attorney'))
+		return 'ace_attorney_humans';
 	if (haystack.includes('9692641') || haystack.includes('egretfoooox')) return 'anthro_subject';
 	return null;
 }

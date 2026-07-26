@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ArrowRightIcon from 'phosphor-svelte/lib/ArrowRightIcon';
+	import BookmarkSimpleIcon from 'phosphor-svelte/lib/BookmarkSimpleIcon';
 	import MagnifyingGlassIcon from 'phosphor-svelte/lib/MagnifyingGlassIcon';
 	import {
 		addWikimediaReferenceEntity,
@@ -23,9 +24,22 @@
 		label: string;
 		placeholder: string;
 		showShortcut?: boolean;
+		onSave?: () => void;
+		saved?: boolean;
+		saving?: boolean;
+		saveDisabled?: boolean;
 	};
 
-	let { mode, label, placeholder, showShortcut = false }: Props = $props();
+	let {
+		mode,
+		label,
+		placeholder,
+		showShortcut = false,
+		onSave,
+		saved = false,
+		saving = false,
+		saveDisabled = false
+	}: Props = $props();
 	let focused = $state(false);
 
 	let isWikidataMode = $derived(mode === 'explore' && appState.exploreSourceId === 'wikidata');
@@ -205,7 +219,8 @@
 	}
 
 	function wikidataPlaceholder(mode: WikidataSearchMode, hasEntities: boolean) {
-		if (isWikimediaReferenceMode) return hasEntities ? 'Add entity or descriptor...' : 'Search an entity or descriptor...';
+		if (isWikimediaReferenceMode)
+			return hasEntities ? 'Add entity or descriptor...' : 'Search an entity or descriptor...';
 		if (mode === 'title') return 'Search artwork titles...';
 		if (hasEntities) return 'Add another subject...';
 		if (mode === 'main_subject') return 'Search main subjects...';
@@ -217,7 +232,10 @@
 </script>
 
 <div class="search-wrap">
-	<div class="search" class:reference-search={isWikimediaReferenceMode && referenceTokens.length > 0}>
+	<div
+		class="search"
+		class:reference-search={isWikimediaReferenceMode && referenceTokens.length > 0}
+	>
 		<MagnifyingGlassIcon size={20} />
 		<span class="sr-only">{label}</span>
 		{#if isWikimediaReferenceMode && referenceTokens.length > 0}
@@ -247,6 +265,20 @@
 			aria-autocomplete={mode === 'explore' ? 'list' : undefined}
 			aria-expanded={mode === 'explore' ? open || entityOpen || entityStatusOpen : undefined}
 		/>
+		{#if onSave}
+			<button
+				class:saved
+				class="save-search"
+				type="button"
+				aria-label={saved ? 'Update saved search' : 'Save current search'}
+				title={saved ? 'Saved' : 'Save this search'}
+				disabled={saveDisabled || saving}
+				onmousedown={(event) => event.preventDefault()}
+				onclick={onSave}
+			>
+				<BookmarkSimpleIcon size={18} weight={saved ? 'fill' : 'regular'} />
+			</button>
+		{/if}
 		{#if mode === 'explore'}
 			<button
 				class="commit-search"
@@ -255,15 +287,15 @@
 					? isWikimediaReferenceMode
 						? 'Add Wikimedia reference token'
 						: wikidataMode === 'title'
-						? 'Search Wikimedia'
-						: 'Add Wikimedia entity'
+							? 'Search Wikimedia'
+							: 'Add Wikimedia entity'
 					: `Search ${appState.exploreSourceLabel}`}
 				disabled={isWikidataMode
 					? isWikimediaReferenceMode
 						? !canAddWikidataSubject
 						: wikidataMode === 'title'
-						? !canCommitExploreSearch
-						: !canAddWikidataSubject
+							? !canCommitExploreSearch
+							: !canAddWikidataSubject
 					: !canCommitExploreSearch}
 				onmousedown={(event) => event.preventDefault()}
 				onclick={commitSearch}
@@ -359,6 +391,35 @@
 		background: transparent;
 		color: var(--color-text);
 		outline: none;
+	}
+
+	.save-search {
+		width: 2.35rem;
+		height: 2.35rem;
+		flex: 0 0 auto;
+		display: grid;
+		place-items: center;
+		padding: 0;
+		border: 0;
+		border-radius: var(--radius-md);
+		background: transparent;
+		color: var(--color-muted);
+		cursor: pointer;
+	}
+
+	.save-search.saved {
+		color: var(--color-accent);
+	}
+
+	.save-search:not(:disabled):hover,
+	.save-search:not(:disabled):focus-visible {
+		background: var(--color-surface-raised);
+		color: var(--color-text);
+	}
+
+	.save-search:disabled {
+		opacity: 0.38;
+		cursor: not-allowed;
 	}
 
 	.reference-token-row {

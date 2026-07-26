@@ -1,9 +1,5 @@
 import { normalizeAtlasSlug } from './normalization';
-import type {
-	AtlasParsedSearchQuery,
-	AtlasQueryClause,
-	AtlasQueryValueExpr
-} from './searchTypes';
+import type { AtlasParsedSearchQuery, AtlasQueryClause, AtlasQueryValueExpr } from './searchTypes';
 
 const ROLE_ALIASES: Record<string, string> = {
 	focal: 'focal_point',
@@ -33,7 +29,9 @@ export function parseAtlasSearchQuery(input: string): AtlasParsedSearchQuery {
 }
 
 function tokenize(input: string) {
-	return input.match(/"[^"]+"|[^\s:]+:\([^)]*\)|\S+/g)?.map((token) => token.replace(/^"|"$/g, '')) ?? [];
+	return (
+		input.match(/"[^"]+"|[^\s:]+:\([^)]*\)|\S+/g)?.map((token) => token.replace(/^"|"$/g, '')) ?? []
+	);
 }
 
 function parseToken(token: string): AtlasQueryClause | null {

@@ -2,6 +2,7 @@
 	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
 	import HashIcon from 'phosphor-svelte/lib/HashIcon';
 	import StackIcon from 'phosphor-svelte/lib/StackIcon';
+	import { loadLibrarySnapshot } from '$lib/library/client';
 	import type { LibraryResponse } from '$lib/library/types';
 	import { appState } from '$lib/state/app-state.svelte';
 
@@ -26,8 +27,9 @@
 	let canDismiss = $state(false);
 
 	let currentFolder = $derived(
-		library.folders.find((folder) => folder.path.join('/') === appState.activeLibraryFolderPath.join('/')) ??
-			null
+		library.folders.find(
+			(folder) => folder.path.join('/') === appState.activeLibraryFolderPath.join('/')
+		) ?? null
 	);
 	let title = $derived(
 		kind === 'folder'
@@ -49,9 +51,7 @@
 	);
 	let Icon = $derived(kind === 'folder' ? FolderIcon : kind === 'project' ? StackIcon : HashIcon);
 	let popoverStyle = $derived(
-		anchor
-			? `--popover-left: ${anchor.left}px; --popover-top: ${anchor.top}px;`
-			: ''
+		anchor ? `--popover-left: ${anchor.left}px; --popover-top: ${anchor.top}px;` : ''
 	);
 
 	$effect(() => {
@@ -72,9 +72,9 @@
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify(payload())
 			});
-			const body = (await response.json()) as { error?: string; snapshot?: LibraryResponse };
-			if (!response.ok || !body.snapshot) throw new Error(body.error ?? 'Could not save');
-			onSnapshot(body.snapshot);
+			const body = (await response.json()) as { error?: string };
+			if (!response.ok) throw new Error(body.error ?? 'Could not save');
+			onSnapshot(await loadLibrarySnapshot());
 			onClose();
 		} catch (saveError) {
 			error = saveError instanceof Error ? saveError.message : 'Could not save';
@@ -95,14 +95,16 @@
 		if (kind === 'folder') {
 			return {
 				name,
-				parent_id: appState.libraryView === 'folder' ? currentFolder?.id ?? null : null
+				parent_id: appState.libraryView === 'folder' ? (currentFolder?.id ?? null) : null
 			};
 		}
 		if (kind === 'project') {
 			return {
 				name,
 				start_folder_id:
-					startWithCurrentFolder && appState.libraryView === 'folder' ? currentFolder?.id ?? null : null
+					startWithCurrentFolder && appState.libraryView === 'folder'
+						? (currentFolder?.id ?? null)
+						: null
 			};
 		}
 		if (kind === 'tag-group') return { name };
@@ -142,7 +144,7 @@
 	</header>
 	<label>
 		<span>{kind === 'tag' ? 'Tag' : 'Name'}</span>
-		<input bind:value={name} placeholder={placeholder} autocomplete="off" />
+		<input bind:value={name} {placeholder} autocomplete="off" />
 	</label>
 	{#if kind === 'tag' && !name.includes(':')}
 		<label>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import ArrowSquareOutIcon from 'phosphor-svelte/lib/ArrowSquareOutIcon';
 	import ArrowsOutSimpleIcon from 'phosphor-svelte/lib/ArrowsOutSimpleIcon';
 	import MagnifyingGlassMinusIcon from 'phosphor-svelte/lib/MagnifyingGlassMinusIcon';
@@ -21,6 +21,8 @@
 	let dragging = $state(false);
 	let lastPoint: { x: number; y: number } | null = null;
 	let previewPanel = $state<HTMLDivElement | null>(null);
+	let imageStage = $state<HTMLDivElement | null>(null);
+	let imageElement = $state<HTMLImageElement | null>(null);
 	const pointers = new Map<number, { x: number; y: number }>();
 	let pinchStartDistance = 0;
 	let pinchStartScale = 1;
@@ -30,6 +32,14 @@
 	let zoomPercent = $derived(`${Math.round(scale * 100)}%`);
 	let imageTransform = $derived(`translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`);
 	let previewImageUrl = $derived(getExplorePreviewImageUrl(item));
+
+	onMount(() => {
+		const stage = imageStage;
+		if (!stage) return;
+		const wheel = (event: WheelEvent) => handleWheel(event);
+		stage.addEventListener('wheel', wheel, { passive: false });
+		return () => stage.removeEventListener('wheel', wheel);
+	});
 
 	$effect(() => {
 		const previouslyFocused =
@@ -90,7 +100,8 @@
 	function zoomBy(delta: number) {
 		const nextScale = clampScale(scale + delta);
 		scale = nextScale;
-		if (scale === 1) resetPan();
+		if (scale <= 1) resetPan();
+		else if (imageStage) clampPan(nextScale, imageStage);
 	}
 
 	function resetZoom() {
@@ -105,7 +116,25 @@
 
 	function handleWheel(event: WheelEvent) {
 		event.preventDefault();
-		zoomBy(event.deltaY < 0 ? 0.25 : -0.25);
+		zoomAt(event.deltaY < 0 ? 0.25 : -0.25, event.clientX, event.clientY);
+	}
+
+	function zoomAt(delta: number, clientX: number, clientY: number) {
+		if (!imageStage) {
+			zoomBy(delta);
+			return;
+		}
+		const previousScale = scale;
+		const nextScale = clampScale(scale + delta);
+		const bounds = imageStage.getBoundingClientRect();
+		const offsetX = clientX - (bounds.left + bounds.width / 2);
+		const offsetY = clientY - (bounds.top + bounds.height / 2);
+		const ratio = nextScale / previousScale;
+		translateX = offsetX - (offsetX - translateX) * ratio;
+		translateY = offsetY - (offsetY - translateY) * ratio;
+		scale = nextScale;
+		if (scale <= 1) resetPan();
+		else clampPan(nextScale, imageStage);
 	}
 
 	function handlePointerDown(event: PointerEvent) {
@@ -133,13 +162,15 @@
 		if (pointers.size === 2) {
 			const [first, second] = [...pointers.values()];
 			scale = clampScale(pinchStartScale * (distance(first, second) / pinchStartDistance));
-			if (scale === 1) resetPan();
+			if (scale <= 1) resetPan();
+			else if (imageStage) clampPan(scale, imageStage);
 			return;
 		}
 
 		if (!dragging || !lastPoint || scale <= 1) return;
 		translateX += event.clientX - lastPoint.x;
 		translateY += event.clientY - lastPoint.y;
+		if (imageStage) clampPan(scale, imageStage);
 		lastPoint = { x: event.clientX, y: event.clientY };
 	}
 
@@ -159,11 +190,25 @@
 	}
 
 	function clampScale(value: number) {
-		return Math.min(6, Math.max(1, Math.round(value * 100) / 100));
+		return Math.min(6, Math.max(0.25, Math.round(value * 100) / 100));
 	}
 
 	function distance(first: { x: number; y: number }, second: { x: number; y: number }) {
 		return Math.hypot(first.x - second.x, first.y - second.y);
+	}
+
+	function clampPan(currentScale: number, stage: HTMLElement) {
+		if (!imageElement || currentScale <= 1) return;
+		const bounds = stage.getBoundingClientRect();
+		const naturalRatio = imageElement.naturalWidth / imageElement.naturalHeight;
+		if (!Number.isFinite(naturalRatio) || naturalRatio <= 0) return;
+		const viewportRatio = bounds.width / bounds.height;
+		const fittedWidth = naturalRatio > viewportRatio ? bounds.width : bounds.height * naturalRatio;
+		const fittedHeight = naturalRatio > viewportRatio ? bounds.width / naturalRatio : bounds.height;
+		const maxX = Math.max(0, (fittedWidth * currentScale - bounds.width) / 2);
+		const maxY = Math.max(0, (fittedHeight * currentScale - bounds.height) / 2);
+		translateX = Math.min(maxX, Math.max(-maxX, translateX));
+		translateY = Math.min(maxY, Math.max(-maxY, translateY));
 	}
 
 	function sourceLabel(item: ExploreItem) {
@@ -181,9 +226,27 @@
 			<button class="icon" type="button" aria-label="Close focused preview" onclick={onClose}>
 				<XIcon size={21} />
 			</button>
-			<div>
+			<div class="identity-line">
 				<h2>{item.title}</h2>
+				<span aria-hidden="true">·</span>
 				<p>{item.artistRaw ?? 'Unknown artist'}{item.dateDisplay ? `, ${item.dateDisplay}` : ''}</p>
+			</div>
+			<div class="zoom-tools" aria-label="Preview zoom controls">
+				<button
+					type="button"
+					aria-label="Zoom out"
+					onclick={() => zoomBy(-0.25)}
+					disabled={scale <= 0.25}
+				>
+					<MagnifyingGlassMinusIcon size={18} />
+				</button>
+				<span>{zoomPercent}</span>
+				<button type="button" aria-label="Zoom in" onclick={() => zoomBy(0.25)}>
+					<MagnifyingGlassPlusIcon size={18} />
+				</button>
+				<button type="button" aria-label="Reset zoom" onclick={resetZoom} disabled={scale === 1}>
+					<ArrowsOutSimpleIcon size={18} />
+				</button>
 			</div>
 			<button
 				class="icon"
@@ -195,31 +258,13 @@
 			</button>
 		</header>
 
-		<div class="zoom-tools" aria-label="Preview zoom controls">
-			<button
-				type="button"
-				aria-label="Zoom out"
-				onclick={() => zoomBy(-0.25)}
-				disabled={scale <= 1}
-			>
-				<MagnifyingGlassMinusIcon size={18} />
-			</button>
-			<span>{zoomPercent}</span>
-			<button type="button" aria-label="Zoom in" onclick={() => zoomBy(0.25)}>
-				<MagnifyingGlassPlusIcon size={18} />
-			</button>
-			<button type="button" aria-label="Reset zoom" onclick={resetZoom} disabled={scale === 1}>
-				<ArrowsOutSimpleIcon size={18} />
-			</button>
-		</div>
-
 		<div
+			bind:this={imageStage}
 			class:zoomed={scale > 1}
 			class:dragging
 			class="image-stage"
 			role="img"
 			aria-label={`Zoomable preview of ${item.title}`}
-			onwheel={handleWheel}
 			onpointerdown={handlePointerDown}
 			onpointermove={handlePointerMove}
 			onpointerup={handlePointerUp}
@@ -228,10 +273,12 @@
 		>
 			{#if previewImageUrl}
 				<img
+					bind:this={imageElement}
 					src={previewImageUrl}
 					alt={item.title}
 					style={`transform: ${imageTransform}`}
 					draggable="false"
+					onload={() => imageStage && clampPan(scale, imageStage)}
 				/>
 			{/if}
 		</div>
@@ -245,7 +292,7 @@
 		z-index: calc(var(--z-sheet) + 4);
 		display: grid;
 		place-items: center;
-		padding: clamp(0.75rem, 2.4vw, 2rem);
+		padding: clamp(0.65rem, 1.25vw, 1.25rem);
 	}
 
 	.scrim {
@@ -259,12 +306,13 @@
 	.preview-panel {
 		position: relative;
 		z-index: 1;
-		width: min(72rem, 100%);
-		max-height: min(88vh, 58rem);
+		width: min(100rem, 100%);
+		height: min(70rem, calc(100dvh - clamp(1.3rem, 2.5vw, 2.5rem)));
+		max-height: none;
 		display: grid;
-		grid-template-rows: auto auto minmax(0, 1fr);
+		grid-template-rows: auto minmax(0, 1fr);
 		gap: var(--space-3);
-		padding: var(--space-4);
+		padding: var(--space-3);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-lg);
 		background: oklch(13% 0.008 70 / 0.96);
@@ -273,9 +321,17 @@
 
 	header {
 		display: grid;
-		grid-template-columns: 2.65rem 1fr 2.65rem;
+		grid-template-columns: 2.65rem minmax(0, 1fr) auto 2.65rem;
 		align-items: center;
 		gap: var(--space-3);
+	}
+
+	.identity-line {
+		min-width: 0;
+		display: flex;
+		align-items: baseline;
+		justify-content: center;
+		gap: 0.55rem;
 		text-align: center;
 	}
 
@@ -285,6 +341,10 @@
 	}
 
 	h2 {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 		font-family: var(--font-heading);
 		font-size: 1.05rem;
 		font-weight: 600;
@@ -292,9 +352,16 @@
 	}
 
 	p {
-		margin-top: 0.15rem;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 		color: var(--color-muted);
 		font-size: 0.86rem;
+	}
+
+	.identity-line > span {
+		color: var(--color-dim);
 	}
 
 	.icon {
@@ -311,7 +378,6 @@
 	}
 
 	.zoom-tools {
-		justify-self: center;
 		display: inline-flex;
 		align-items: center;
 		gap: var(--space-1);
@@ -352,6 +418,7 @@
 	}
 
 	.image-stage {
+		position: relative;
 		min-height: 0;
 		display: grid;
 		place-items: center;
@@ -372,13 +439,28 @@
 	}
 
 	img {
-		max-width: 100%;
-		max-height: calc(88vh - 7.5rem);
+		position: absolute;
+		inset: 0;
+		display: block;
+		width: 100%;
+		height: 100%;
 		object-fit: contain;
 		transform-origin: center;
 		transition: transform var(--duration-fast) var(--ease-out);
 		will-change: transform;
 		pointer-events: none;
+	}
+
+	@media (max-width: 900px) {
+		header {
+			grid-template-columns: 2.65rem minmax(0, 1fr) 2.65rem;
+		}
+
+		.zoom-tools {
+			grid-column: 1 / -1;
+			grid-row: 2;
+			justify-self: center;
+		}
 	}
 
 	@media (max-width: 759px) {
@@ -394,8 +476,17 @@
 			border-inline: 0;
 		}
 
-		img {
-			max-height: calc(100vh - 9.8rem);
+		header {
+			gap: var(--space-2);
+		}
+
+		.identity-line {
+			display: grid;
+			gap: 0.1rem;
+		}
+
+		.identity-line > span {
+			display: none;
 		}
 	}
 </style>

@@ -161,7 +161,9 @@ describe('parseAtlasSearchQuery', () => {
 	});
 
 	it('parses visual role clauses', () => {
-		const parsed = parseAtlasSearchQuery('horse role:focal exclude_role:background_detail,setting_context');
+		const parsed = parseAtlasSearchQuery(
+			'horse role:focal exclude_role:background_detail,setting_context'
+		);
 
 		expect(parsed.clauses).toContainEqual({
 			kind: 'role',
@@ -209,9 +211,7 @@ export type AtlasQueryClause =
 	| { kind: 'role'; raw: string; include?: string[]; exclude?: string[] }
 	| { kind: 'evidence'; raw: string; include?: string[]; exclude?: string[] };
 
-export type AtlasQueryValueExpr =
-	| { op: 'any'; values: string[] }
-	| { op: 'all'; values: string[] };
+export type AtlasQueryValueExpr = { op: 'any'; values: string[] } | { op: 'all'; values: string[] };
 
 export type AtlasParsedSearchQuery = {
 	raw: string;
@@ -287,11 +287,7 @@ Create `src/lib/atlas/searchParser.ts`:
 
 ```ts
 import { normalizeAtlasSlug } from './normalization';
-import type {
-	AtlasParsedSearchQuery,
-	AtlasQueryClause,
-	AtlasQueryValueExpr
-} from './searchTypes';
+import type { AtlasParsedSearchQuery, AtlasQueryClause, AtlasQueryValueExpr } from './searchTypes';
 
 const ROLE_ALIASES: Record<string, string> = {
 	focal: 'focal_point',
@@ -306,7 +302,9 @@ const ROLE_ALIASES: Record<string, string> = {
 
 export function parseAtlasSearchQuery(input: string): AtlasParsedSearchQuery {
 	const raw = input.trim();
-	const clauses = tokenize(raw).map(parseToken).filter((clause): clause is AtlasQueryClause => Boolean(clause));
+	const clauses = tokenize(raw)
+		.map(parseToken)
+		.filter((clause): clause is AtlasQueryClause => Boolean(clause));
 	return {
 		raw,
 		canonical: clauses.map(canonicalClause).join(' '),
@@ -374,7 +372,8 @@ function normalizeRole(value: string) {
 }
 
 function canonicalClause(clause: AtlasQueryClause) {
-	if (clause.kind === 'concept') return clause.mode === 'exclude' ? `exclude:${clause.slug}` : clause.slug;
+	if (clause.kind === 'concept')
+		return clause.mode === 'exclude' ? `exclude:${clause.slug}` : clause.slug;
 	if (clause.kind === 'classifier') {
 		const separator = clause.values.op === 'all' ? '+' : ',';
 		const prefix = clause.mode === 'exclude' ? 'exclude:' : '';
@@ -384,7 +383,8 @@ function canonicalClause(clause: AtlasQueryClause) {
 		if (clause.include?.length) return `role:${clause.include.join(',')}`;
 		return `exclude_role:${clause.exclude?.join(',') ?? ''}`;
 	}
-	if (clause.kind === 'entity') return clause.mode === 'exclude' ? `exclude:${clause.slug}` : clause.slug;
+	if (clause.kind === 'entity')
+		return clause.mode === 'exclude' ? `exclude:${clause.slug}` : clause.slug;
 	if (clause.kind === 'claim') return `${clause.claimKind}:${clause.value}`;
 	if (clause.kind === 'evidence') return `evidence:${clause.include?.join(',') ?? ''}`;
 	return clause.raw;
@@ -429,11 +429,13 @@ Create `src/lib/server/atlas/search.spec.ts` with tests that create a temporary 
 Required test names:
 
 ```ts
-it('requires classifier matches to land on the same annotation')
-it('treats comma classifier values as OR and plus classifier values as AND')
-it('excludes concepts through direct and automatic implication matches')
-it('ranks focal annotation matches above background matches')
-it('uses single concept context for one resolved concept and multi clause context for combined searches')
+it('requires classifier matches to land on the same annotation');
+it('treats comma classifier values as OR and plus classifier values as AND');
+it('excludes concepts through direct and automatic implication matches');
+it('ranks focal annotation matches above background matches');
+it(
+	'uses single concept context for one resolved concept and multi clause context for combined searches'
+);
 ```
 
 The first test must prove this behavior:
@@ -547,10 +549,19 @@ Extend `src/routes/api/atlas/wiki/server.spec.ts` or create a focused search rou
 Required assertions:
 
 ```ts
-const parseResponse = await parseGET({ url: new URL('http://localhost/api/atlas/search/parse?q=horse%20exclude:tree') });
-expect(parseBody.query.clauses).toContainEqual({ kind: 'concept', raw: 'exclude:tree', slug: 'tree', mode: 'exclude' });
+const parseResponse = await parseGET({
+	url: new URL('http://localhost/api/atlas/search/parse?q=horse%20exclude:tree')
+});
+expect(parseBody.query.clauses).toContainEqual({
+	kind: 'concept',
+	raw: 'exclude:tree',
+	slug: 'tree',
+	mode: 'exclude'
+});
 
-const searchResponse = await searchGET({ url: new URL('http://localhost/api/atlas/search?q=horse&limit=10') });
+const searchResponse = await searchGET({
+	url: new URL('http://localhost/api/atlas/search?q=horse&limit=10')
+});
 expect(searchBody.query.canonical).toBe('horse');
 expect(searchBody.results).toBeInstanceOf(Array);
 ```
@@ -681,9 +692,7 @@ Render it before asset fallback:
 Modify `src/lib/components/atlas/AtlasHome.svelte` to import `openAtlasSearch` and add a compact button in the header:
 
 ```svelte
-<button type="button" class="search-open" onclick={() => openAtlasSearch()}>
-	Search Atlas
-</button>
+<button type="button" class="search-open" onclick={() => openAtlasSearch()}> Search Atlas </button>
 ```
 
 Use existing button styling patterns from Atlas Inspect and Atlas Wiki. Keep it quiet and token-based.
@@ -745,11 +754,11 @@ Required script shape:
 	let draftQuery = $state(appState.atlasSearchQuery);
 	let response = $state<AtlasSearchResponse | null>(null);
 	let loading = $state(false);
-let error = $state<string | null>(null);
-let sidebarOpen = $state(true);
-let bannerOpen = $state(true);
-let limit = $state(50);
-let roleMode = $state<'any' | 'main' | 'exclude_background'>('any');
+	let error = $state<string | null>(null);
+	let sidebarOpen = $state(true);
+	let bannerOpen = $state(true);
+	let limit = $state(50);
+	let roleMode = $state<'any' | 'main' | 'exclude_background'>('any');
 
 	$effect(() => {
 		draftQuery = appState.atlasSearchQuery;
@@ -764,7 +773,9 @@ let roleMode = $state<'any' | 'main' | 'exclude_background'>('any');
 			const searchResponse = await fetch(url);
 			const body = (await searchResponse.json()) as AtlasSearchResponse | { error?: string };
 			if (!searchResponse.ok || !('results' in body)) {
-				throw new Error('error' in body && body.error ? body.error : 'Atlas search could not be loaded.');
+				throw new Error(
+					'error' in body && body.error ? body.error : 'Atlas search could not be loaded.'
+				);
 			}
 			response = body;
 		} catch (loadError) {

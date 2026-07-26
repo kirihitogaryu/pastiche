@@ -73,10 +73,26 @@ describe('source adapters', () => {
 		expect(instagramLargeMediaUrl('https://www.instagram.com/p/DHd5F-_JIny/')).toBe(
 			'https://www.instagram.com/p/DHd5F-_JIny/media?size=l'
 		);
-		expect(instagramLargeMediaUrl('https://instagram.com/reel/ABC123/?utm_source=ig_web_copy_link')).toBe(
-			'https://instagram.com/reel/ABC123/media?size=l'
-		);
+		expect(
+			instagramLargeMediaUrl('https://instagram.com/reel/ABC123/?utm_source=ig_web_copy_link')
+		).toBe('https://instagram.com/reel/ABC123/media?size=l');
 		expect(instagramLargeMediaUrl('https://www.instagram.com/explore/tags/art/')).toBeNull();
+	});
+
+	it('promotes Instagram large media and extracts the post owner from metadata', () => {
+		expect.assertions(4);
+		document.head.innerHTML = `
+			<meta property="og:title" content="Kristoph (@example.artist) • Instagram photos and videos">
+		`;
+		const pageUrl = 'https://www.instagram.com/p/DHd5F-_JIny/';
+		const largeUrl = 'https://www.instagram.com/p/DHd5F-_JIny/media?size=l';
+		const adapted = applySourceAdapterCandidateHints(candidate({ url: largeUrl }), { pageUrl });
+		const metadata = sourceMetadataForPage(document, { pageUrl, imageUrl: largeUrl });
+
+		expect(adapted.score).toBeGreaterThan(400);
+		expect(adapted.scoreReasons).toContain('Instagram large media endpoint');
+		expect(metadata.artistUsername).toBe('example.artist');
+		expect(metadata.artistProfileUrl).toBe('https://www.instagram.com/example.artist');
 	});
 
 	it('extracts Tumblr page tags as suggested import tags', () => {
@@ -197,6 +213,89 @@ describe('source adapters', () => {
 			artistUsername: 'ExampleArtist',
 			artistProfileUrl: 'https://www.deviantart.com/ExampleArtist'
 		});
+	});
+
+	it('uses the credits beside the selected Toyhouse image as its artist', () => {
+		expect.assertions(4);
+		document.body.innerHTML = `
+			<div role="dialog" class="image-lightbox">
+				<div class="image-stage">
+					<img id="selected-work" src="https://f2.toyhou.se/file/f2-toyhou-se/images/work.png" alt="Rafael">
+				</div>
+				<section class="credits">
+					<h3>Credits</h3>
+					<a href="https://toyhou.se/the_Kremlin">the_Kremlin</a>
+				</section>
+				<section class="characters">
+					<h3>Characters</h3>
+					<a href="https://toyhou.se/24427721.rafael">Rafael</a>
+				</section>
+			</div>
+		`;
+		const target = document.querySelector('#selected-work');
+		const metadata = sourceMetadataForPage(document, {
+			pageUrl: 'https://toyhou.se/24427721.rafael#76387770',
+			imageUrl: 'https://f2.toyhou.se/file/f2-toyhou-se/images/work.png',
+			targetElement: target
+		});
+
+		expect(metadata.artist).toBe('the_Kremlin');
+		expect(metadata.artistUsername).toBe('the_Kremlin');
+		expect(metadata.artistProfileUrl).toBe('https://toyhou.se/the_Kremlin');
+		expect(metadata.artistCandidates).toEqual([
+			expect.objectContaining({
+				label: 'the_Kremlin',
+				reason: 'Credits near image',
+				confidence: 'high'
+			})
+		]);
+	});
+
+	it('leaves the artist open when the selected post has multiple plausible authors', () => {
+		expect.assertions(3);
+		document.body.innerHTML = `
+			<article>
+				<header class="coauthors">
+					<a href="https://example.com/first_artist">first_artist</a>
+					<a href="https://example.com/second_artist">second_artist</a>
+				</header>
+				<div class="media"><img id="collaboration" src="https://cdn.example.com/collab.png"></div>
+			</article>
+		`;
+		const metadata = sourceMetadataForPage(document, {
+			pageUrl: 'https://example.com/posts/collaboration',
+			targetElement: document.querySelector('#collaboration')
+		});
+
+		expect(metadata.artist).toBeNull();
+		expect(metadata.artistProfileUrl).toBeNull();
+		expect(metadata.artistCandidates?.map((candidate) => candidate.label)).toEqual([
+			'first_artist',
+			'second_artist'
+		]);
+	});
+
+	it('uses JSON-LD creator identity when the page exposes structured artwork metadata', () => {
+		expect.assertions(3);
+		document.head.innerHTML = `
+			<script type="application/ld+json">
+				{
+					"@type": "VisualArtwork",
+					"creator": {
+						"@type": "Person",
+						"name": "Example Painter",
+						"url": "https://example.com/example_painter"
+					}
+				}
+			</script>
+		`;
+		const metadata = sourceMetadataForPage(document, {
+			pageUrl: 'https://example.com/works/painting'
+		});
+
+		expect(metadata.artist).toBe('Example Painter');
+		expect(metadata.artistUsername).toBe('example_painter');
+		expect(metadata.artistProfileUrl).toBe('https://example.com/example_painter');
 	});
 
 	it('falls back to a readable generic host label', () => {

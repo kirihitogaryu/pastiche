@@ -80,9 +80,7 @@ function previewEntities(
 		const slug = normalizeAtlasSlug(entity.label);
 		if (!slug) continue;
 		if (entity.action === 'remove') {
-			nextEntities = nextEntities.filter(
-				(item) => item.kind !== entity.kind || item.slug !== slug
-			);
+			nextEntities = nextEntities.filter((item) => item.kind !== entity.kind || item.slug !== slug);
 			continue;
 		}
 		if (nextEntities.some((item) => item.kind === entity.kind && item.slug === slug)) continue;
@@ -211,7 +209,8 @@ function previewAnnotationClassifiers(
 
 function classifierEntries(classifiers: AtlasBatchAnnotationInput['classifiers']) {
 	if (!classifiers) return [];
-	if (Array.isArray(classifiers)) return classifiers.map(({ type, value }) => [type, value] as const);
+	if (Array.isArray(classifiers))
+		return classifiers.map(({ type, value }) => [type, value] as const);
 	return Object.entries(classifiers);
 }
 
@@ -239,7 +238,11 @@ function stagedConcept(
 	};
 }
 
-function stagedClassifier(annotationId: string, type: string, value: string): AtlasAnnotationClassifier {
+function stagedClassifier(
+	annotationId: string,
+	type: string,
+	value: string
+): AtlasAnnotationClassifier {
 	return {
 		id: `staged-classifier-${annotationId}-${type}-${normalizeAtlasSlug(value)}`,
 		type,

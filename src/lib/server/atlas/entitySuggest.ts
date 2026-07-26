@@ -117,7 +117,11 @@ function rankEntity(input: {
 	}
 
 	const candidates = [
-		{ value: entity.label, normalized: normalizeArtistAlias(entity.label), reason: 'label' as const },
+		{
+			value: entity.label,
+			normalized: normalizeArtistAlias(entity.label),
+			reason: 'label' as const
+		},
 		{ value: entity.slug, normalized: entity.slug, reason: 'slug' as const },
 		...aliases.map((alias) => ({
 			value: alias.alias,
@@ -126,7 +130,13 @@ function rankEntity(input: {
 		})),
 		...links.flatMap((link) => [
 			...(link.username
-				? [{ value: link.username, normalized: normalizeArtistAlias(link.username), reason: 'username' as const }]
+				? [
+						{
+							value: link.username,
+							normalized: normalizeArtistAlias(link.username),
+							reason: 'username' as const
+						}
+					]
 				: []),
 			{ value: link.url, normalized: normalizeArtistAlias(link.url), reason: 'link' as const }
 		])

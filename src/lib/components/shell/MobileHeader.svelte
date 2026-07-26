@@ -1,15 +1,9 @@
 <script lang="ts">
 	import FunnelIcon from 'phosphor-svelte/lib/FunnelIcon';
-	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
-	import HashIcon from 'phosphor-svelte/lib/HashIcon';
 	import HouseIcon from 'phosphor-svelte/lib/HouseIcon';
-	import StackIcon from 'phosphor-svelte/lib/StackIcon';
-	import TagChevronIcon from 'phosphor-svelte/lib/TagChevronIcon';
-	import CreateOrganizationPopover from '$lib/components/library/CreateOrganizationPopover.svelte';
 	import SearchBox from '$lib/components/shell/SearchBox.svelte';
 	import type { AppMode } from '$lib/types';
 	import { appState, openFilter, setMode } from '$lib/state/app-state.svelte';
-	import { libraryState, setLibrarySnapshot } from '$lib/state/library-state.svelte';
 
 	type Props = {
 		mode: AppMode;
@@ -17,13 +11,27 @@
 	};
 
 	let { mode, compact = false }: Props = $props();
-	let createOpen = $state<'folder' | 'project' | 'tag' | 'tag-group' | null>(null);
-
+	const labels: Record<AppMode, string> = {
+		home: 'Home',
+		library: 'Library',
+		explore: 'Explore',
+		atlas: 'Atlas',
+		canvas: 'Canvas',
+		colors: 'Colors',
+		resources: 'Resources'
+	};
 	let visible = $derived(mode === 'library' || mode === 'explore');
-	let showSearch = $derived(mode === 'explore');
+	let websiteSearchActive = $derived(
+		appState.exploreSourceId === 'danbooru' ||
+			appState.exploreSourceId === 'deviantart' ||
+			appState.exploreSourceId === 'bluesky' ||
+			appState.exploreSourceId === 'furaffinity'
+	);
+	let showSearch = $derived(mode === 'explore' && !websiteSearchActive);
 	let showBreadcrumb = $derived(false);
 	let searchLabel = $derived('Search sources');
 	let searchPlaceholder = $derived('Search artworks, collections, artists...');
+	let showFilter = $derived(mode === 'explore' && !websiteSearchActive);
 </script>
 
 {#if visible}
@@ -33,83 +41,15 @@
 				<button class="home-button" type="button" aria-label="Home" onclick={() => setMode('home')}>
 					<HouseIcon size={17} />
 				</button>
-				<div class="wordmark">pastiche.</div>
+				<h1>{labels[mode]}</h1>
 			</div>
-			<div class="actions">
-				{#if mode === 'library'}
-					<div class="action-wrap">
-						<button
-							type="button"
-							aria-label="New folder"
-							onclick={() => (createOpen = createOpen === 'folder' ? null : 'folder')}
-						>
-							<FolderIcon size={19} />
-						</button>
-						{#if createOpen === 'folder'}
-							<CreateOrganizationPopover
-								kind="folder"
-								library={libraryState.snapshot}
-								onClose={() => (createOpen = null)}
-								onSnapshot={setLibrarySnapshot}
-							/>
-						{/if}
-					</div>
-					<div class="action-wrap">
-						<button
-							type="button"
-							aria-label="New project"
-							onclick={() => (createOpen = createOpen === 'project' ? null : 'project')}
-						>
-							<StackIcon size={19} />
-						</button>
-						{#if createOpen === 'project'}
-							<CreateOrganizationPopover
-								kind="project"
-								library={libraryState.snapshot}
-								onClose={() => (createOpen = null)}
-								onSnapshot={setLibrarySnapshot}
-							/>
-						{/if}
-					</div>
-					<div class="action-wrap">
-						<button
-							type="button"
-							aria-label="New tag"
-							onclick={() => (createOpen = createOpen === 'tag' ? null : 'tag')}
-						>
-							<HashIcon size={19} />
-						</button>
-						{#if createOpen === 'tag'}
-							<CreateOrganizationPopover
-								kind="tag"
-								library={libraryState.snapshot}
-								onClose={() => (createOpen = null)}
-								onSnapshot={setLibrarySnapshot}
-							/>
-						{/if}
-					</div>
-					<div class="action-wrap">
-						<button
-							type="button"
-							aria-label="New tag group"
-							onclick={() => (createOpen = createOpen === 'tag-group' ? null : 'tag-group')}
-						>
-							<TagChevronIcon size={19} />
-						</button>
-						{#if createOpen === 'tag-group'}
-							<CreateOrganizationPopover
-								kind="tag-group"
-								library={libraryState.snapshot}
-								onClose={() => (createOpen = null)}
-								onSnapshot={setLibrarySnapshot}
-							/>
-						{/if}
-					</div>
-				{/if}
-				<button type="button" aria-label="Filter" onclick={openFilter}
-					><FunnelIcon size={19} /></button
-				>
-			</div>
+			{#if showFilter}
+				<div class="actions">
+					<button type="button" aria-label="Filter" onclick={openFilter}
+						><FunnelIcon size={19} /></button
+					>
+				</div>
+			{/if}
 		</div>
 		{#if showBreadcrumb}
 			<div class="crumbs" aria-label="Current location">
@@ -161,23 +101,16 @@
 		gap: var(--space-2);
 	}
 
-	.wordmark {
-		font-family: var(--font-wordmark);
-		font-size: 1.6rem;
-		font-style: italic;
+	h1 {
+		margin: 0;
+		font-family: var(--font-heading);
+		font-size: 1.55rem;
+		font-weight: 600;
 		line-height: 1;
 	}
 
 	.actions {
 		gap: var(--space-2);
-	}
-
-	.action-wrap {
-		position: relative;
-	}
-
-	.action-wrap :global(.create-popover) {
-		right: 0;
 	}
 
 	button {

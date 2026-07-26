@@ -30,10 +30,7 @@
 </script>
 
 <section class="smart-folders" aria-labelledby="smart-folders-heading">
-	<h2 id="smart-folders-heading">
-		<StarIcon size={20} />
-		<span>Smart Folders</span>
-	</h2>
+	<h2 id="smart-folders-heading">Quick views</h2>
 	<nav class="smart-list" aria-label="Smart folders">
 		{#each items as item (item.id)}
 			{@const Icon = iconFor(item.icon)}
@@ -55,13 +52,12 @@
 
 	h2 {
 		margin: 0;
-		display: inline-flex;
-		align-items: center;
-		gap: var(--space-2);
-		font-family: var(--font-heading);
-		font-size: 1.35rem;
-		font-weight: 600;
+		color: var(--color-dim);
+		font-size: 0.72rem;
+		font-weight: 700;
+		letter-spacing: 0.09em;
 		line-height: 1.1;
+		text-transform: uppercase;
 	}
 
 	.smart-list {

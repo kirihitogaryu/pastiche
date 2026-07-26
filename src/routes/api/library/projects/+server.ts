@@ -1,11 +1,14 @@
 import { json } from '@sveltejs/kit';
 import { createProject } from '$lib/server/library/organization';
-import { getLibrarySnapshot } from '$lib/server/library/read';
+import { requireTrustedLocalAccess } from '../../localAccess';
 
 export async function POST({ request }: { request: Request }) {
+	const access = requireTrustedLocalAccess(request);
+	if (!access.ok) return access.response;
+
 	const body = await readJson(request);
 	if (!isRecord(body) || typeof body.name !== 'string') {
-		return json({ error: 'Project name is required' }, { status: 400 });
+		return json({ error: 'Project name is required' }, { status: 400, headers: access.headers });
 	}
 	try {
 		const project = createProject({
@@ -13,9 +16,9 @@ export async function POST({ request }: { request: Request }) {
 			description: typeof body.description === 'string' ? body.description : null,
 			startFolderId: typeof body.start_folder_id === 'string' ? body.start_folder_id : null
 		});
-		return json({ project, snapshot: getLibrarySnapshot() });
+		return json({ project }, { status: 201, headers: access.headers });
 	} catch (error) {
-		return json({ error: errorMessage(error) }, { status: 400 });
+		return json({ error: errorMessage(error) }, { status: 400, headers: access.headers });
 	}
 }
 

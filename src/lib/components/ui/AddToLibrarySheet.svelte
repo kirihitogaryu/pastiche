@@ -6,7 +6,7 @@
 	import XIcon from 'phosphor-svelte/lib/XIcon';
 	import { loadLibrarySnapshot } from '$lib/library/client';
 	import type { LibraryResponse } from '$lib/library/types';
-	import { appState } from '$lib/state/app-state.svelte';
+	import { appState, openMobileInspect } from '$lib/state/app-state.svelte';
 	import { libraryState, setLibrarySnapshot } from '$lib/state/library-state.svelte';
 	import type { ImportResponse } from '$lib/server/library/types';
 	import {
@@ -68,13 +68,23 @@
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify(buildImportRequest({ destinationFolderId: currentFolderId, items }))
 			});
-			const body = (await response.json()) as (ImportResponse & { error?: string }) | { error: string };
+			const body = (await response.json()) as
+				| (ImportResponse & { error?: string })
+				| { error: string };
 			if (!response.ok || 'error' in body) {
 				throw new Error('error' in body ? body.error : 'Import failed.');
 			}
 			const snapshot = await loadLibrarySnapshot();
 			setLibrarySnapshot(snapshot);
 			statusMessage = importSummary(body);
+			const importedAsset =
+				body.imported.length === 1
+					? snapshot.assets.find((asset) => asset.id === body.imported[0]?.asset_id)
+					: null;
+			if (importedAsset && window.matchMedia('(max-width: 759px)').matches) {
+				onClose();
+				openMobileInspect(importedAsset, 0);
+			}
 		} catch (error) {
 			statusMessage = error instanceof Error ? error.message : 'Import failed.';
 		} finally {

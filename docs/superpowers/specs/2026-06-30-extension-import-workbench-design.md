@@ -588,17 +588,17 @@ Later settings:
 
 ## Error And Edge States
 
-| Situation | Behavior |
-|---|---|
-| No images found | Show a clear message and suggest Capture Visible / Capture Area. |
-| Only thumbnails found | Show alternates, label low confidence, do not import silently as if high quality. |
-| Fetch blocked | Keep candidate visible, show blocked reason, offer screenshot fallback. |
-| Auth required | Explain that the page may require browser-loaded media or screenshot fallback. |
-| Candidate dimensions unknown | Allow selection but show unknown quality until fetch/probe resolves. |
-| Duplicate found | Show duplicate badge but allow import anyway. |
-| Pastiche offline | Queue import if possible; warn before queueing large downloaded base64 payloads. |
-| Storage full | Do not silently drop queued imports. |
-| Firefox sidebar unavailable | Show a runtime-specific error and fallback instructions. |
+| Situation                    | Behavior                                                                          |
+| ---------------------------- | --------------------------------------------------------------------------------- |
+| No images found              | Show a clear message and suggest Capture Visible / Capture Area.                  |
+| Only thumbnails found        | Show alternates, label low confidence, do not import silently as if high quality. |
+| Fetch blocked                | Keep candidate visible, show blocked reason, offer screenshot fallback.           |
+| Auth required                | Explain that the page may require browser-loaded media or screenshot fallback.    |
+| Candidate dimensions unknown | Allow selection but show unknown quality until fetch/probe resolves.              |
+| Duplicate found              | Show duplicate badge but allow import anyway.                                     |
+| Pastiche offline             | Queue import if possible; warn before queueing large downloaded base64 payloads.  |
+| Storage full                 | Do not silently drop queued imports.                                              |
+| Firefox sidebar unavailable  | Show a runtime-specific error and fallback instructions.                          |
 
 ## Testing Strategy
 

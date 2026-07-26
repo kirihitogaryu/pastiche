@@ -98,6 +98,7 @@ Create or modify:
 ### Task 1: Seed The Visual System
 
 **Files:**
+
 - Create: `DESIGN.md`
 
 - [ ] **Step 1: Create seed `DESIGN.md`**
@@ -127,15 +128,15 @@ Suggested CSS token direction:
 
 ```css
 :root {
-  --color-bg: oklch(13% 0.01 70);
-  --color-surface: oklch(17% 0.01 70);
-  --color-surface-raised: oklch(22% 0.012 70);
-  --color-border: oklch(100% 0 0 / 0.11);
-  --color-text: oklch(90% 0.01 75);
-  --color-muted: oklch(70% 0.012 75);
-  --color-dim: oklch(52% 0.012 75);
-  --color-accent: oklch(78% 0.08 78);
-  --color-danger: oklch(62% 0.18 28);
+	--color-bg: oklch(13% 0.01 70);
+	--color-surface: oklch(17% 0.01 70);
+	--color-surface-raised: oklch(22% 0.012 70);
+	--color-border: oklch(100% 0 0 / 0.11);
+	--color-text: oklch(90% 0.01 75);
+	--color-muted: oklch(70% 0.012 75);
+	--color-dim: oklch(52% 0.012 75);
+	--color-accent: oklch(78% 0.08 78);
+	--color-danger: oklch(62% 0.18 28);
 }
 ```
 
@@ -208,6 +209,7 @@ Expected: commit succeeds.
 ### Task 2: Scaffold SvelteKit And Install UI Dependencies
 
 **Files:**
+
 - Create/modify: SvelteKit project files
 - Modify: `.gitignore`
 
@@ -271,6 +273,7 @@ Expected: commit succeeds.
 ### Task 3: Add Tokens, Global Styles, Types, And Mock Data
 
 **Files:**
+
 - Create: `src/lib/styles/tokens.css`
 - Create: `src/lib/styles/global.css`
 - Modify: `src/routes/+layout.svelte`
@@ -284,10 +287,10 @@ Use:
 
 ```svelte
 <script lang="ts">
-  import '$lib/styles/tokens.css';
-  import '$lib/styles/global.css';
+	import '$lib/styles/tokens.css';
+	import '$lib/styles/global.css';
 
-  let { children } = $props();
+	let { children } = $props();
 </script>
 
 {@render children()}
@@ -299,50 +302,51 @@ Include tokens for colors, type, spacing, radii, dimensions, z-index, and motion
 
 ```css
 :root {
-  color-scheme: dark;
+	color-scheme: dark;
 
-  --color-bg: oklch(13% 0.01 70);
-  --color-surface: oklch(17% 0.01 70);
-  --color-surface-soft: oklch(19% 0.01 70);
-  --color-surface-raised: oklch(22% 0.012 70);
-  --color-hover: oklch(26% 0.012 70);
-  --color-border: oklch(100% 0 0 / 0.11);
-  --color-border-strong: oklch(100% 0 0 / 0.22);
-  --color-text: oklch(90% 0.01 75);
-  --color-muted: oklch(70% 0.012 75);
-  --color-dim: oklch(52% 0.012 75);
-  --color-accent: oklch(78% 0.08 78);
-  --color-danger: oklch(62% 0.18 28);
+	--color-bg: oklch(13% 0.01 70);
+	--color-surface: oklch(17% 0.01 70);
+	--color-surface-soft: oklch(19% 0.01 70);
+	--color-surface-raised: oklch(22% 0.012 70);
+	--color-hover: oklch(26% 0.012 70);
+	--color-border: oklch(100% 0 0 / 0.11);
+	--color-border-strong: oklch(100% 0 0 / 0.22);
+	--color-text: oklch(90% 0.01 75);
+	--color-muted: oklch(70% 0.012 75);
+	--color-dim: oklch(52% 0.012 75);
+	--color-accent: oklch(78% 0.08 78);
+	--color-danger: oklch(62% 0.18 28);
 
-  --font-ui: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-wordmark: "Crimson Text", Georgia, serif;
+	--font-ui:
+		Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	--font-wordmark: 'Crimson Text', Georgia, serif;
 
-  --rail-width: 4.75rem;
-  --sidebar-width: 17rem;
-  --inspector-width: 24rem;
-  --bottom-nav-height: 5.5rem;
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
+	--rail-width: 4.75rem;
+	--sidebar-width: 17rem;
+	--inspector-width: 24rem;
+	--bottom-nav-height: 5.5rem;
+	--radius-sm: 0.375rem;
+	--radius-md: 0.5rem;
+	--radius-lg: 0.75rem;
+	--radius-xl: 1rem;
 
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.25rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
+	--space-1: 0.25rem;
+	--space-2: 0.5rem;
+	--space-3: 0.75rem;
+	--space-4: 1rem;
+	--space-5: 1.25rem;
+	--space-6: 1.5rem;
+	--space-8: 2rem;
 
-  --z-dropdown: 100;
-  --z-sticky: 200;
-  --z-sheet: 300;
-  --z-modal: 400;
-  --z-toast: 500;
+	--z-dropdown: 100;
+	--z-sticky: 200;
+	--z-sheet: 300;
+	--z-modal: 400;
+	--z-toast: 500;
 
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --duration-fast: 140ms;
-  --duration-base: 210ms;
+	--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+	--duration-fast: 140ms;
+	--duration-base: 210ms;
 }
 ```
 
@@ -354,55 +358,55 @@ Include reset, body, focus, button, image, and reduced-motion rules:
 *,
 *::before,
 *::after {
-  box-sizing: border-box;
+	box-sizing: border-box;
 }
 
 html,
 body {
-  margin: 0;
-  min-height: 100%;
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family: var(--font-ui);
+	margin: 0;
+	min-height: 100%;
+	background: var(--color-bg);
+	color: var(--color-text);
+	font-family: var(--font-ui);
 }
 
 body {
-  overflow: hidden;
+	overflow: hidden;
 }
 
 button,
 input,
 select,
 textarea {
-  font: inherit;
+	font: inherit;
 }
 
 button {
-  color: inherit;
+	color: inherit;
 }
 
 img {
-  display: block;
-  max-width: 100%;
+	display: block;
+	max-width: 100%;
 }
 
 :focus {
-  outline: none;
+	outline: none;
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 3px;
+	outline: 2px solid var(--color-accent);
+	outline-offset: 3px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 1ms !important;
-    scroll-behavior: auto !important;
-    transition-duration: 1ms !important;
-  }
+	*,
+	*::before,
+	*::after {
+		animation-duration: 1ms !important;
+		scroll-behavior: auto !important;
+		transition-duration: 1ms !important;
+	}
 }
 ```
 
@@ -416,39 +420,39 @@ export type AssetSource = 'library' | 'explore';
 export type MobileState = 'browse' | 'selecting' | 'adding' | 'inspecting';
 
 export type PaletteSwatch = {
-  hex: string;
-  label: string;
+	hex: string;
+	label: string;
 };
 
 export type Asset = {
-  id: string;
-  title: string;
-  creator: string;
-  year: string;
-  medium: string;
-  sourceName: string;
-  sourceUrl?: string;
-  sourceType: 'local' | 'web' | 'museum' | 'collection';
-  imageUrl: string;
-  width: number;
-  height: number;
-  tags: string[];
-  palette: PaletteSwatch[];
-  description: string;
-  notes?: string;
-  favorite?: boolean;
-  saved: boolean;
-  projects: string[];
-  folderPath: string[];
+	id: string;
+	title: string;
+	creator: string;
+	year: string;
+	medium: string;
+	sourceName: string;
+	sourceUrl?: string;
+	sourceType: 'local' | 'web' | 'museum' | 'collection';
+	imageUrl: string;
+	width: number;
+	height: number;
+	tags: string[];
+	palette: PaletteSwatch[];
+	description: string;
+	notes?: string;
+	favorite?: boolean;
+	saved: boolean;
+	projects: string[];
+	folderPath: string[];
 };
 
 export type Project = {
-  id: string;
-  name: string;
-  description: string;
-  pinned: boolean;
-  assetIds: string[];
-  canvasCount: number;
+	id: string;
+	name: string;
+	description: string;
+	pinned: boolean;
+	assetIds: string[];
+	canvasCount: number;
 };
 ```
 
@@ -474,6 +478,7 @@ Expected: checks pass and commit succeeds.
 ### Task 4: Implement Shell, Navigation, And Home Hub
 
 **Files:**
+
 - Create: `src/lib/state/app-state.svelte.ts`
 - Create: `src/lib/components/shell/AppShell.svelte`
 - Create: `src/lib/components/shell/ModeRail.svelte`
@@ -491,43 +496,43 @@ Expected: checks pass and commit succeeds.
 import type { AppMode, Asset, MobileState } from '$lib/types';
 
 export const appState = $state({
-  mode: 'home' as AppMode,
-  selectedAssetId: null as string | null,
-  selectedAssetIds: [] as string[],
-  mobileState: 'browse' as MobileState,
-  addOpen: false,
-  focusedPreviewOpen: false,
-  query: '',
-  activeTags: [] as string[],
-  folderPath: ['library', 'refs', 'artworks'],
-  lastBrowseScrollY: 0
+	mode: 'home' as AppMode,
+	selectedAssetId: null as string | null,
+	selectedAssetIds: [] as string[],
+	mobileState: 'browse' as MobileState,
+	addOpen: false,
+	focusedPreviewOpen: false,
+	query: '',
+	activeTags: [] as string[],
+	folderPath: ['library', 'refs', 'artworks'],
+	lastBrowseScrollY: 0
 });
 
 export function selectAsset(asset: Asset) {
-  appState.selectedAssetId = asset.id;
+	appState.selectedAssetId = asset.id;
 }
 
 export function openMobileInspect(asset: Asset, scrollY: number) {
-  appState.lastBrowseScrollY = scrollY;
-  appState.selectedAssetId = asset.id;
-  appState.mobileState = 'inspecting';
+	appState.lastBrowseScrollY = scrollY;
+	appState.selectedAssetId = asset.id;
+	appState.mobileState = 'inspecting';
 }
 
 export function closeMobileInspect() {
-  appState.mobileState = 'browse';
+	appState.mobileState = 'browse';
 }
 
 export function enterSelection(asset: Asset) {
-  appState.mobileState = 'selecting';
-  appState.selectedAssetIds = [asset.id];
+	appState.mobileState = 'selecting';
+	appState.selectedAssetIds = [asset.id];
 }
 
 export function toggleSelection(asset: Asset) {
-  const selected = new Set(appState.selectedAssetIds);
-  if (selected.has(asset.id)) selected.delete(asset.id);
-  else selected.add(asset.id);
-  appState.selectedAssetIds = [...selected];
-  if (appState.selectedAssetIds.length === 0) appState.mobileState = 'browse';
+	const selected = new Set(appState.selectedAssetIds);
+	if (selected.has(asset.id)) selected.delete(asset.id);
+	else selected.add(asset.id);
+	appState.selectedAssetIds = [...selected];
+	if (appState.selectedAssetIds.length === 0) appState.mobileState = 'browse';
 }
 ```
 
@@ -556,7 +561,7 @@ Home hub must show:
 
 ```svelte
 <script lang="ts">
-  import AppShell from '$lib/components/shell/AppShell.svelte';
+	import AppShell from '$lib/components/shell/AppShell.svelte';
 </script>
 
 <AppShell />
@@ -578,6 +583,7 @@ Expected: checks pass and commit succeeds.
 ### Task 5: Implement Library, Explore, Grid, Cards, And Inspector
 
 **Files:**
+
 - Create: `src/lib/components/library/LibraryView.svelte`
 - Create: `src/lib/components/explore/ExploreView.svelte`
 - Create: `src/lib/components/grid/AssetGrid.svelte`
@@ -663,6 +669,7 @@ Expected: checks pass and commit succeeds.
 ### Task 6: Implement Mobile States And Overlays
 
 **Files:**
+
 - Create: `src/lib/components/inspector/MobileInspectScreen.svelte`
 - Create: `src/lib/components/overlays/AddToLibrary.svelte`
 - Create: `src/lib/components/overlays/FocusedPreview.svelte`
@@ -724,6 +731,7 @@ Expected: checks pass and commit succeeds.
 ### Task 7: Add Unit Tests For State Helpers
 
 **Files:**
+
 - Create: `src/lib/utils/asset-state.ts`
 - Create: `src/lib/utils/asset-state.test.ts`
 
@@ -733,15 +741,15 @@ Create helpers:
 
 ```ts
 export function toggleId(ids: string[], id: string): string[] {
-  return ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id];
+	return ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id];
 }
 
 export function removeId(ids: string[], id: string): string[] {
-  return ids.filter((item) => item !== id);
+	return ids.filter((item) => item !== id);
 }
 
 export function formatBreadcrumb(parts: string[]): string {
-  return parts.filter(Boolean).join(' / ');
+	return parts.filter(Boolean).join(' / ');
 }
 ```
 
@@ -754,21 +762,21 @@ import { describe, expect, it } from 'vitest';
 import { formatBreadcrumb, removeId, toggleId } from './asset-state';
 
 describe('asset-state helpers', () => {
-  it('adds an id when toggling an unselected id', () => {
-    expect(toggleId(['a'], 'b')).toEqual(['a', 'b']);
-  });
+	it('adds an id when toggling an unselected id', () => {
+		expect(toggleId(['a'], 'b')).toEqual(['a', 'b']);
+	});
 
-  it('removes an id when toggling a selected id', () => {
-    expect(toggleId(['a', 'b'], 'a')).toEqual(['b']);
-  });
+	it('removes an id when toggling a selected id', () => {
+		expect(toggleId(['a', 'b'], 'a')).toEqual(['b']);
+	});
 
-  it('removes an id directly', () => {
-    expect(removeId(['a', 'b'], 'b')).toEqual(['a']);
-  });
+	it('removes an id directly', () => {
+		expect(removeId(['a', 'b'], 'b')).toEqual(['a']);
+	});
 
-  it('formats breadcrumbs without empty segments', () => {
-    expect(formatBreadcrumb(['library', '', 'refs', 'artworks'])).toBe('library / refs / artworks');
-  });
+	it('formats breadcrumbs without empty segments', () => {
+		expect(formatBreadcrumb(['library', '', 'refs', 'artworks'])).toBe('library / refs / artworks');
+	});
 });
 ```
 
@@ -796,6 +804,7 @@ Expected: commit succeeds.
 ### Task 8: Add Playwright Flow Tests And Visual QA
 
 **Files:**
+
 - Create: `tests/pastiche-shell.spec.ts`
 
 - [ ] **Step 1: Add Playwright tests**
@@ -855,6 +864,7 @@ Expected: commit succeeds.
 ### Task 9: Final Verification
 
 **Files:**
+
 - Verify all source files and docs touched by the slice.
 
 - [ ] **Step 1: Run complete verification**

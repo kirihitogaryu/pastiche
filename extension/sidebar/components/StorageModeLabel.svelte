@@ -12,13 +12,13 @@
 	let { mode, reason, fetchState = 'idle', commercial = false }: Props = $props();
 
 	const modeLabel = $derived(() => {
-		if (mode === 'url_reference') return 'Stored as reference link';
+		if (mode === 'url_reference') return 'Linked reference';
 		if (mode === 'download') {
 			if (fetchState === 'fetching') return 'Downloading…';
 			if (fetchState === 'error') return 'Download failed';
-			return 'Downloaded';
+			return 'Original ready';
 		}
-		if (mode === 'lazy_download') return 'Reference + background copy';
+		if (mode === 'lazy_download') return 'Bookmarked';
 		return '';
 	});
 </script>

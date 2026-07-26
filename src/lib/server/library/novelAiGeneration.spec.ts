@@ -10,8 +10,7 @@ describe('NovelAI generation metadata', () => {
 		expect(generation).toMatchObject({
 			provider: 'novelai',
 			model: 'NovelAI Diffusion V4.5 4BDE2A90',
-			prompt:
-				'1.5::1boy, solo::, 1.5::simple background::, artist:nightcrow, western dragon',
+			prompt: '1.5::1boy, solo::, 1.5::simple background::, artist:nightcrow, western dragon',
 			negativePrompt: 'lowres, bad anatomy',
 			seed: 3468250285,
 			sampler: 'k_euler_ancestral',
@@ -36,7 +35,13 @@ describe('NovelAI generation metadata', () => {
 			}
 		]);
 		expect(generation?.promptTagSuggestions).toEqual(
-			expect.arrayContaining(['1boy', 'solo', 'simple background', 'western dragon', 'white dragon'])
+			expect.arrayContaining([
+				'1boy',
+				'solo',
+				'simple background',
+				'western dragon',
+				'white dragon'
+			])
 		);
 		expect(generation?.promptTagSuggestions).not.toContain('lowres');
 		expect(generation?.promptTagSuggestions).not.toContain('artist:nightcrow');
@@ -72,11 +77,9 @@ function novelAiMetadata(): EmbeddedImageMetadata {
 		pngText: {
 			Software: 'NovelAI',
 			Source: 'NovelAI Diffusion V4.5 4BDE2A90',
-			Description:
-				'1.5::1boy, solo::, 1.5::simple background::, artist:nightcrow, western dragon',
+			Description: '1.5::1boy, solo::, 1.5::simple background::, artist:nightcrow, western dragon',
 			Comment: JSON.stringify({
-				prompt:
-					'1.5::1boy, solo::, 1.5::simple background::, artist:nightcrow, western dragon',
+				prompt: '1.5::1boy, solo::, 1.5::simple background::, artist:nightcrow, western dragon',
 				uc: 'lowres, bad anatomy',
 				steps: 25,
 				width: 1216,

@@ -1,6 +1,8 @@
-import type { CaptureMetadata, SourceTag } from '../shared/candidates';
-import type { EnrichedItem, FetchStatus } from '../shared/types';
+import type { AcceptedAnnotation, CaptureMetadata, SourceTag } from '../shared/candidates';
+import type { EnrichedItem, FetchStatus, ImportedSource } from '../shared/types';
 import { instagramLargeMediaUrl } from '../shared/source-adapters';
+import { normalizeSource, sourceKeyForUrls } from '../shared/source-hash';
+import { normalizeArtistCandidates } from '../shared/artist-candidates';
 
 export function updateSelectedItemId(
 	selectedItemId: string | null,
@@ -14,7 +16,8 @@ export function updateSelectedItemId(
 export function selectCandidateForItem(
 	items: EnrichedItem[],
 	itemId: string,
-	candidateId: string
+	candidateId: string,
+	importedSources: ImportedSource[] = []
 ): EnrichedItem[] {
 	return items.map((item) => {
 		if (item.id !== itemId) return item;
@@ -23,9 +26,17 @@ export function selectCandidateForItem(
 		const width = candidate.width ?? item.naturalWidth;
 		const height = candidate.height ?? item.naturalHeight;
 		const fetchStatus = fetchStatusAfterCandidateChange(item, candidate.url);
+		const sourceUrl = item.source.canonicalPageUrl ?? item.source.pageUrl ?? item.sourceUrl;
+		const alreadyInLibrary =
+			item.url === candidate.url
+				? item.alreadyInLibrary
+				: importedSourceMatches(candidate.url, sourceUrl, importedSources);
 
 		return {
 			...item,
+			revision: item.revision + 1,
+			id: sourceHashForItemUrl(candidate.url, sourceUrl),
+			captureKey: item.captureKey ?? item.url,
 			url: candidate.url,
 			selectedCandidateId: candidate.id,
 			previewUrl: item.url === candidate.url ? item.previewUrl : item.url,
@@ -34,6 +45,7 @@ export function selectCandidateForItem(
 			mimeType: candidate.mimeType ?? item.mimeType,
 			altText: candidate.altText ?? item.altText,
 			fetchStatus,
+			alreadyInLibrary,
 			source: {
 				...item.source,
 				detailUrl: candidate.detailUrl ?? item.source.detailUrl,
@@ -43,9 +55,14 @@ export function selectCandidateForItem(
 	});
 }
 
+export function sourceHashForItemUrl(url: string, sourceUrl: string): string {
+	return `source:${normalizeSource(sourceKeyForUrls(url, sourceUrl))}`;
+}
+
 export function selectInstagramLargeCandidateForItem(
 	items: EnrichedItem[],
-	itemId: string
+	itemId: string,
+	importedSources: ImportedSource[] = []
 ): EnrichedItem[] {
 	let candidateId: string | null = null;
 	const withCandidate = items.map((item) => {
@@ -86,7 +103,9 @@ export function selectInstagramLargeCandidateForItem(
 		};
 	});
 
-	return candidateId ? selectCandidateForItem(withCandidate, itemId, candidateId) : items;
+	return candidateId
+		? selectCandidateForItem(withCandidate, itemId, candidateId, importedSources)
+		: items;
 }
 
 export function updateItemMetadata(
@@ -103,14 +122,23 @@ export function updateItemMetadata(
 			acceptedConceptSlugs: patch.acceptedConceptSlugs
 				? normalizeConceptSlugs(patch.acceptedConceptSlugs)
 				: item.metadata.acceptedConceptSlugs,
+			acceptedAnnotations: patch.acceptedAnnotations
+				? normalizeAcceptedAnnotations(patch.acceptedAnnotations)
+				: item.metadata.acceptedAnnotations,
+			artistCandidates: patch.artistCandidates
+				? normalizeArtistCandidates(patch.artistCandidates)
+				: item.metadata.artistCandidates,
 			suggestedTags: patch.suggestedTags
 				? normalizeTags(patch.suggestedTags)
 				: item.metadata.suggestedTags,
-			sourceTags: patch.sourceTags ? normalizeSourceTags(patch.sourceTags) : item.metadata.sourceTags
+			sourceTags: patch.sourceTags
+				? normalizeSourceTags(patch.sourceTags)
+				: item.metadata.sourceTags
 		};
 
 		return {
 			...item,
+			revision: item.revision + 1,
 			metadata,
 			suggestedName: metadata.title || item.suggestedName
 		};
@@ -125,6 +153,20 @@ function fetchStatusAfterCandidateChange(item: EnrichedItem, candidateUrl: strin
 	if (item.url === candidateUrl) return item.fetchStatus;
 	if (item.storageMode === 'download') return { state: 'fetching' };
 	return { state: 'idle' };
+}
+
+function importedSourceMatches(
+	imageUrl: string,
+	sourceUrl: string,
+	importedSources: ImportedSource[]
+): boolean {
+	const key = normalizeSource(sourceKeyForUrls(imageUrl, sourceUrl));
+	return importedSources.some((source) => {
+		const importedKey = normalizeSource(
+			sourceKeyForUrls(source.source_image_url, source.source_url)
+		);
+		return importedKey === key;
+	});
 }
 
 function normalizeTags(tags: string[]): string[] {
@@ -148,6 +190,23 @@ function normalizeConceptSlugs(slugs: string[]): string[] {
 				.filter(Boolean)
 		)
 	];
+}
+
+function normalizeAcceptedAnnotations(annotations: AcceptedAnnotation[]): AcceptedAnnotation[] {
+	return annotations
+		.map((annotation) => ({
+			label: annotation.label.trim(),
+			concepts: normalizeConceptSlugs(annotation.concepts),
+			classifiers: Object.fromEntries(
+				Object.entries(annotation.classifiers)
+					.map(([key, value]) => [
+						normalizeConceptSlugs([key])[0] ?? '',
+						normalizeConceptSlugs([value])[0] ?? ''
+					])
+					.filter(([key, value]) => Boolean(key && value))
+			)
+		}))
+		.filter((annotation) => annotation.label && annotation.concepts.length > 0);
 }
 
 function normalizeSourceTags(tags: SourceTag[]): SourceTag[] {
@@ -195,6 +254,12 @@ function isSourceTagSource(value: unknown): value is SourceTag['source'] {
 		value === 'x' ||
 		value === 'bluesky' ||
 		value === 'instagram' ||
+		value === 'pixiv' ||
+		value === 'toyhouse' ||
+		value === 'furaffinity' ||
+		value === 'lofter' ||
+		value === 'vk' ||
+		value === 'weibo' ||
 		value === 'generic'
 	);
 }

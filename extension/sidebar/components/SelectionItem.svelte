@@ -4,14 +4,25 @@
 
 	type Props = {
 		item: EnrichedItem;
+		imageDataUrl: string | null;
 		selected: boolean;
 		onselect: (id: string) => void;
 		onremove: (id: string) => void;
 		onrename: (id: string, name: string) => void;
-		onoverridemodetoggle: (id: string) => void;
+		onbookmark: (id: string) => void;
+		onimportoriginal: (id: string) => void;
 	};
 
-	let { item, selected, onselect, onremove, onrename, onoverridemodetoggle }: Props = $props();
+	let {
+		item,
+		imageDataUrl,
+		selected,
+		onselect,
+		onremove,
+		onrename,
+		onbookmark,
+		onimportoriginal
+	}: Props = $props();
 
 	let editingName = $state(false);
 	let nameInput = $state('');
@@ -23,9 +34,7 @@
 	// Thumbnail source: for url_reference/lazy_download use the URL directly.
 	// For download mode, use the base64 blob when available.
 	const thumbSrc = $derived(() => {
-		if (item.fetchStatus.state === 'done') {
-			return `data:${item.fetchStatus.mimeType};base64,${item.fetchStatus.base64}`;
-		}
+		if (imageDataUrl) return imageDataUrl;
 		if (item.storageMode !== 'download') return item.previewUrl ?? item.url;
 		return null; // Still fetching
 	});
@@ -137,14 +146,20 @@
 				fetchState={fetchState()}
 				commercial={isCommercial()}
 			/>
-			<button
-				class="mode-toggle"
-				type="button"
-				title="Toggle storage mode"
-				onclick={() => onoverridemodetoggle(item.id)}
-			>
-				{item.storageMode === 'url_reference' ? 'Force download' : 'Use reference'}
-			</button>
+			{#if item.storageMode === 'download'}
+				{#if fetchState() === 'error'}
+					<button class="mode-toggle" type="button" onclick={() => onimportoriginal(item.id)}>
+						Retry
+					</button>
+				{/if}
+				<button class="mode-toggle" type="button" onclick={() => onbookmark(item.id)}>
+					Bookmark instead
+				</button>
+			{:else}
+				<button class="mode-toggle" type="button" onclick={() => onimportoriginal(item.id)}>
+					Import original
+				</button>
+			{/if}
 		</div>
 
 		{#if item.alreadyInLibrary}
@@ -152,7 +167,7 @@
 		{/if}
 
 		{#if fetchState() === 'error'}
-			<span class="fetch-error">Download failed, will send as reference</span>
+			<span class="fetch-error">Original not stored. Retry or bookmark this source.</span>
 		{/if}
 	</div>
 

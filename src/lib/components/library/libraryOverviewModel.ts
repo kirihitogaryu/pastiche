@@ -1,6 +1,5 @@
 import type {
 	LibraryAsset,
-	LibraryProject,
 	LibraryResponse,
 	LibraryTag,
 	LibraryTagFacet
@@ -14,10 +13,7 @@ export type FolderTreeNode = LibraryFolder & {
 };
 
 export type LibrarySearchResults = {
-	assets: LibraryAsset[];
-	projects: LibraryProject[];
 	folders: FolderTreeNode[];
-	tags: LibraryTag[];
 	hasQuery: boolean;
 	total: number;
 };
@@ -55,8 +51,13 @@ export function sortHubTagGroups(groups: LibraryTagFacet[]): LibraryTagFacet[] {
 	});
 }
 
-export function visibleTagGroups(groups: LibraryTagFacet[], includeEmpty = false): LibraryTagFacet[] {
-	return groups.filter((group) => includeEmpty || group.tags.length > 0 || group.slug === 'general');
+export function visibleTagGroups(
+	groups: LibraryTagFacet[],
+	includeEmpty = false
+): LibraryTagFacet[] {
+	return groups.filter(
+		(group) => includeEmpty || group.tags.length > 0 || group.slug === 'general'
+	);
 }
 
 export function previewTags(tags: LibraryTag[], limit = 6) {
@@ -108,22 +109,110 @@ export function normalizeLibraryQuery(query: string) {
 
 export function filterAssetsByLibraryQuery(
 	assets: LibraryAsset[],
-	query: string
+	query: string,
+	resolvedExpressions: string[] = []
 ): LibraryAsset[] {
-	const normalized = normalizeLibraryQuery(query);
-	if (!normalized) return assets;
+	const segments = query.split(',').map(normalizeLibraryQuery).filter(Boolean);
+	if (!segments.length) return assets;
 	return assets.filter((asset) =>
-		[
-			asset.title,
-			asset.creator,
-			asset.sourceName,
-			asset.medium,
-			asset.description,
-			...(asset.record?.organization.tags.map((tag) => tag.value) ?? [])
-		]
-			.filter((value): value is string => Boolean(value))
-			.some((value) => value.toLocaleLowerCase().includes(normalized))
+		segments.every((segment, index) =>
+			matchesLibraryQuery(
+				asset,
+				index === segments.length - 1 ? [segment, ...resolvedExpressions] : [segment]
+			)
+		)
+	);
+}
+
+function matchesLibraryQuery(asset: LibraryAsset, queries: string[]) {
+	const metadataValues = [
+		asset.title,
+		asset.creator,
+		asset.sourceName,
+		asset.medium,
+		asset.description
+	].filter((value): value is string => Boolean(value));
+	const tagValues = [
+		...asset.tags,
+		...(asset.record?.organization.tags.flatMap((tag) => [tag.value, tag.name, tag.slug]) ?? []),
+		...(asset.record?.organization.atlasTags?.flatMap((tag) => [
+			tag.expression,
+			tag.slug,
+			tag.label
+		]) ?? [])
+	];
+
+	return queries.some((query) => {
+		const textQuery = normalizeSearchText(query);
+		const slugQuery = normalizeSearchSlug(query);
+		if (!textQuery) return false;
+		if (
+			metadataValues.some((value) => normalizeSearchText(value).includes(textQuery)) ||
+			tagValues.some((value) => {
+				const text = normalizeSearchText(value);
+				const slug = normalizeSearchSlug(value);
+				return (
+					text.includes(textQuery) || slug.includes(slugQuery) || fuzzyTagMatch(slugQuery, slug)
+				);
+			})
+		) {
+			return true;
+		}
+		return false;
+	});
+}
+
+function normalizeSearchText(value: string) {
+	return value
+		.trim()
+		.toLocaleLowerCase()
+		.replace(/[_.:()[\]-]+/g, ' ')
+		.replace(/\s+/g, ' ');
+}
+
+function normalizeSearchSlug(value: string) {
+	return value
+		.trim()
+		.toLocaleLowerCase()
+		.replace(/\s+/g, '_')
+		.replace(/[^a-z0-9_:().-]+/g, '');
+}
+
+function fuzzyTagMatch(query: string, candidate: string) {
+	if (query.length < 4 || candidate.length < 4) return false;
+	const threshold = query.length >= 8 ? 2 : 1;
+	if (Math.abs(query.length - candidate.length) <= threshold) {
+		return editDistanceWithin(query, candidate, threshold);
+	}
+	return candidate
+		.split(/[_.:()-]+/)
+		.some(
+			(part) =>
+				Math.abs(query.length - part.length) <= threshold &&
+				editDistanceWithin(query, part, threshold)
 		);
+}
+
+function editDistanceWithin(first: string, second: string, maximum: number) {
+	if (Math.abs(first.length - second.length) > maximum) return false;
+	let previous = Array.from({ length: second.length + 1 }, (_, index) => index);
+	for (let firstIndex = 1; firstIndex <= first.length; firstIndex += 1) {
+		const current = [firstIndex];
+		let rowMinimum = current[0];
+		for (let secondIndex = 1; secondIndex <= second.length; secondIndex += 1) {
+			const cost = first[firstIndex - 1] === second[secondIndex - 1] ? 0 : 1;
+			const value = Math.min(
+				previous[secondIndex] + 1,
+				current[secondIndex - 1] + 1,
+				previous[secondIndex - 1] + cost
+			);
+			current.push(value);
+			rowMinimum = Math.min(rowMinimum, value);
+		}
+		if (rowMinimum > maximum) return false;
+		previous = current;
+	}
+	return previous[second.length] <= maximum;
 }
 
 export function filterAssetsByLibraryFilters(
@@ -155,9 +244,13 @@ export function filterAssetsByLibraryFilters(
 			return false;
 		}
 		for (const [key, value] of Object.entries(filters.metadata)) {
-			if (value && asset.record?.facts[key as keyof typeof filters.metadata] !== value) return false;
+			if (value && asset.record?.facts[key as keyof typeof filters.metadata] !== value)
+				return false;
 		}
-		if (filters.orientation && imageOrientation(asset.width, asset.height) !== filters.orientation) {
+		if (
+			filters.orientation &&
+			imageOrientation(asset.width, asset.height) !== filters.orientation
+		) {
 			return false;
 		}
 		return true;
@@ -172,35 +265,20 @@ export function searchLibrary(input: {
 	const normalized = normalizeLibraryQuery(input.query);
 	const limit = input.limit ?? 6;
 	if (!normalized) {
-		return { assets: [], projects: [], folders: [], tags: [], hasQuery: false, total: 0 };
+		return { folders: [], hasQuery: false, total: 0 };
 	}
 
 	const folders = buildFolderTree(input.library.folders)
 		.flatMap(flattenFolderTree)
 		.filter((folder) =>
-			[folder.name, folder.path.join(' / ')]
-				.some((value) => value.toLocaleLowerCase().includes(normalized))
-		);
-	const projects = input.library.projects.filter((project) =>
-		[project.name, project.description ?? ''].some((value) =>
-			value.toLocaleLowerCase().includes(normalized)
-		)
-	);
-	const tags = input.library.tagFacets
-		.flatMap((group) => group.tags)
-		.filter((tag) =>
-			[tag.value, tag.name, tag.facetName].some((value) =>
+			[folder.name, folder.path.join(' / ')].some((value) =>
 				value.toLocaleLowerCase().includes(normalized)
 			)
 		);
-	const assets = filterAssetsByLibraryQuery(input.library.assets, normalized);
 	return {
-		assets: assets.slice(0, limit),
-		projects: projects.slice(0, limit),
 		folders: folders.slice(0, limit),
-		tags: tags.slice(0, limit),
 		hasQuery: true,
-		total: assets.length + projects.length + folders.length + tags.length
+		total: folders.length
 	};
 }
 

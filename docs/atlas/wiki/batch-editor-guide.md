@@ -10,11 +10,11 @@ The root value must be a JSON object. All top-level keys are optional, but unkno
 
 ```json
 {
-  "identity": {},
-  "concepts": [],
-  "entities": [],
-  "claims": [],
-  "annotations": []
+	"identity": {},
+	"concepts": [],
+	"entities": [],
+	"claims": [],
+	"annotations": []
 }
 ```
 
@@ -24,15 +24,15 @@ Use `identity` for plain asset fields.
 
 ```json
 {
-  "identity": {
-    "title": "Phoebus Apollo kills the Python",
-    "artist": "Antoine Verard",
-    "year": "1494",
-    "medium": "Book illumination",
-    "source": "British Library",
-    "rights": "Additional permissions needed for non-editorial use.",
-    "description": "Illumination from Ovid's Metamorphoses."
-  }
+	"identity": {
+		"title": "Phoebus Apollo kills the Python",
+		"artist": "Antoine Verard",
+		"year": "1494",
+		"medium": "Book illumination",
+		"source": "British Library",
+		"rights": "Additional permissions needed for non-editorial use.",
+		"description": "Illumination from Ovid's Metamorphoses."
+	}
 }
 ```
 
@@ -44,10 +44,10 @@ Use `concepts` for asset-level tags. Prefer annotation concepts when the tag des
 
 ```json
 {
-  "concepts": [
-    { "slug": "book_illumination", "evidence": "metadata", "status": "approved" },
-    { "slug": "greek_mythology", "evidence": "metadata", "status": "approved" }
-  ]
+	"concepts": [
+		{ "slug": "book_illumination", "evidence": "metadata", "status": "approved" },
+		{ "slug": "greek_mythology", "evidence": "metadata", "status": "approved" }
+	]
 }
 ```
 
@@ -72,9 +72,7 @@ To remove an asset-level concept:
 
 ```json
 {
-  "concepts": [
-    { "slug": "apollo_deity", "action": "remove" }
-  ]
+	"concepts": [{ "slug": "apollo_deity", "action": "remove" }]
 }
 ```
 
@@ -84,11 +82,11 @@ Use `entities` for reusable named things that are not ordinary visual tags: arti
 
 ```json
 {
-  "entities": [
-    { "kind": "artist", "label": "Antoine Verard" },
-    { "kind": "institution", "label": "British Library" },
-    { "kind": "character", "label": "Apollo" }
-  ]
+	"entities": [
+		{ "kind": "artist", "label": "Antoine Verard" },
+		{ "kind": "institution", "label": "British Library" },
+		{ "kind": "character", "label": "Apollo" }
+	]
 }
 ```
 
@@ -109,11 +107,11 @@ Use `claims` for source or technical facts.
 
 ```json
 {
-  "claims": [
-    { "kind": "date", "value": "1494" },
-    { "kind": "medium", "value": "Illumination; painting; book illumination" },
-    { "kind": "rights", "value": "Additional permissions needed for non-editorial use." }
-  ]
+	"claims": [
+		{ "kind": "date", "value": "1494" },
+		{ "kind": "medium", "value": "Illumination; painting; book illumination" },
+		{ "kind": "rights", "value": "Additional permissions needed for non-editorial use." }
+	]
 }
 ```
 
@@ -133,27 +131,27 @@ Use `annotations` for specific visible regions or entities in the image.
 
 ```json
 {
-  "annotations": [
-    {
-      "label": "apollo_archer",
-      "concepts": ["apollo_(deity)", "male_figure"],
-      "classifiers": {
-        "visual_role": "focal_point",
-        "action_role": "attacker",
-        "pose": "standing",
-        "position": "left"
-      }
-    },
-    {
-      "label": "python_as_dragon",
-      "concepts": ["python_(mythology)", "dragon"],
-      "classifiers": {
-        "visual_role": "focal_point",
-        "state": "wounded",
-        "position": "right"
-      }
-    }
-  ]
+	"annotations": [
+		{
+			"label": "apollo_archer",
+			"concepts": ["apollo_(deity)", "male_figure"],
+			"classifiers": {
+				"visual_role": "focal_point",
+				"action_role": "attacker",
+				"pose": "standing",
+				"position": "left"
+			}
+		},
+		{
+			"label": "python_as_dragon",
+			"concepts": ["python_(mythology)", "dragon"],
+			"classifiers": {
+				"visual_role": "focal_point",
+				"state": "wounded",
+				"position": "right"
+			}
+		}
+	]
 }
 ```
 
@@ -170,19 +168,17 @@ Use `background_detail` for visible objects that should not make the asset a str
 
 ```json
 {
-  "concepts": [
-    { "slug": "dragon", "evidence": "observed", "status": "approved" }
-  ],
-  "annotations": [
-    {
-      "label": "dragon_body",
-      "concepts": ["dragon"],
-      "classifiers": {
-        "visual_role": "focal_point",
-        "position": "right"
-      }
-    }
-  ]
+	"concepts": [{ "slug": "dragon", "evidence": "observed", "status": "approved" }],
+	"annotations": [
+		{
+			"label": "dragon_body",
+			"concepts": ["dragon"],
+			"classifiers": {
+				"visual_role": "focal_point",
+				"position": "right"
+			}
+		}
+	]
 }
 ```
 
@@ -192,8 +188,8 @@ This is invalid because JSON cannot contain comments:
 
 ```json
 {
-  // add the main subject
-  "concepts": [{ "slug": "dragon" }]
+	// add the main subject
+	"concepts": [{ "slug": "dragon" }]
 }
 ```
 
@@ -201,9 +197,7 @@ This is invalid because JSON cannot use trailing commas:
 
 ```json
 {
-  "concepts": [
-    { "slug": "dragon" },
-  ]
+	"concepts": [{ "slug": "dragon" }]
 }
 ```
 
@@ -211,9 +205,7 @@ This is valid JSON but bad Atlas practice because it creates an attribute compou
 
 ```json
 {
-  "concepts": [
-    { "slug": "red_dragon" }
-  ]
+	"concepts": [{ "slug": "red_dragon" }]
 }
 ```
 
@@ -221,15 +213,15 @@ Prefer:
 
 ```json
 {
-  "annotations": [
-    {
-      "label": "dragon_body",
-      "concepts": ["dragon"],
-      "classifiers": {
-        "color": "red"
-      }
-    }
-  ]
+	"annotations": [
+		{
+			"label": "dragon_body",
+			"concepts": ["dragon"],
+			"classifiers": {
+				"color": "red"
+			}
+		}
+	]
 }
 ```
 

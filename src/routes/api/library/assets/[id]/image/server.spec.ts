@@ -42,12 +42,55 @@ describe('GET /api/library/assets/[id]/image', () => {
 
 		const response = await GET({
 			params: { id: imported.imported[0].asset_id },
-			url: new URL('http://localhost/api/library/assets/test/image?variant=thumb')
+			url: new URL('http://localhost/api/library/assets/test/image?variant=thumb&download=1')
 		});
 
 		expect(response.status).toBe(200);
 		expect(response.headers.get('content-type')).toBe('image/webp');
+		expect(response.headers.get('content-disposition')).toContain('attachment');
 		expect((await response.arrayBuffer()).byteLength).toBeGreaterThan(0);
+	});
+
+	it('streams bookmarked originals through the same-origin download endpoint', async () => {
+		const imported = await importLibraryItems({
+			destination_folder_id: null,
+			items: [
+				{
+					filename: 'Remote ref',
+					storage_mode: 'url_reference',
+					image_data: null,
+					source_image_url: 'https://cdn.example.com/original.png',
+					mime_type: 'image/png',
+					natural_width: 1200,
+					natural_height: 1800,
+					source_url: 'https://example.com/post',
+					page_title: 'Remote ref',
+					alt_text: null,
+					captured_at: '2026-07-25T12:00:00.000Z'
+				}
+			]
+		});
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				async () =>
+					new Response(new Uint8Array([1, 2, 3]), {
+						status: 200,
+						headers: { 'content-type': 'image/png' }
+					})
+			)
+		);
+		const { GET } = await import('./+server');
+
+		const response = await GET({
+			params: { id: imported.imported[0].asset_id },
+			url: new URL('http://localhost/api/library/assets/test/image?variant=original&download=1')
+		});
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get('content-type')).toBe('image/png');
+		expect(response.headers.get('content-disposition')).toContain('Remote%20ref.png');
+		expect((await response.arrayBuffer()).byteLength).toBe(3);
 	});
 
 	it('returns 404 for missing local files', async () => {

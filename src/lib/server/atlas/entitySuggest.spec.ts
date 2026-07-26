@@ -41,16 +41,20 @@ describe('artist entity suggestions', () => {
 				)`
 			).run();
 
-			expect(suggestAtlasEntities(db, { kind: 'artist', query: 'DamonWildFire' })[0]).toMatchObject({
-				slug: 'damonwildfire',
-				matchReason: 'label'
-			});
+			expect(suggestAtlasEntities(db, { kind: 'artist', query: 'DamonWildFire' })[0]).toMatchObject(
+				{
+					slug: 'damonwildfire',
+					matchReason: 'label'
+				}
+			);
 			expect(suggestAtlasEntities(db, { kind: 'artist', query: 'Damon W' })[0]).toMatchObject({
 				slug: 'damonwildfire',
 				match: 'Damon W. Fire',
 				matchReason: 'alias'
 			});
-			expect(suggestAtlasEntities(db, { kind: 'artist', query: '@damonwildfire' })[0]).toMatchObject({
+			expect(
+				suggestAtlasEntities(db, { kind: 'artist', query: '@damonwildfire' })[0]
+			).toMatchObject({
 				slug: 'damonwildfire'
 			});
 			expect(suggestAtlasEntities(db, { kind: 'artist', query: 'wildfire' })[0]).toMatchObject({

@@ -33,6 +33,7 @@
 ## Task 1: Suppress False Post-Import Cleanup Errors
 
 **Files:**
+
 - Modify: `extension/sidebar/App.svelte`
 - Test: `extension/sidebar/capture-maintenance.spec.ts`
 
@@ -101,6 +102,7 @@ git commit -m "fix: suppress cleanup content script errors"
 ## Task 2: Parse PNG Text Chunks And NovelAI Prompt Data
 
 **Files:**
+
 - Create: `src/lib/server/library/embeddedImageMetadata.ts`
 - Create: `src/lib/server/library/embeddedImageMetadata.spec.ts`
 - Create: `src/lib/server/library/novelAiGeneration.ts`
@@ -110,6 +112,7 @@ git commit -m "fix: suppress cleanup content script errors"
 - [ ] Write failing PNG metadata tests.
 
 Test cases:
+
 - `extractEmbeddedImageMetadata(buffer)` returns `pngText.Software`, `pngText.Description`, and parsed `pngText.Comment`.
 - Invalid/non-PNG buffers return `{ kind: 'unknown', warnings: [...] }` without throwing.
 
@@ -134,6 +137,7 @@ export type EmbeddedImageMetadata = {
 - [ ] Write failing NovelAI parser tests.
 
 Test cases:
+
 - Maps `Software: NovelAI`, `Source`, and JSON `Comment` to provider/model/prompt/negativePrompt/seed/sampler/steps/cfgScale.
 - Pulls character prompt captions from `v4_prompt.caption.char_captions`.
 - Separates negative prompt tokens from positive token suggestions.
@@ -149,7 +153,9 @@ Expected: FAIL because module does not exist.
 Public functions:
 
 ```ts
-export function parseNovelAiGeneration(metadata: EmbeddedImageMetadata): AiGenerationMetadata | null;
+export function parseNovelAiGeneration(
+	metadata: EmbeddedImageMetadata
+): AiGenerationMetadata | null;
 export function parsePromptTokens(prompt: string, scope: PromptTokenScope): PromptToken[];
 ```
 
@@ -173,6 +179,7 @@ git commit -m "feat: parse novelai image metadata"
 ## Task 3: Populate Library Generation Records
 
 **Files:**
+
 - Modify: `src/lib/server/library/import.ts`
 - Modify: `src/lib/server/library/read.ts`
 - Modify: `src/lib/server/library/read.spec.ts`
@@ -183,6 +190,7 @@ git commit -m "feat: parse novelai image metadata"
 Use a generated 1x1 PNG with NovelAI `comments` and import it with `storage_mode: 'download'`.
 
 Assert:
+
 - `assets.metadata_json.rawMetadata.embeddedImageMetadata.pngText.Software === 'NovelAI'`
 - `getLibrarySnapshot().assets[0].record.generation.provider === 'novelai'`
 - `generation.promptTagSuggestions` includes positive prompt tokens
@@ -214,6 +222,7 @@ git commit -m "feat: populate ai generation metadata"
 ## Task 4: Render Atlas AI Metadata
 
 **Files:**
+
 - Modify: `src/lib/components/atlas/AtlasAiMetadataSection.svelte`
 - Modify: `src/lib/components/atlas/AtlasAssetInspect.svelte`
 
@@ -262,6 +271,7 @@ git commit -m "feat: render ai generation metadata"
 ## Task 5: Add Sidebar Drag/Drop Staging
 
 **Files:**
+
 - Create: `extension/sidebar/drop-import.ts`
 - Create: `extension/sidebar/drop-import.spec.ts`
 - Modify: `extension/shared/messages.ts`
@@ -319,6 +329,7 @@ git commit -m "feat: add extension drag drop import"
 ## Task 6: Final Verification And Push
 
 **Files:**
+
 - No planned source changes unless verification exposes a defect.
 
 - [ ] Run focused suites:

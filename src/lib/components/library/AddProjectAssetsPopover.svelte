@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ImageSquareIcon from 'phosphor-svelte/lib/ImageSquareIcon';
+	import { loadLibrarySnapshot } from '$lib/library/client';
 	import type { LibraryResponse } from '$lib/library/types';
 	import type { Asset } from '$lib/types';
 
@@ -56,13 +57,14 @@
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ asset_id: asset.id })
 			});
-			const body = (await response.json()) as { error?: string; snapshot?: LibraryResponse };
-			if (!response.ok || !body.snapshot) {
+			const body = (await response.json()) as { error?: string };
+			if (!response.ok) {
 				throw new Error(
-					body.error ?? (purpose === 'cover' ? 'Could not set project cover' : 'Could not add image')
+					body.error ??
+						(purpose === 'cover' ? 'Could not set project cover' : 'Could not add image')
 				);
 			}
-			onSnapshot(body.snapshot);
+			onSnapshot(await loadLibrarySnapshot());
 			if (purpose === 'cover') onClose();
 		} catch (addError) {
 			error =

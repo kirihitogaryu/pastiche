@@ -7,7 +7,10 @@ const KNOWN_VALUE_SLUGS: Partial<Record<KnownKind, Record<string, AtlasNormalize
 		'the metropolitan museum of art': { label: 'The Met', slug: 'the_met' },
 		'metropolitan museum': { label: 'The Met', slug: 'the_met' },
 		'the met': { label: 'The Met', slug: 'the_met' },
-		'art institute of chicago': { label: 'Art Institute of Chicago', slug: 'art_institute_of_chicago' },
+		'art institute of chicago': {
+			label: 'Art Institute of Chicago',
+			slug: 'art_institute_of_chicago'
+		},
 		'art institute': { label: 'Art Institute of Chicago', slug: 'art_institute_of_chicago' }
 	},
 	source: {
@@ -33,7 +36,10 @@ export function normalizeAtlasSlug(input: string): string {
 		.replace(/^_|_$/g, '');
 }
 
-export function normalizeKnownAtlasValue(kind: KnownKind, input: string): AtlasNormalizedValue | null {
+export function normalizeKnownAtlasValue(
+	kind: KnownKind,
+	input: string
+): AtlasNormalizedValue | null {
 	const clean = input.trim();
 	if (!clean) return null;
 	const key = clean.toLowerCase().replace(/\s+/g, ' ');

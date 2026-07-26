@@ -1,30 +1,16 @@
 <script lang="ts">
 	import FolderIcon from 'phosphor-svelte/lib/FolderIcon';
-	import HashIcon from 'phosphor-svelte/lib/HashIcon';
-	import StackIcon from 'phosphor-svelte/lib/StackIcon';
+	import FolderPlusIcon from 'phosphor-svelte/lib/FolderPlusIcon';
 	import type { LibraryResponse } from '$lib/library/types';
-	import {
-		openFullLibrary,
-		openLibraryFolder,
-		openLibraryTag,
-		openProjectLibrary,
-		openSmartFolder
-	} from '$lib/state/app-state.svelte';
+	import { openLibraryFolder, openSmartFolder } from '$lib/state/app-state.svelte';
 	import { setLibrarySnapshot } from '$lib/state/library-state.svelte';
 	import CreateOrganizationPopover from './CreateOrganizationPopover.svelte';
 	import FolderTree from './FolderTree.svelte';
 	import LibrarySearch from './LibrarySearch.svelte';
-	import ProjectCardGrid from './ProjectCardGrid.svelte';
 	import SmartFolderList from './SmartFolderList.svelte';
-	import TagGroupList from './TagGroupList.svelte';
-	import {
-		buildFolderTree,
-		buildSmartFolderItems,
-		sortHubTagGroups,
-		visibleTagGroups
-	} from './libraryOverviewModel';
+	import { buildFolderTree, buildSmartFolderItems } from './libraryOverviewModel';
 
-	type CreateKind = 'folder' | 'project' | 'tag' | 'tag-group';
+	type CreateKind = 'folder';
 
 	type Props = {
 		library: LibraryResponse;
@@ -36,13 +22,8 @@
 	let createOpen = $state<CreateKind | null>(null);
 	let createAnchor = $state<{ left: number; top: number } | null>(null);
 	let expandedFolders = $state(new Set<string>(loadExpanded('pastiche.library.expandedFolders')));
-	let expandedTagGroups = $state(new Set<string>());
 	let folderTree = $derived(buildFolderTree(library.folders));
-	let tagGroups = $derived(visibleTagGroups(sortHubTagGroups(library.tagFacets)));
 	let smartFolders = $derived(buildSmartFolderItems(library.assets));
-	let hubProjects = $derived(
-		library.projects.filter((project) => project.pinned || library.projects.length <= 4)
-	);
 
 	function openCreate(kind: CreateKind, event: MouseEvent) {
 		if (createOpen === kind) {
@@ -71,12 +52,6 @@
 		saveExpanded('pastiche.library.expandedFolders', next);
 	}
 
-	function toggleTagGroup(slug: string) {
-		const next = new Set(expandedTagGroups);
-		next.has(slug) ? next.delete(slug) : next.add(slug);
-		expandedTagGroups = next;
-	}
-
 	function loadExpanded(key: string) {
 		if (typeof sessionStorage === 'undefined') return [];
 		try {
@@ -93,13 +68,18 @@
 </script>
 
 <section class="library-overview" aria-labelledby="library-overview-title">
-	<div class="page-title">
-		<h1 id="library-overview-title">Library</h1>
-		<p>
-			{library.stats.assets.toLocaleString()} assets · {library.stats.projects}
-			projects · {library.stats.folders} folders · {library.stats.tags} tags
-		</p>
-	</div>
+	<header class="library-toolbar">
+		<div class="page-title">
+			<h1 id="library-overview-title">Library</h1>
+			<span class="library-counts">
+				{library.stats.assets.toLocaleString()} images · {library.stats.folders} folders
+			</span>
+		</div>
+		<button class="create-folder" type="button" onclick={(event) => openCreate('folder', event)}>
+			<FolderPlusIcon size={18} />
+			<span>New folder</span>
+		</button>
+	</header>
 
 	{#if error}
 		<p class="status-message">{error}</p>
@@ -107,61 +87,9 @@
 		<p class="status-message">Loading library...</p>
 	{/if}
 
-	<LibrarySearch
-		{library}
-		onOpenFolder={(path) => openLibraryFolder(path)}
-		onOpenProject={(id) => openProjectLibrary(id)}
-		onOpenTag={(id) => openLibraryTag(id)}
-	/>
+	<LibrarySearch {library} onOpenFolder={(path) => openLibraryFolder(path)} />
 
-	<div class="create-actions" aria-label="Create library organization">
-		<button type="button" onclick={(event) => openCreate('project', event)}>
-			<StackIcon size={18} />
-			<span>New Project</span>
-		</button>
-		<button type="button" onclick={(event) => openCreate('folder', event)}>
-			<FolderIcon size={18} />
-			<span>New Folder</span>
-		</button>
-		<button type="button" onclick={(event) => openCreate('tag', event)}>
-			<HashIcon size={18} />
-			<span>New Tag</span>
-		</button>
-	</div>
-
-	<div class="mobile-create-actions" aria-label="Create library organization">
-		<button type="button" onclick={(event) => openCreate('project', event)}>
-			<StackIcon size={17} />
-			<span>Project</span>
-		</button>
-		<button type="button" onclick={(event) => openCreate('folder', event)}>
-			<FolderIcon size={17} />
-			<span>Folder</span>
-		</button>
-		<button type="button" onclick={(event) => openCreate('tag', event)}>
-			<HashIcon size={17} />
-			<span>Tag</span>
-		</button>
-	</div>
-
-	<button class="full-library-action" type="button" onclick={openFullLibrary}>
-		View Full Library
-	</button>
-
-	<ProjectCardGrid
-		projects={hubProjects}
-		onOpen={openProjectLibrary}
-		onCreate={(event) => openCreate('project', event)}
-	/>
-
-	<section class="overview-section" aria-labelledby="folders-heading">
-		<header>
-			<h2 id="folders-heading">
-				<FolderIcon size={20} />
-				<span>Folders</span>
-			</h2>
-			<button type="button" onclick={(event) => openCreate('folder', event)}>+ New Folder</button>
-		</header>
+	<section class="overview-section" aria-label="Folders">
 		{#if folderTree.length}
 			<nav aria-label="Top-level folders">
 				<FolderTree
@@ -178,15 +106,6 @@
 			</button>
 		{/if}
 	</section>
-
-	<TagGroupList
-		groups={tagGroups}
-		expanded={expandedTagGroups}
-		onToggle={toggleTagGroup}
-		onCreateTag={(event) => openCreate('tag', event)}
-		onCreateGroup={(event) => openCreate('tag-group', event)}
-		onOpenTag={(tag) => openLibraryTag(tag.id)}
-	/>
 
 	<SmartFolderList items={smartFolders} onOpen={openSmartFolder} />
 </section>
@@ -208,23 +127,71 @@
 		height: 100%;
 		display: grid;
 		align-content: start;
-		gap: var(--space-6);
+		gap: var(--space-4);
 		overflow: auto;
 		overscroll-behavior: contain;
 		padding: var(--space-6) var(--space-5) calc(var(--bottom-nav-height) + var(--space-8));
 	}
 
+	.library-toolbar {
+		min-width: 0;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+		padding-bottom: var(--space-3);
+		border-bottom: 1px solid var(--color-border-soft);
+	}
+
+	.page-title {
+		min-width: 0;
+		display: flex;
+		align-items: baseline;
+		gap: var(--space-3);
+	}
+
 	.page-title h1 {
 		margin: 0;
 		font-family: var(--font-heading);
-		font-size: 2.85rem;
+		font-size: 1.9rem;
 		font-weight: 600;
-		line-height: 0.98;
+		line-height: 1;
 	}
 
-	.page-title p {
-		margin: var(--space-2) 0 0;
+	.library-counts {
+		min-width: 0;
+		overflow: hidden;
 		color: var(--color-muted);
+		font-size: 0.78rem;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.create-folder {
+		min-height: 2.65rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-2);
+		padding: 0 var(--space-3);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		background: transparent;
+		color: var(--color-muted);
+		font: inherit;
+		font-size: 0.8rem;
+		cursor: pointer;
+		transition:
+			background var(--duration-fast) var(--ease-out),
+			border-color var(--duration-fast) var(--ease-out),
+			color var(--duration-fast) var(--ease-out);
+	}
+
+	.create-folder:hover,
+	.create-folder:focus-visible {
+		border-color: var(--color-border-strong);
+		background: var(--color-surface-soft);
+		color: var(--color-text);
 	}
 
 	.status-message {
@@ -232,17 +199,6 @@
 		color: var(--color-muted);
 	}
 
-	.create-actions {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: var(--space-3);
-	}
-
-	.mobile-create-actions {
-		display: none;
-	}
-
-	.create-actions button,
 	.empty-row {
 		min-width: 0;
 		min-height: 3rem;
@@ -262,64 +218,15 @@
 			border-color var(--duration-fast) var(--ease-out);
 	}
 
-	.create-actions button:hover,
-	.create-actions button:focus-visible,
-	.full-library-action:hover,
-	.full-library-action:focus-visible,
 	.empty-row:hover,
 	.empty-row:focus-visible {
 		border-color: var(--color-border-strong);
 		background: var(--color-surface-soft);
 	}
 
-	.full-library-action {
-		justify-self: start;
-		min-height: 2.75rem;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: 0 var(--space-4);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-pill);
-		background: var(--color-surface);
-		color: var(--color-text);
-		font: inherit;
-		font-weight: 700;
-		cursor: pointer;
-		transition:
-			background var(--duration-fast) var(--ease-out),
-			border-color var(--duration-fast) var(--ease-out);
-	}
-
 	.overview-section {
 		display: grid;
 		gap: var(--space-3);
-	}
-
-	header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--space-3);
-	}
-
-	h2 {
-		margin: 0;
-		display: inline-flex;
-		align-items: center;
-		gap: var(--space-2);
-		font-family: var(--font-heading);
-		font-size: 1.45rem;
-		font-weight: 600;
-		line-height: 1.1;
-	}
-
-	header button {
-		border: 0;
-		background: transparent;
-		color: var(--color-accent);
-		font: inherit;
-		cursor: pointer;
 	}
 
 	.empty-row {
@@ -342,42 +249,27 @@
 			min-height: 100%;
 			margin: 0;
 			overflow: visible;
-			gap: var(--space-4);
+			gap: var(--space-3);
 			padding: var(--space-4) var(--space-3) calc(var(--bottom-nav-height) + var(--space-6));
 		}
 
-		.create-actions {
-			display: none;
-		}
-
-		.mobile-create-actions {
+		.page-title {
 			display: grid;
-			grid-template-columns: repeat(3, minmax(0, 1fr));
-			gap: var(--space-2);
+			gap: 0.2rem;
 		}
 
-		.mobile-create-actions button {
-			min-width: 0;
-			min-height: 2.35rem;
-			display: inline-flex;
-			align-items: center;
-			justify-content: center;
-			gap: 0.35rem;
-			padding: 0 var(--space-2);
-			border: 1px solid var(--color-border);
-			border-radius: var(--radius-md);
-			background: transparent;
-			color: var(--color-muted);
-			font: inherit;
-			font-size: 0.82rem;
-			cursor: pointer;
+		.page-title h1 {
+			font-size: 1.55rem;
 		}
 
-		.mobile-create-actions button:hover,
-		.mobile-create-actions button:focus-visible {
-			border-color: var(--color-border-strong);
-			background: var(--color-surface-soft);
-			color: var(--color-text);
+		.create-folder {
+			width: 2.75rem;
+			height: 2.75rem;
+			padding: 0;
+		}
+
+		.create-folder span {
+			display: none;
 		}
 	}
 </style>

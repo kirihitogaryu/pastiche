@@ -233,4 +233,3 @@ Likely next UX improvements:
 - Extension sidebar: `extension/sidebar/App.svelte`
 - Extension drag/drop helper: `extension/sidebar/drop-import.ts`
 - Extension service worker: `extension/background/service-worker.ts`
-

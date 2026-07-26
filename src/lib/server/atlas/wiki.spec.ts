@@ -46,6 +46,44 @@ describe('Atlas wiki helpers', () => {
 		}
 	});
 
+	it('never overwrites a user-modified seeded wiki entry', () => {
+		const db = openLibraryDatabase();
+		try {
+			applyAtlasWikiSeed(db, '2026-06-05T00:00:00.000Z');
+			db.prepare(
+				`update atlas_wiki_entries
+				 set long_description = ?, updated_at = ?
+				 where concept_id = (select id from atlas_concepts where slug = ?)`
+			).run(
+				'A personal definition that must survive reseeding.',
+				'2026-06-05T01:00:00.000Z',
+				'serpent'
+			);
+
+			applyAtlasWikiSeed(db, '2026-06-06T00:00:00.000Z');
+			const serpent = readAtlasWikiEntry(db, 'serpent');
+
+			expect(serpent?.longDescription).toBe('A personal definition that must survive reseeding.');
+		} finally {
+			db.close();
+		}
+	});
+
+	it('does not rewrite unchanged seeds on later reads', () => {
+		const db = openLibraryDatabase();
+		try {
+			applyAtlasWikiSeed(db, '2026-06-05T00:00:00.000Z');
+			applyAtlasWikiSeed(db, '2026-06-06T00:00:00.000Z');
+			const row = db
+				.prepare('select updated_at from atlas_concepts where slug = ?')
+				.get('serpent') as { updated_at: string };
+
+			expect(row.updated_at).toBe('2026-06-05T00:00:00.000Z');
+		} finally {
+			db.close();
+		}
+	});
+
 	it('resolves wiki example asset ids into thumbnail-ready asset summaries', () => {
 		const db = openLibraryDatabase();
 		try {

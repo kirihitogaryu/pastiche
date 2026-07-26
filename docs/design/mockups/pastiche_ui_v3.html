@@ -1,537 +1,1457 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-<meta charset="UTF-8">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet">
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-:root{
-  --bg-base:#0f0e0d;
-  --bg-surface:#161513;
-  --bg-raised:#1e1c1a;
-  --bg-hover:#252320;
-  --bg-selected:#2b2926;
-  --border:#ffffff0d;
-  --border-med:#ffffff1a;
-  --border-strong:#ffffff28;
-  /* contrast-calibrated text scale */
-  --t1:#e8e3dc;   /* primary — headings, active labels */
-  --t2:#b8b0a6;   /* secondary — body, descriptions, most UI text */
-  --t3:#847c73;   /* tertiary — placeholders, inactive folder items */
-  --t4:#575049;   /* quaternary — divider labels, counts — used sparingly */
-  --font-ui:'Montserrat',sans-serif;
-  --font-body:'Crimson Text',Georgia,serif;
-  --sidebar-w:210px;
-  --detail-w:274px;
-  --top-h:42px;
-}
-html,body{height:100%;overflow:hidden;background:var(--bg-base);}
-body{font-family:var(--font-ui);color:var(--t1);font-size:13px;display:flex;flex-direction:column;height:100vh;min-height:580px;}
+	<head>
+		<meta charset="UTF-8" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			*,
+			*::before,
+			*::after {
+				box-sizing: border-box;
+				margin: 0;
+				padding: 0;
+			}
+			:root {
+				--bg-base: #0f0e0d;
+				--bg-surface: #161513;
+				--bg-raised: #1e1c1a;
+				--bg-hover: #252320;
+				--bg-selected: #2b2926;
+				--border: #ffffff0d;
+				--border-med: #ffffff1a;
+				--border-strong: #ffffff28;
+				/* contrast-calibrated text scale */
+				--t1: #e8e3dc; /* primary — headings, active labels */
+				--t2: #b8b0a6; /* secondary — body, descriptions, most UI text */
+				--t3: #847c73; /* tertiary — placeholders, inactive folder items */
+				--t4: #575049; /* quaternary — divider labels, counts — used sparingly */
+				--font-ui: 'Montserrat', sans-serif;
+				--font-body: 'Crimson Text', Georgia, serif;
+				--sidebar-w: 210px;
+				--detail-w: 274px;
+				--top-h: 42px;
+			}
+			html,
+			body {
+				height: 100%;
+				overflow: hidden;
+				background: var(--bg-base);
+			}
+			body {
+				font-family: var(--font-ui);
+				color: var(--t1);
+				font-size: 13px;
+				display: flex;
+				flex-direction: column;
+				height: 100vh;
+				min-height: 580px;
+			}
 
-/* TOPBAR */
-.topbar{height:var(--top-h);background:var(--bg-base);border-bottom:1px solid var(--border-med);display:flex;align-items:center;padding:0 13px;gap:10px;flex-shrink:0;z-index:10;}
-.wordmark{font-family:var(--font-body);font-style:italic;font-size:20px;color:var(--t1);letter-spacing:-.01em;flex-shrink:0;margin-right:8px;}
-.breadcrumb{display:flex;align-items:center;gap:5px;font-family:var(--font-ui);font-size:11.5px;font-weight:400;flex:1;min-width:0;}
-.bc-seg{color:var(--t3);cursor:pointer;transition:color .12s;white-space:nowrap;}
-.bc-seg:hover{color:var(--t1);}
-.bc-seg.active{color:var(--t1);font-weight:500;}
-.bc-sep{color:var(--t4);}
-.search-wrap{position:relative;flex-shrink:0;}
-.search-wrap input{background:var(--bg-raised);border:1px solid var(--border-med);border-radius:6px;padding:0 10px 0 28px;height:27px;color:var(--t1);font-family:var(--font-ui);font-size:11.5px;width:192px;outline:none;transition:border-color .15s,width .2s;}
-.search-wrap input::placeholder{color:var(--t3);}
-.search-wrap input:focus{border-color:var(--border-strong);width:224px;}
-.s-icon{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:13px;pointer-events:none;}
-.tb-btn{width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:var(--t3);border-radius:5px;font-size:14px;transition:background .12s,color .12s;}
-.tb-btn:hover{background:var(--bg-hover);color:var(--t2);}
-.tb-btn.on{color:var(--t1);}
+			/* TOPBAR */
+			.topbar {
+				height: var(--top-h);
+				background: var(--bg-base);
+				border-bottom: 1px solid var(--border-med);
+				display: flex;
+				align-items: center;
+				padding: 0 13px;
+				gap: 10px;
+				flex-shrink: 0;
+				z-index: 10;
+			}
+			.wordmark {
+				font-family: var(--font-body);
+				font-style: italic;
+				font-size: 20px;
+				color: var(--t1);
+				letter-spacing: -0.01em;
+				flex-shrink: 0;
+				margin-right: 8px;
+			}
+			.breadcrumb {
+				display: flex;
+				align-items: center;
+				gap: 5px;
+				font-family: var(--font-ui);
+				font-size: 11.5px;
+				font-weight: 400;
+				flex: 1;
+				min-width: 0;
+			}
+			.bc-seg {
+				color: var(--t3);
+				cursor: pointer;
+				transition: color 0.12s;
+				white-space: nowrap;
+			}
+			.bc-seg:hover {
+				color: var(--t1);
+			}
+			.bc-seg.active {
+				color: var(--t1);
+				font-weight: 500;
+			}
+			.bc-sep {
+				color: var(--t4);
+			}
+			.search-wrap {
+				position: relative;
+				flex-shrink: 0;
+			}
+			.search-wrap input {
+				background: var(--bg-raised);
+				border: 1px solid var(--border-med);
+				border-radius: 6px;
+				padding: 0 10px 0 28px;
+				height: 27px;
+				color: var(--t1);
+				font-family: var(--font-ui);
+				font-size: 11.5px;
+				width: 192px;
+				outline: none;
+				transition:
+					border-color 0.15s,
+					width 0.2s;
+			}
+			.search-wrap input::placeholder {
+				color: var(--t3);
+			}
+			.search-wrap input:focus {
+				border-color: var(--border-strong);
+				width: 224px;
+			}
+			.s-icon {
+				position: absolute;
+				left: 9px;
+				top: 50%;
+				transform: translateY(-50%);
+				color: var(--t3);
+				font-size: 13px;
+				pointer-events: none;
+			}
+			.tb-btn {
+				width: 28px;
+				height: 28px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				background: none;
+				border: none;
+				cursor: pointer;
+				color: var(--t3);
+				border-radius: 5px;
+				font-size: 14px;
+				transition:
+					background 0.12s,
+					color 0.12s;
+			}
+			.tb-btn:hover {
+				background: var(--bg-hover);
+				color: var(--t2);
+			}
+			.tb-btn.on {
+				color: var(--t1);
+			}
 
-/* LAYOUT */
-.layout{display:flex;flex:1;overflow:hidden;}
+			/* LAYOUT */
+			.layout {
+				display: flex;
+				flex: 1;
+				overflow: hidden;
+			}
 
-/* SIDEBAR */
-.sidebar{width:var(--sidebar-w);background:var(--bg-surface);border-right:1px solid var(--border-med);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;}
-.nav-section{padding:9px 7px 3px;}
-.sec-label{font-family:var(--font-ui);font-size:9.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--t4);padding:0 7px;margin-bottom:4px;}
-.nav-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:5px;cursor:pointer;color:var(--t2);font-size:12.5px;font-weight:400;transition:background .1s,color .1s;user-select:none;}
-.nav-item:hover{background:var(--bg-hover);color:var(--t1);}
-.nav-item.active{background:var(--bg-selected);color:var(--t1);font-weight:500;}
-.nav-item i{font-size:14px;flex-shrink:0;}
-.nav-divider{height:1px;background:var(--border-med);margin:5px 8px;}
-.ftree{flex:1;overflow-y:auto;padding:3px 7px 10px;}
-.ftree::-webkit-scrollbar{width:2px;}
-.ftree::-webkit-scrollbar-thumb{background:var(--border-med);}
-.fi{display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:4px;cursor:pointer;color:var(--t3);font-size:12px;font-weight:400;transition:background .12s,color .12s;user-select:none;}
-.fi:hover{background:var(--bg-hover);color:var(--t1);}
-.fi.active{color:var(--t1);font-weight:500;}
-.fi i{font-size:12px;flex-shrink:0;}
-.fi-c{padding-left:22px;}
-.fi-n{margin-left:auto;font-size:10px;color:var(--t4);}
-.fi:hover .fi-n{color:var(--t3);}
-.sidebar-foot{border-top:1px solid var(--border-med);padding:8px 7px;}
-.add-btn{width:100%;padding:7px 10px;background:var(--bg-raised);border:1px solid var(--border-med);border-radius:5px;color:var(--t2);font-family:var(--font-ui);font-size:11.5px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .12s,color .12s,border-color .12s;}
-.add-btn:hover{background:var(--bg-hover);color:var(--t1);border-color:var(--border-strong);}
+			/* SIDEBAR */
+			.sidebar {
+				width: var(--sidebar-w);
+				background: var(--bg-surface);
+				border-right: 1px solid var(--border-med);
+				display: flex;
+				flex-direction: column;
+				flex-shrink: 0;
+				overflow: hidden;
+			}
+			.nav-section {
+				padding: 9px 7px 3px;
+			}
+			.sec-label {
+				font-family: var(--font-ui);
+				font-size: 9.5px;
+				font-weight: 600;
+				letter-spacing: 0.1em;
+				text-transform: uppercase;
+				color: var(--t4);
+				padding: 0 7px;
+				margin-bottom: 4px;
+			}
+			.nav-item {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				padding: 6px 8px;
+				border-radius: 5px;
+				cursor: pointer;
+				color: var(--t2);
+				font-size: 12.5px;
+				font-weight: 400;
+				transition:
+					background 0.1s,
+					color 0.1s;
+				user-select: none;
+			}
+			.nav-item:hover {
+				background: var(--bg-hover);
+				color: var(--t1);
+			}
+			.nav-item.active {
+				background: var(--bg-selected);
+				color: var(--t1);
+				font-weight: 500;
+			}
+			.nav-item i {
+				font-size: 14px;
+				flex-shrink: 0;
+			}
+			.nav-divider {
+				height: 1px;
+				background: var(--border-med);
+				margin: 5px 8px;
+			}
+			.ftree {
+				flex: 1;
+				overflow-y: auto;
+				padding: 3px 7px 10px;
+			}
+			.ftree::-webkit-scrollbar {
+				width: 2px;
+			}
+			.ftree::-webkit-scrollbar-thumb {
+				background: var(--border-med);
+			}
+			.fi {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				padding: 4px 8px;
+				border-radius: 4px;
+				cursor: pointer;
+				color: var(--t3);
+				font-size: 12px;
+				font-weight: 400;
+				transition:
+					background 0.12s,
+					color 0.12s;
+				user-select: none;
+			}
+			.fi:hover {
+				background: var(--bg-hover);
+				color: var(--t1);
+			}
+			.fi.active {
+				color: var(--t1);
+				font-weight: 500;
+			}
+			.fi i {
+				font-size: 12px;
+				flex-shrink: 0;
+			}
+			.fi-c {
+				padding-left: 22px;
+			}
+			.fi-n {
+				margin-left: auto;
+				font-size: 10px;
+				color: var(--t4);
+			}
+			.fi:hover .fi-n {
+				color: var(--t3);
+			}
+			.sidebar-foot {
+				border-top: 1px solid var(--border-med);
+				padding: 8px 7px;
+			}
+			.add-btn {
+				width: 100%;
+				padding: 7px 10px;
+				background: var(--bg-raised);
+				border: 1px solid var(--border-med);
+				border-radius: 5px;
+				color: var(--t2);
+				font-family: var(--font-ui);
+				font-size: 11.5px;
+				font-weight: 500;
+				cursor: pointer;
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				transition:
+					background 0.12s,
+					color 0.12s,
+					border-color 0.12s;
+			}
+			.add-btn:hover {
+				background: var(--bg-hover);
+				color: var(--t1);
+				border-color: var(--border-strong);
+			}
 
-/* MAIN */
-.main{flex:1;overflow:hidden;display:flex;flex-direction:column;}
-.content-area{flex:1;overflow-y:auto;padding:17px 20px;position:relative;}
-.content-area::-webkit-scrollbar{width:3px;}
-.content-area::-webkit-scrollbar-thumb{background:var(--border-med);}
+			/* MAIN */
+			.main {
+				flex: 1;
+				overflow: hidden;
+				display: flex;
+				flex-direction: column;
+			}
+			.content-area {
+				flex: 1;
+				overflow-y: auto;
+				padding: 17px 20px;
+				position: relative;
+			}
+			.content-area::-webkit-scrollbar {
+				width: 3px;
+			}
+			.content-area::-webkit-scrollbar-thumb {
+				background: var(--border-med);
+			}
 
-/* section header */
-.sec-head{margin-bottom:14px;}
-.sec-title{font-family:var(--font-body);font-size:26px;font-style:italic;color:var(--t1);letter-spacing:-.01em;margin-bottom:3px;}
-.sec-sub{font-family:var(--font-ui);font-size:11.5px;font-weight:400;color:var(--t2);letter-spacing:.01em;}
+			/* section header */
+			.sec-head {
+				margin-bottom: 14px;
+			}
+			.sec-title {
+				font-family: var(--font-body);
+				font-size: 26px;
+				font-style: italic;
+				color: var(--t1);
+				letter-spacing: -0.01em;
+				margin-bottom: 3px;
+			}
+			.sec-sub {
+				font-family: var(--font-ui);
+				font-size: 11.5px;
+				font-weight: 400;
+				color: var(--t2);
+				letter-spacing: 0.01em;
+			}
 
-/* chips */
-.chip-row{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px;}
-.chip{font-family:var(--font-ui);font-size:10.5px;font-weight:500;padding:3px 10px;border-radius:100px;border:1px solid var(--border-med);color:var(--t2);cursor:pointer;transition:all .12s;user-select:none;letter-spacing:.02em;}
-.chip:hover{border-color:var(--border-strong);color:var(--t1);}
-.chip.active{border-color:var(--border-strong);color:var(--t1);background:var(--bg-raised);}
+			/* chips */
+			.chip-row {
+				display: flex;
+				gap: 5px;
+				flex-wrap: wrap;
+				margin-bottom: 14px;
+			}
+			.chip {
+				font-family: var(--font-ui);
+				font-size: 10.5px;
+				font-weight: 500;
+				padding: 3px 10px;
+				border-radius: 100px;
+				border: 1px solid var(--border-med);
+				color: var(--t2);
+				cursor: pointer;
+				transition: all 0.12s;
+				user-select: none;
+				letter-spacing: 0.02em;
+			}
+			.chip:hover {
+				border-color: var(--border-strong);
+				color: var(--t1);
+			}
+			.chip.active {
+				border-color: var(--border-strong);
+				color: var(--t1);
+				background: var(--bg-raised);
+			}
 
-/* masonry */
-.masonry{columns:4;column-gap:8px;}
-.card{break-inside:avoid;margin-bottom:8px;border-radius:7px;overflow:hidden;position:relative;cursor:pointer;background:var(--bg-raised);border:1px solid var(--border-med);transition:border-color .15s,transform .15s;}
-.card:hover{border-color:var(--border-strong);transform:translateY(-1px);}
-.card.active-detail{border-color:var(--t1) !important;border-width:1.5px;}
-.card-img{width:100%;display:block;position:relative;}
-.card-ov{position:absolute;inset:0;background:linear-gradient(to top,rgba(8,7,6,.92) 0%,transparent 52%);opacity:0;transition:opacity .18s;display:flex;flex-direction:column;justify-content:flex-end;padding:9px;}
-.card:hover .card-ov{opacity:1;}
-.c-title{font-family:var(--font-body);font-size:12.5px;font-style:italic;color:var(--t1);line-height:1.35;margin-bottom:2px;}
-.c-meta{font-family:var(--font-ui);font-size:10px;font-weight:400;color:var(--t2);}
-.card-acts{position:absolute;top:6px;right:6px;display:flex;gap:3px;opacity:0;transition:opacity .15s;}
-.card:hover .card-acts{opacity:1;}
-.ca{width:23px;height:23px;background:rgba(8,7,6,.82);border:1px solid rgba(255,255,255,.14);border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--t1);font-size:11px;cursor:pointer;transition:background .1s;}
-.ca:hover{background:rgba(255,255,255,.18);}
-.c-tag{position:absolute;top:6px;left:6px;font-family:var(--font-ui);font-size:9.5px;font-weight:500;background:rgba(8,7,6,.78);border:1px solid rgba(255,255,255,.12);padding:2px 6px;border-radius:3px;color:var(--t2);}
+			/* masonry */
+			.masonry {
+				columns: 4;
+				column-gap: 8px;
+			}
+			.card {
+				break-inside: avoid;
+				margin-bottom: 8px;
+				border-radius: 7px;
+				overflow: hidden;
+				position: relative;
+				cursor: pointer;
+				background: var(--bg-raised);
+				border: 1px solid var(--border-med);
+				transition:
+					border-color 0.15s,
+					transform 0.15s;
+			}
+			.card:hover {
+				border-color: var(--border-strong);
+				transform: translateY(-1px);
+			}
+			.card.active-detail {
+				border-color: var(--t1) !important;
+				border-width: 1.5px;
+			}
+			.card-img {
+				width: 100%;
+				display: block;
+				position: relative;
+			}
+			.card-ov {
+				position: absolute;
+				inset: 0;
+				background: linear-gradient(to top, rgba(8, 7, 6, 0.92) 0%, transparent 52%);
+				opacity: 0;
+				transition: opacity 0.18s;
+				display: flex;
+				flex-direction: column;
+				justify-content: flex-end;
+				padding: 9px;
+			}
+			.card:hover .card-ov {
+				opacity: 1;
+			}
+			.c-title {
+				font-family: var(--font-body);
+				font-size: 12.5px;
+				font-style: italic;
+				color: var(--t1);
+				line-height: 1.35;
+				margin-bottom: 2px;
+			}
+			.c-meta {
+				font-family: var(--font-ui);
+				font-size: 10px;
+				font-weight: 400;
+				color: var(--t2);
+			}
+			.card-acts {
+				position: absolute;
+				top: 6px;
+				right: 6px;
+				display: flex;
+				gap: 3px;
+				opacity: 0;
+				transition: opacity 0.15s;
+			}
+			.card:hover .card-acts {
+				opacity: 1;
+			}
+			.ca {
+				width: 23px;
+				height: 23px;
+				background: rgba(8, 7, 6, 0.82);
+				border: 1px solid rgba(255, 255, 255, 0.14);
+				border-radius: 4px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				color: var(--t1);
+				font-size: 11px;
+				cursor: pointer;
+				transition: background 0.1s;
+			}
+			.ca:hover {
+				background: rgba(255, 255, 255, 0.18);
+			}
+			.c-tag {
+				position: absolute;
+				top: 6px;
+				left: 6px;
+				font-family: var(--font-ui);
+				font-size: 9.5px;
+				font-weight: 500;
+				background: rgba(8, 7, 6, 0.78);
+				border: 1px solid rgba(255, 255, 255, 0.12);
+				padding: 2px 6px;
+				border-radius: 3px;
+				color: var(--t2);
+			}
 
-/* selection bar */
-.sel-bar{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:var(--bg-raised);border:1px solid var(--border-strong);border-radius:8px;padding:6px 13px;display:flex;align-items:center;gap:9px;font-family:var(--font-ui);font-size:11.5px;color:var(--t2);box-shadow:0 6px 28px rgba(0,0,0,.6);white-space:nowrap;}
-.sel-n{color:var(--t1);font-weight:600;}
-.sa{display:flex;align-items:center;gap:4px;cursor:pointer;padding:3px 6px;border-radius:4px;transition:background .1s,color .1s;}
-.sa:hover{background:var(--bg-hover);color:var(--t1);}
-.sa.del{color:#b06060;}
-.sa.del:hover{background:rgba(176,96,96,.12);color:#c07070;}
-.ss{width:1px;height:14px;background:var(--border-med);}
+			/* selection bar */
+			.sel-bar {
+				position: absolute;
+				bottom: 14px;
+				left: 50%;
+				transform: translateX(-50%);
+				background: var(--bg-raised);
+				border: 1px solid var(--border-strong);
+				border-radius: 8px;
+				padding: 6px 13px;
+				display: flex;
+				align-items: center;
+				gap: 9px;
+				font-family: var(--font-ui);
+				font-size: 11.5px;
+				color: var(--t2);
+				box-shadow: 0 6px 28px rgba(0, 0, 0, 0.6);
+				white-space: nowrap;
+			}
+			.sel-n {
+				color: var(--t1);
+				font-weight: 600;
+			}
+			.sa {
+				display: flex;
+				align-items: center;
+				gap: 4px;
+				cursor: pointer;
+				padding: 3px 6px;
+				border-radius: 4px;
+				transition:
+					background 0.1s,
+					color 0.1s;
+			}
+			.sa:hover {
+				background: var(--bg-hover);
+				color: var(--t1);
+			}
+			.sa.del {
+				color: #b06060;
+			}
+			.sa.del:hover {
+				background: rgba(176, 96, 96, 0.12);
+				color: #c07070;
+			}
+			.ss {
+				width: 1px;
+				height: 14px;
+				background: var(--border-med);
+			}
 
-/* DETAIL PANEL */
-.dp{width:var(--detail-w);background:var(--bg-surface);border-left:1px solid var(--border-med);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;}
-.dp-img{background:var(--bg-base);border-bottom:1px solid var(--border-med);flex-shrink:0;}
-.dp-ph{width:100%;height:148px;display:flex;align-items:center;justify-content:center;}
-.dp-body{flex:1;overflow-y:auto;padding:14px 15px;}
-.dp-body::-webkit-scrollbar{width:2px;}
-.dp-body::-webkit-scrollbar-thumb{background:var(--border-med);}
-.dp-sec{margin-bottom:17px;}
-.dp-lbl{font-family:var(--font-ui);font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:8px;}
-.dp-title{font-family:var(--font-body);font-size:18px;font-style:italic;color:var(--t1);line-height:1.3;margin-bottom:4px;}
-.dp-artist{font-family:var(--font-ui);font-size:12px;font-weight:400;color:var(--t2);}
-.star-row{display:flex;gap:3px;margin-bottom:9px;}
-.star{color:var(--t4);font-size:15px;cursor:pointer;transition:color .1s;}
-.star.on{color:var(--t1);}
-.star:hover{color:var(--t2);}
-.dot-row{display:flex;gap:5px;flex-wrap:wrap;}
-.cdot{width:16px;height:16px;border-radius:50%;cursor:pointer;border:1.5px solid transparent;transition:transform .1s,border-color .1s;}
-.cdot:hover{transform:scale(1.25);}
-.cdot.on{border-color:var(--t1);}
+			/* DETAIL PANEL */
+			.dp {
+				width: var(--detail-w);
+				background: var(--bg-surface);
+				border-left: 1px solid var(--border-med);
+				display: flex;
+				flex-direction: column;
+				flex-shrink: 0;
+				overflow: hidden;
+			}
+			.dp-img {
+				background: var(--bg-base);
+				border-bottom: 1px solid var(--border-med);
+				flex-shrink: 0;
+			}
+			.dp-ph {
+				width: 100%;
+				height: 148px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+			.dp-body {
+				flex: 1;
+				overflow-y: auto;
+				padding: 14px 15px;
+			}
+			.dp-body::-webkit-scrollbar {
+				width: 2px;
+			}
+			.dp-body::-webkit-scrollbar-thumb {
+				background: var(--border-med);
+			}
+			.dp-sec {
+				margin-bottom: 17px;
+			}
+			.dp-lbl {
+				font-family: var(--font-ui);
+				font-size: 10px;
+				font-weight: 600;
+				letter-spacing: 0.1em;
+				text-transform: uppercase;
+				color: var(--t3);
+				margin-bottom: 8px;
+			}
+			.dp-title {
+				font-family: var(--font-body);
+				font-size: 18px;
+				font-style: italic;
+				color: var(--t1);
+				line-height: 1.3;
+				margin-bottom: 4px;
+			}
+			.dp-artist {
+				font-family: var(--font-ui);
+				font-size: 12px;
+				font-weight: 400;
+				color: var(--t2);
+			}
+			.star-row {
+				display: flex;
+				gap: 3px;
+				margin-bottom: 9px;
+			}
+			.star {
+				color: var(--t4);
+				font-size: 15px;
+				cursor: pointer;
+				transition: color 0.1s;
+			}
+			.star.on {
+				color: var(--t1);
+			}
+			.star:hover {
+				color: var(--t2);
+			}
+			.dot-row {
+				display: flex;
+				gap: 5px;
+				flex-wrap: wrap;
+			}
+			.cdot {
+				width: 16px;
+				height: 16px;
+				border-radius: 50%;
+				cursor: pointer;
+				border: 1.5px solid transparent;
+				transition:
+					transform 0.1s,
+					border-color 0.1s;
+			}
+			.cdot:hover {
+				transform: scale(1.25);
+			}
+			.cdot.on {
+				border-color: var(--t1);
+			}
 
-/* detail fields */
-.dp-field{background:var(--bg-raised);border:1px solid var(--border-med);border-radius:5px;padding:8px 10px;font-family:var(--font-ui);font-size:12px;color:var(--t2);min-height:30px;margin-bottom:6px;cursor:text;transition:border-color .12s,color .12s;}
-.dp-field:hover{border-color:var(--border-strong);color:var(--t1);}
-.dp-field.ph{color:var(--t3);font-style:italic;}
-.dp-field.ph:hover{color:var(--t2);}
-.tag-wrap{background:var(--bg-raised);border:1px solid var(--border-med);border-radius:5px;padding:6px 8px;display:flex;flex-wrap:wrap;gap:4px;cursor:text;transition:border-color .12s;}
-.tag-wrap:hover{border-color:var(--border-strong);}
-.tp{background:var(--bg-hover);border:1px solid var(--border-med);color:var(--t2);font-family:var(--font-ui);font-size:10px;font-weight:500;padding:2px 7px;border-radius:3px;letter-spacing:.02em;transition:color .1s,border-color .1s;}
-.tp:hover{color:var(--t1);border-color:var(--border-strong);}
-.add-tag{font-family:var(--font-ui);font-size:10.5px;color:var(--t3);align-self:center;cursor:pointer;transition:color .1s;}
-.add-tag:hover{color:var(--t2);}
-.pal-row{display:flex;gap:3px;margin-bottom:4px;}
-.psw{flex:1;height:28px;border-radius:4px;border:1px solid var(--border-med);cursor:pointer;transition:transform .12s;}
-.psw:hover{transform:scaleY(1.14);}
-.dim{font-family:var(--font-ui);font-size:10.5px;color:var(--t3);}
-.dp-foot{border-top:1px solid var(--border-med);padding:10px 13px;display:flex;gap:6px;}
-.df{flex:1;padding:7px;border-radius:5px;font-family:var(--font-ui);font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--border-med);background:var(--bg-raised);color:var(--t2);transition:all .12s;text-align:center;letter-spacing:.03em;}
-.df:hover{border-color:var(--border-strong);color:var(--t1);}
-.df.prim{background:var(--t1);border-color:var(--t1);color:var(--bg-base);}
-.df.prim:hover{background:#fff;border-color:#fff;}
+			/* detail fields */
+			.dp-field {
+				background: var(--bg-raised);
+				border: 1px solid var(--border-med);
+				border-radius: 5px;
+				padding: 8px 10px;
+				font-family: var(--font-ui);
+				font-size: 12px;
+				color: var(--t2);
+				min-height: 30px;
+				margin-bottom: 6px;
+				cursor: text;
+				transition:
+					border-color 0.12s,
+					color 0.12s;
+			}
+			.dp-field:hover {
+				border-color: var(--border-strong);
+				color: var(--t1);
+			}
+			.dp-field.ph {
+				color: var(--t3);
+				font-style: italic;
+			}
+			.dp-field.ph:hover {
+				color: var(--t2);
+			}
+			.tag-wrap {
+				background: var(--bg-raised);
+				border: 1px solid var(--border-med);
+				border-radius: 5px;
+				padding: 6px 8px;
+				display: flex;
+				flex-wrap: wrap;
+				gap: 4px;
+				cursor: text;
+				transition: border-color 0.12s;
+			}
+			.tag-wrap:hover {
+				border-color: var(--border-strong);
+			}
+			.tp {
+				background: var(--bg-hover);
+				border: 1px solid var(--border-med);
+				color: var(--t2);
+				font-family: var(--font-ui);
+				font-size: 10px;
+				font-weight: 500;
+				padding: 2px 7px;
+				border-radius: 3px;
+				letter-spacing: 0.02em;
+				transition:
+					color 0.1s,
+					border-color 0.1s;
+			}
+			.tp:hover {
+				color: var(--t1);
+				border-color: var(--border-strong);
+			}
+			.add-tag {
+				font-family: var(--font-ui);
+				font-size: 10.5px;
+				color: var(--t3);
+				align-self: center;
+				cursor: pointer;
+				transition: color 0.1s;
+			}
+			.add-tag:hover {
+				color: var(--t2);
+			}
+			.pal-row {
+				display: flex;
+				gap: 3px;
+				margin-bottom: 4px;
+			}
+			.psw {
+				flex: 1;
+				height: 28px;
+				border-radius: 4px;
+				border: 1px solid var(--border-med);
+				cursor: pointer;
+				transition: transform 0.12s;
+			}
+			.psw:hover {
+				transform: scaleY(1.14);
+			}
+			.dim {
+				font-family: var(--font-ui);
+				font-size: 10.5px;
+				color: var(--t3);
+			}
+			.dp-foot {
+				border-top: 1px solid var(--border-med);
+				padding: 10px 13px;
+				display: flex;
+				gap: 6px;
+			}
+			.df {
+				flex: 1;
+				padding: 7px;
+				border-radius: 5px;
+				font-family: var(--font-ui);
+				font-size: 11px;
+				font-weight: 500;
+				cursor: pointer;
+				border: 1px solid var(--border-med);
+				background: var(--bg-raised);
+				color: var(--t2);
+				transition: all 0.12s;
+				text-align: center;
+				letter-spacing: 0.03em;
+			}
+			.df:hover {
+				border-color: var(--border-strong);
+				color: var(--t1);
+			}
+			.df.prim {
+				background: var(--t1);
+				border-color: var(--t1);
+				color: var(--bg-base);
+			}
+			.df.prim:hover {
+				background: #fff;
+				border-color: #fff;
+			}
 
-/* canvas */
-.canvas-area{flex:1;background:#0c0b0a;background-image:radial-gradient(circle,rgba(255,255,255,.022) 1px,transparent 1px);background-size:22px 22px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;}
-.canvas-tb{position:absolute;top:12px;left:50%;transform:translateX(-50%);background:var(--bg-raised);border:1px solid var(--border-med);border-radius:7px;padding:3px 7px;display:flex;gap:1px;align-items:center;}
-.ctb{width:27px;height:27px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--t3);cursor:pointer;border-radius:4px;font-size:13px;transition:background .1s,color .1s;}
-.ctb:hover{background:var(--bg-hover);color:var(--t2);}
-.ctb.on{background:var(--bg-selected);color:var(--t1);}
-.ct-sep{width:1px;height:14px;background:var(--border-med);margin:0 2px;}
-.ci{position:absolute;border-radius:5px;overflow:hidden;border:1px solid var(--border-med);cursor:move;box-shadow:0 6px 24px rgba(0,0,0,.55);}
+			/* canvas */
+			.canvas-area {
+				flex: 1;
+				background: #0c0b0a;
+				background-image: radial-gradient(circle, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+				background-size: 22px 22px;
+				position: relative;
+				overflow: hidden;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+			.canvas-tb {
+				position: absolute;
+				top: 12px;
+				left: 50%;
+				transform: translateX(-50%);
+				background: var(--bg-raised);
+				border: 1px solid var(--border-med);
+				border-radius: 7px;
+				padding: 3px 7px;
+				display: flex;
+				gap: 1px;
+				align-items: center;
+			}
+			.ctb {
+				width: 27px;
+				height: 27px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				background: none;
+				border: none;
+				color: var(--t3);
+				cursor: pointer;
+				border-radius: 4px;
+				font-size: 13px;
+				transition:
+					background 0.1s,
+					color 0.1s;
+			}
+			.ctb:hover {
+				background: var(--bg-hover);
+				color: var(--t2);
+			}
+			.ctb.on {
+				background: var(--bg-selected);
+				color: var(--t1);
+			}
+			.ct-sep {
+				width: 1px;
+				height: 14px;
+				background: var(--border-med);
+				margin: 0 2px;
+			}
+			.ci {
+				position: absolute;
+				border-radius: 5px;
+				overflow: hidden;
+				border: 1px solid var(--border-med);
+				cursor: move;
+				box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
+			}
 
-/* colors drop zone */
-.col-drop{border:1px dashed var(--border-strong);border-radius:9px;padding:40px 30px;text-align:center;cursor:pointer;transition:background .15s,border-color .15s;}
-.col-drop:hover{background:var(--bg-raised);border-color:var(--t3);}
-.col-drop-icon{font-size:28px;color:var(--t3);display:block;margin-bottom:10px;}
-.col-drop-main{font-family:var(--font-ui);font-size:13px;font-weight:500;color:var(--t1);margin-bottom:4px;}
-.col-drop-sub{font-family:var(--font-ui);font-size:11.5px;color:var(--t2);}
-.col-hex-row{display:flex;gap:7px;justify-content:center;margin-top:14px;}
-.col-hex-row input{background:var(--bg-hover);border:1px solid var(--border-med);border-radius:5px;padding:6px 10px;color:var(--t1);font-family:var(--font-ui);font-size:12px;width:120px;outline:none;text-align:center;transition:border-color .12s;}
-.col-hex-row input:focus{border-color:var(--border-strong);}
-.col-hex-row input::placeholder{color:var(--t3);}
-.col-gen-btn{background:var(--bg-hover);border:1px solid var(--border-med);border-radius:5px;padding:6px 14px;color:var(--t2);font-family:var(--font-ui);font-size:12px;font-weight:500;cursor:pointer;transition:all .12s;}
-.col-gen-btn:hover{background:var(--bg-selected);color:var(--t1);border-color:var(--border-strong);}
+			/* colors drop zone */
+			.col-drop {
+				border: 1px dashed var(--border-strong);
+				border-radius: 9px;
+				padding: 40px 30px;
+				text-align: center;
+				cursor: pointer;
+				transition:
+					background 0.15s,
+					border-color 0.15s;
+			}
+			.col-drop:hover {
+				background: var(--bg-raised);
+				border-color: var(--t3);
+			}
+			.col-drop-icon {
+				font-size: 28px;
+				color: var(--t3);
+				display: block;
+				margin-bottom: 10px;
+			}
+			.col-drop-main {
+				font-family: var(--font-ui);
+				font-size: 13px;
+				font-weight: 500;
+				color: var(--t1);
+				margin-bottom: 4px;
+			}
+			.col-drop-sub {
+				font-family: var(--font-ui);
+				font-size: 11.5px;
+				color: var(--t2);
+			}
+			.col-hex-row {
+				display: flex;
+				gap: 7px;
+				justify-content: center;
+				margin-top: 14px;
+			}
+			.col-hex-row input {
+				background: var(--bg-hover);
+				border: 1px solid var(--border-med);
+				border-radius: 5px;
+				padding: 6px 10px;
+				color: var(--t1);
+				font-family: var(--font-ui);
+				font-size: 12px;
+				width: 120px;
+				outline: none;
+				text-align: center;
+				transition: border-color 0.12s;
+			}
+			.col-hex-row input:focus {
+				border-color: var(--border-strong);
+			}
+			.col-hex-row input::placeholder {
+				color: var(--t3);
+			}
+			.col-gen-btn {
+				background: var(--bg-hover);
+				border: 1px solid var(--border-med);
+				border-radius: 5px;
+				padding: 6px 14px;
+				color: var(--t2);
+				font-family: var(--font-ui);
+				font-size: 12px;
+				font-weight: 500;
+				cursor: pointer;
+				transition: all 0.12s;
+			}
+			.col-gen-btn:hover {
+				background: var(--bg-selected);
+				color: var(--t1);
+				border-color: var(--border-strong);
+			}
 
-/* resources */
-.res-grid{columns:2;column-gap:8px;}
-.rc{break-inside:avoid;margin-bottom:8px;background:var(--bg-raised);border:1px solid var(--border-med);border-radius:7px;padding:12px 14px;cursor:pointer;transition:border-color .15s;}
-.rc:hover{border-color:var(--border-strong);}
-.rc-cat{font-family:var(--font-ui);font-size:9.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--t3);margin-bottom:4px;transition:color .12s;}
-.rc:hover .rc-cat{color:var(--t2);}
-.rc-name{font-family:var(--font-body);font-style:italic;font-size:15.5px;color:var(--t1);margin-bottom:3px;}
-.rc-desc{font-family:var(--font-ui);font-size:12px;color:var(--t2);line-height:1.55;}
-</style>
-</head>
-<body>
+			/* resources */
+			.res-grid {
+				columns: 2;
+				column-gap: 8px;
+			}
+			.rc {
+				break-inside: avoid;
+				margin-bottom: 8px;
+				background: var(--bg-raised);
+				border: 1px solid var(--border-med);
+				border-radius: 7px;
+				padding: 12px 14px;
+				cursor: pointer;
+				transition: border-color 0.15s;
+			}
+			.rc:hover {
+				border-color: var(--border-strong);
+			}
+			.rc-cat {
+				font-family: var(--font-ui);
+				font-size: 9.5px;
+				font-weight: 600;
+				letter-spacing: 0.09em;
+				text-transform: uppercase;
+				color: var(--t3);
+				margin-bottom: 4px;
+				transition: color 0.12s;
+			}
+			.rc:hover .rc-cat {
+				color: var(--t2);
+			}
+			.rc-name {
+				font-family: var(--font-body);
+				font-style: italic;
+				font-size: 15.5px;
+				color: var(--t1);
+				margin-bottom: 3px;
+			}
+			.rc-desc {
+				font-family: var(--font-ui);
+				font-size: 12px;
+				color: var(--t2);
+				line-height: 1.55;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="topbar">
+			<div class="wordmark">pastiche.</div>
+			<div class="breadcrumb" id="bc">
+				<span class="bc-seg">library</span><span class="bc-sep">/</span>
+				<span class="bc-seg">refs</span><span class="bc-sep">/</span>
+				<span class="bc-seg active">artworks</span>
+			</div>
+			<div class="search-wrap">
+				<i class="ti ti-search s-icon"></i>
+				<input type="text" placeholder="search everything..." />
+			</div>
+			<button class="tb-btn on" id="toggleDetail" title="Detail panel">
+				<i class="ti ti-layout-sidebar-right"></i>
+			</button>
+			<button class="tb-btn" title="Settings"><i class="ti ti-settings"></i></button>
+		</div>
 
-<div class="topbar">
-  <div class="wordmark">pastiche.</div>
-  <div class="breadcrumb" id="bc">
-    <span class="bc-seg">library</span><span class="bc-sep">/</span>
-    <span class="bc-seg">refs</span><span class="bc-sep">/</span>
-    <span class="bc-seg active">artworks</span>
-  </div>
-  <div class="search-wrap">
-    <i class="ti ti-search s-icon"></i>
-    <input type="text" placeholder="search everything...">
-  </div>
-  <button class="tb-btn on" id="toggleDetail" title="Detail panel"><i class="ti ti-layout-sidebar-right"></i></button>
-  <button class="tb-btn" title="Settings"><i class="ti ti-settings"></i></button>
-</div>
+		<div class="layout">
+			<div class="sidebar">
+				<div class="nav-section">
+					<div class="sec-label">Navigate</div>
+					<div class="nav-item active" data-mode="library"><i class="ti ti-books"></i> Library</div>
+					<div class="nav-item" data-mode="explore"><i class="ti ti-compass"></i> Explore</div>
+					<div class="nav-item" data-mode="canvas"><i class="ti ti-layout-board"></i> Canvas</div>
+					<div class="nav-item" data-mode="colors"><i class="ti ti-palette"></i> Colors</div>
+					<div class="nav-item" data-mode="resources"><i class="ti ti-bookmark"></i> Resources</div>
+				</div>
+				<div class="nav-divider"></div>
+				<div class="ftree" id="ftree">
+					<div class="sec-label" style="padding: 0 8px; margin-bottom: 4px">Your library</div>
+					<div class="fi"><i class="ti ti-folder"></i> refs <span class="fi-n">247</span></div>
+					<div class="fi fi-c"><i class="ti ti-file"></i> male</div>
+					<div class="fi fi-c"><i class="ti ti-file"></i> female</div>
+					<div class="fi fi-c">
+						<i class="ti ti-file"></i> inspirations <span class="fi-n">34</span>
+					</div>
+					<div class="fi fi-c active">
+						<i class="ti ti-file"></i> artworks <span class="fi-n">126</span>
+					</div>
+					<div class="fi fi-c"><i class="ti ti-file"></i> hands</div>
+					<div class="fi fi-c"><i class="ti ti-file"></i> faces</div>
+					<div class="fi fi-c"><i class="ti ti-file"></i> poses</div>
+					<div class="fi fi-c"><i class="ti ti-file"></i> environment</div>
+					<div class="fi" style="margin-top: 3px">
+						<i class="ti ti-folder"></i> fanart 2023 <span class="fi-n">89</span>
+					</div>
+					<div class="fi fi-c"><i class="ti ti-file"></i> toji</div>
+					<div class="fi fi-c"><i class="ti ti-file"></i> pool party ahri</div>
+					<div class="fi" style="margin-top: 3px">
+						<i class="ti ti-folder"></i> 2024 works <span class="fi-n">311</span>
+					</div>
+					<div class="fi fi-c"><i class="ti ti-file"></i> himmel</div>
+					<div class="fi fi-c"><i class="ti ti-file"></i> finished works</div>
+					<div class="fi fi-c"><i class="ti ti-file"></i> wuthering waves</div>
+					<div class="nav-divider" style="margin: 7px 0"></div>
+					<div class="fi"><i class="ti ti-heart"></i> Favourites</div>
+					<div class="fi"><i class="ti ti-bolt"></i> Smart folders</div>
+					<div class="fi"><i class="ti ti-clock"></i> Recently added</div>
+				</div>
+				<div class="sidebar-foot">
+					<button class="add-btn">
+						<i class="ti ti-plus" style="font-size: 12px"></i> Add images
+					</button>
+				</div>
+			</div>
 
-<div class="layout">
+			<div class="main">
+				<div class="content-area" id="ca">
+					<!-- LIBRARY -->
+					<div id="v-library">
+						<div class="sec-head">
+							<div class="sec-title">artworks</div>
+							<div class="sec-sub">126 items · refs / artworks · last updated 2 days ago</div>
+						</div>
+						<div class="chip-row">
+							<div class="chip active">all</div>
+							<div class="chip">artwork</div>
+							<div class="chip">frieren</div>
+							<div class="chip">anime</div>
+							<div class="chip">lighting</div>
+							<div class="chip">environment</div>
+							<div class="chip">colorful</div>
+							<div class="chip">night</div>
+							<div class="chip">aesthetic</div>
+						</div>
+						<div class="masonry" id="libG"></div>
+						<div class="sel-bar" id="selB" style="display: none">
+							<span><span class="sel-n" id="selN">0</span> selected</span>
+							<div class="ss"></div>
+							<div class="sa"><i class="ti ti-tag"></i> Tag</div>
+							<div class="sa"><i class="ti ti-folder"></i> Move</div>
+							<div class="sa"><i class="ti ti-heart"></i> Fav</div>
+							<div class="ss"></div>
+							<div class="sa del"><i class="ti ti-trash"></i> Delete</div>
+						</div>
+					</div>
 
-<div class="sidebar">
-  <div class="nav-section">
-    <div class="sec-label">Navigate</div>
-    <div class="nav-item active" data-mode="library"><i class="ti ti-books"></i> Library</div>
-    <div class="nav-item" data-mode="explore"><i class="ti ti-compass"></i> Explore</div>
-    <div class="nav-item" data-mode="canvas"><i class="ti ti-layout-board"></i> Canvas</div>
-    <div class="nav-item" data-mode="colors"><i class="ti ti-palette"></i> Colors</div>
-    <div class="nav-item" data-mode="resources"><i class="ti ti-bookmark"></i> Resources</div>
-  </div>
-  <div class="nav-divider"></div>
-  <div class="ftree" id="ftree">
-    <div class="sec-label" style="padding:0 8px;margin-bottom:4px">Your library</div>
-    <div class="fi"><i class="ti ti-folder"></i> refs <span class="fi-n">247</span></div>
-    <div class="fi fi-c"><i class="ti ti-file"></i> male</div>
-    <div class="fi fi-c"><i class="ti ti-file"></i> female</div>
-    <div class="fi fi-c"><i class="ti ti-file"></i> inspirations <span class="fi-n">34</span></div>
-    <div class="fi fi-c active"><i class="ti ti-file"></i> artworks <span class="fi-n">126</span></div>
-    <div class="fi fi-c"><i class="ti ti-file"></i> hands</div>
-    <div class="fi fi-c"><i class="ti ti-file"></i> faces</div>
-    <div class="fi fi-c"><i class="ti ti-file"></i> poses</div>
-    <div class="fi fi-c"><i class="ti ti-file"></i> environment</div>
-    <div class="fi" style="margin-top:3px"><i class="ti ti-folder"></i> fanart 2023 <span class="fi-n">89</span></div>
-    <div class="fi fi-c"><i class="ti ti-file"></i> toji</div>
-    <div class="fi fi-c"><i class="ti ti-file"></i> pool party ahri</div>
-    <div class="fi" style="margin-top:3px"><i class="ti ti-folder"></i> 2024 works <span class="fi-n">311</span></div>
-    <div class="fi fi-c"><i class="ti ti-file"></i> himmel</div>
-    <div class="fi fi-c"><i class="ti ti-file"></i> finished works</div>
-    <div class="fi fi-c"><i class="ti ti-file"></i> wuthering waves</div>
-    <div class="nav-divider" style="margin:7px 0"></div>
-    <div class="fi"><i class="ti ti-heart"></i> Favourites</div>
-    <div class="fi"><i class="ti ti-bolt"></i> Smart folders</div>
-    <div class="fi"><i class="ti ti-clock"></i> Recently added</div>
-  </div>
-  <div class="sidebar-foot">
-    <button class="add-btn"><i class="ti ti-plus" style="font-size:12px"></i> Add images</button>
-  </div>
-</div>
+					<!-- EXPLORE -->
+					<div id="v-explore" style="display: none">
+						<div class="sec-head">
+							<div class="sec-title">Explore</div>
+							<div class="sec-sub">Curated sources — fine art, illustration, reference</div>
+						</div>
+						<div class="chip-row">
+							<div class="chip active">All sources</div>
+							<div class="chip">The Met</div>
+							<div class="chip">Art Institute Chicago</div>
+							<div class="chip">Rijksmuseum</div>
+							<div class="chip">Wikimedia</div>
+							<div class="chip">Danbooru</div>
+							<div class="chip">Europeana</div>
+							<div class="chip">Harvard Art</div>
+						</div>
+						<div class="masonry" id="expG"></div>
+					</div>
 
-<div class="main">
-  <div class="content-area" id="ca">
+					<!-- CANVAS -->
+					<div id="v-canvas" style="display: none; height: calc(100vh - 42px); margin: -17px -20px">
+						<div class="canvas-area">
+							<div class="canvas-tb">
+								<button class="ctb on"><i class="ti ti-cursor-arrow"></i></button>
+								<button class="ctb"><i class="ti ti-hand-grab"></i></button>
+								<div class="ct-sep"></div>
+								<button class="ctb"><i class="ti ti-photo-plus"></i></button>
+								<button class="ctb"><i class="ti ti-cursor-text"></i></button>
+								<div class="ct-sep"></div>
+								<button class="ctb"><i class="ti ti-zoom-in"></i></button>
+								<button class="ctb"><i class="ti ti-zoom-out"></i></button>
+								<div class="ct-sep"></div>
+								<button class="ctb"><i class="ti ti-download"></i></button>
+							</div>
+							<div style="text-align: center; pointer-events: none; user-select: none">
+								<div
+									style="
+										font-family: var(--font-body);
+										font-style: italic;
+										font-size: 16px;
+										color: var(--t3);
+									"
+								>
+									Drop images from your library to begin
+								</div>
+							</div>
+							<div class="ci" style="left: 12%; top: 10%; width: 22%; transform: rotate(-1.2deg)">
+								<div
+									style="
+										width: 100%;
+										height: 128px;
+										background: linear-gradient(145deg, #2a3a2e, #1a2820);
+									"
+								></div>
+							</div>
+							<div class="ci" style="left: 33%; top: 7%; width: 27%; transform: rotate(0.7deg)">
+								<div
+									style="
+										width: 100%;
+										height: 168px;
+										background: linear-gradient(145deg, #2e2820, #1e1810);
+									"
+								></div>
+							</div>
+							<div class="ci" style="left: 22%; top: 52%; width: 19%; transform: rotate(-0.4deg)">
+								<div
+									style="
+										width: 100%;
+										height: 108px;
+										background: linear-gradient(145deg, #1e2830, #0e1820);
+									"
+								></div>
+							</div>
+							<div class="ci" style="left: 61%; top: 32%; width: 17%; transform: rotate(1deg)">
+								<div
+									style="
+										width: 100%;
+										height: 118px;
+										background: linear-gradient(145deg, #281e28, #180e18);
+									"
+								></div>
+							</div>
+						</div>
+					</div>
 
-    <!-- LIBRARY -->
-    <div id="v-library">
-      <div class="sec-head">
-        <div class="sec-title">artworks</div>
-        <div class="sec-sub">126 items · refs / artworks · last updated 2 days ago</div>
-      </div>
-      <div class="chip-row">
-        <div class="chip active">all</div>
-        <div class="chip">artwork</div>
-        <div class="chip">frieren</div>
-        <div class="chip">anime</div>
-        <div class="chip">lighting</div>
-        <div class="chip">environment</div>
-        <div class="chip">colorful</div>
-        <div class="chip">night</div>
-        <div class="chip">aesthetic</div>
-      </div>
-      <div class="masonry" id="libG"></div>
-      <div class="sel-bar" id="selB" style="display:none">
-        <span><span class="sel-n" id="selN">0</span> selected</span>
-        <div class="ss"></div>
-        <div class="sa"><i class="ti ti-tag"></i> Tag</div>
-        <div class="sa"><i class="ti ti-folder"></i> Move</div>
-        <div class="sa"><i class="ti ti-heart"></i> Fav</div>
-        <div class="ss"></div>
-        <div class="sa del"><i class="ti ti-trash"></i> Delete</div>
-      </div>
-    </div>
+					<!-- COLORS -->
+					<div id="v-colors" style="display: none">
+						<div class="sec-head">
+							<div class="sec-title">Colors</div>
+							<div class="sec-sub">Palette extraction · OKLCH gamut · harmony · Pantone match</div>
+						</div>
+						<div class="col-drop">
+							<i class="ti ti-palette col-drop-icon"></i>
+							<div class="col-drop-main">Drop an image or click to upload</div>
+							<div class="col-drop-sub">
+								Extracts palette, OKLCH gamut, harmonic colours, and nearest Pantone
+							</div>
+							<div class="col-hex-row">
+								<input type="text" placeholder="#3a6a5a" />
+								<button class="col-gen-btn">Generate</button>
+							</div>
+						</div>
+					</div>
 
-    <!-- EXPLORE -->
-    <div id="v-explore" style="display:none">
-      <div class="sec-head">
-        <div class="sec-title">Explore</div>
-        <div class="sec-sub">Curated sources — fine art, illustration, reference</div>
-      </div>
-      <div class="chip-row">
-        <div class="chip active">All sources</div>
-        <div class="chip">The Met</div>
-        <div class="chip">Art Institute Chicago</div>
-        <div class="chip">Rijksmuseum</div>
-        <div class="chip">Wikimedia</div>
-        <div class="chip">Danbooru</div>
-        <div class="chip">Europeana</div>
-        <div class="chip">Harvard Art</div>
-      </div>
-      <div class="masonry" id="expG"></div>
-    </div>
+					<!-- RESOURCES -->
+					<div id="v-resources" style="display: none">
+						<div class="sec-head">
+							<div class="sec-title">Resources</div>
+							<div class="sec-sub">
+								Curated tools for artists — searchable, categorised, extendable
+							</div>
+						</div>
+						<div class="chip-row">
+							<div class="chip active">all</div>
+							<div class="chip">reference</div>
+							<div class="chip">anatomy</div>
+							<div class="chip">color</div>
+							<div class="chip">perspective</div>
+							<div class="chip">3D</div>
+							<div class="chip">community</div>
+						</div>
+						<div class="res-grid">
+							<div class="rc">
+								<div class="rc-cat">Reference · Poses</div>
+								<div class="rc-name">Line of Action</div>
+								<div class="rc-desc">
+									Timed figure drawing with photos, hands, faces, and animals.
+								</div>
+							</div>
+							<div class="rc">
+								<div class="rc-cat">Reference · 3D</div>
+								<div class="rc-name">SculptGL</div>
+								<div class="rc-desc">
+									Browser-based sculpting for custom reference from any angle.
+								</div>
+							</div>
+							<div class="rc">
+								<div class="rc-cat">Anatomy</div>
+								<div class="rc-name">Sketchfab — Anatomy</div>
+								<div class="rc-desc">Free 3D anatomical models, fully rotatable in browser.</div>
+							</div>
+							<div class="rc">
+								<div class="rc-cat">Color</div>
+								<div class="rc-name">Coolors</div>
+								<div class="rc-desc">Fast palette generation and colour space exploration.</div>
+							</div>
+							<div class="rc">
+								<div class="rc-cat">Perspective</div>
+								<div class="rc-name">fSpy</div>
+								<div class="rc-desc">
+									Match camera angles from photos for accurate perspective grids.
+								</div>
+							</div>
+							<div class="rc">
+								<div class="rc-cat">Reference · Photos</div>
+								<div class="rc-name">Unsplash</div>
+								<div class="rc-desc">CC0 photography across a broad subject range.</div>
+							</div>
+							<div class="rc">
+								<div class="rc-cat">Community</div>
+								<div class="rc-name">Pixiv</div>
+								<div class="rc-desc">
+									Japanese illustration community, huge stylised art volume.
+								</div>
+							</div>
+							<div class="rc">
+								<div class="rc-cat">Reference · Anatomy</div>
+								<div class="rc-name">SenshiStock</div>
+								<div class="rc-desc">Extensive free stock pose library on DeviantArt.</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
 
-    <!-- CANVAS -->
-    <div id="v-canvas" style="display:none;height:calc(100vh - 42px);margin:-17px -20px;">
-      <div class="canvas-area">
-        <div class="canvas-tb">
-          <button class="ctb on"><i class="ti ti-cursor-arrow"></i></button>
-          <button class="ctb"><i class="ti ti-hand-grab"></i></button>
-          <div class="ct-sep"></div>
-          <button class="ctb"><i class="ti ti-photo-plus"></i></button>
-          <button class="ctb"><i class="ti ti-cursor-text"></i></button>
-          <div class="ct-sep"></div>
-          <button class="ctb"><i class="ti ti-zoom-in"></i></button>
-          <button class="ctb"><i class="ti ti-zoom-out"></i></button>
-          <div class="ct-sep"></div>
-          <button class="ctb"><i class="ti ti-download"></i></button>
-        </div>
-        <div style="text-align:center;pointer-events:none;user-select:none;">
-          <div style="font-family:var(--font-body);font-style:italic;font-size:16px;color:var(--t3)">Drop images from your library to begin</div>
-        </div>
-        <div class="ci" style="left:12%;top:10%;width:22%;transform:rotate(-1.2deg)"><div style="width:100%;height:128px;background:linear-gradient(145deg,#2a3a2e,#1a2820)"></div></div>
-        <div class="ci" style="left:33%;top:7%;width:27%;transform:rotate(.7deg)"><div style="width:100%;height:168px;background:linear-gradient(145deg,#2e2820,#1e1810)"></div></div>
-        <div class="ci" style="left:22%;top:52%;width:19%;transform:rotate(-.4deg)"><div style="width:100%;height:108px;background:linear-gradient(145deg,#1e2830,#0e1820)"></div></div>
-        <div class="ci" style="left:61%;top:32%;width:17%;transform:rotate(1deg)"><div style="width:100%;height:118px;background:linear-gradient(145deg,#281e28,#180e18)"></div></div>
-      </div>
-    </div>
+			<!-- DETAIL PANEL -->
+			<div class="dp" id="dp">
+				<div class="dp-img">
+					<div class="dp-ph" id="dpPh">
+						<span style="font-family: var(--font-ui); font-size: 11.5px; color: var(--t3)"
+							>no image selected</span
+						>
+					</div>
+				</div>
+				<div class="dp-body">
+					<div id="dpEmpty" class="dp-sec">
+						<div
+							style="
+								font-family: var(--font-body);
+								font-style: italic;
+								font-size: 15px;
+								color: var(--t2);
+							"
+						>
+							Select an image to view its details.
+						</div>
+					</div>
+					<div id="dpContent" style="display: none">
+						<div class="dp-sec">
+							<div class="dp-title" id="dTitle">Garden at Dusk</div>
+							<div class="dp-artist" id="dArtist">refs / artworks</div>
+						</div>
+						<div class="dp-sec">
+							<div class="dp-lbl">Quick actions</div>
+							<div class="star-row" id="stars">
+								<span class="star on">★</span><span class="star on">★</span
+								><span class="star on">★</span><span class="star on">★</span
+								><span class="star">★</span>
+							</div>
+							<div class="dot-row">
+								<div class="cdot" style="background: #a05050"></div>
+								<div class="cdot" style="background: #a07840"></div>
+								<div class="cdot" style="background: #8a9840"></div>
+								<div class="cdot" style="background: #408850"></div>
+								<div class="cdot" style="background: #4070a0"></div>
+								<div class="cdot" style="background: #6050a0"></div>
+								<div class="cdot" style="background: #a05080"></div>
+								<div class="cdot" style="background: #707070"></div>
+								<div
+									class="cdot"
+									style="background: #ccc; border: 1px solid var(--border-med)"
+								></div>
+								<div class="cdot" style="background: #1e1c1a"></div>
+							</div>
+						</div>
+						<div class="dp-sec">
+							<div class="dp-lbl">Content</div>
+							<div class="dp-field ph">Add a description...</div>
+							<div class="tag-wrap">
+								<span class="tp">impressionism</span>
+								<span class="tp">monet</span>
+								<span class="tp">landscape</span>
+								<span class="add-tag">+ tag</span>
+							</div>
+						</div>
+						<div class="dp-sec">
+							<div class="dp-lbl">Extracted palette</div>
+							<div class="pal-row" id="dpPal">
+								<div class="psw" style="background: #4a7a5a"></div>
+								<div class="psw" style="background: #8ab090"></div>
+								<div class="psw" style="background: #2a4a38"></div>
+								<div class="psw" style="background: #c0a870"></div>
+								<div class="psw" style="background: #6a8898"></div>
+								<div class="psw" style="background: #e8d8b8"></div>
+							</div>
+							<div class="dim" id="dpDim">1024 × 768 px · PNG · 2.4 MB</div>
+						</div>
+						<div class="dp-sec">
+							<div class="dp-lbl">Attribution</div>
+							<div class="dp-field ph">Creator name...</div>
+							<div class="dp-field ph">Source name...</div>
+							<div class="dp-field ph" style="font-size: 11px">https://...</div>
+						</div>
+						<div class="dp-sec">
+							<div class="dp-lbl">Notes</div>
+							<div class="dp-field ph" style="min-height: 58px">Rich notes...</div>
+						</div>
+					</div>
+				</div>
+				<div class="dp-foot">
+					<button class="df"><i class="ti ti-palette"></i> Open in Colors</button>
+					<button class="df prim"><i class="ti ti-plus"></i> Save</button>
+				</div>
+			</div>
+		</div>
 
-    <!-- COLORS -->
-    <div id="v-colors" style="display:none">
-      <div class="sec-head">
-        <div class="sec-title">Colors</div>
-        <div class="sec-sub">Palette extraction · OKLCH gamut · harmony · Pantone match</div>
-      </div>
-      <div class="col-drop">
-        <i class="ti ti-palette col-drop-icon"></i>
-        <div class="col-drop-main">Drop an image or click to upload</div>
-        <div class="col-drop-sub">Extracts palette, OKLCH gamut, harmonic colours, and nearest Pantone</div>
-        <div class="col-hex-row">
-          <input type="text" placeholder="#3a6a5a">
-          <button class="col-gen-btn">Generate</button>
-        </div>
-      </div>
-    </div>
+		<script>
+			const GRAD = [
+				['#2a4a38', '#1a3228'],
+				['#4a3820', '#321e08'],
+				['#283848', '#182030'],
+				['#382838', '#201020'],
+				['#383818', '#202008'],
+				['#1e3830', '#0e2018'],
+				['#48281e', '#30100a'],
+				['#28183a', '#100828'],
+				['#2a3a18', '#182208'],
+				['#381828', '#200818'],
+				['#183848', '#082030'],
+				['#38320e', '#201a02']
+			];
+			const TITLES = [
+				'Garden at Dusk',
+				'Evening Haze',
+				'Water Lily Study',
+				'Figure in Blue',
+				'Urban Geometry',
+				'Soft Focus',
+				'Atmospheric Study',
+				'Chromatic Harmony',
+				'Light and Shadow',
+				'Depth Study',
+				'Still Life',
+				'Twilight'
+			];
+			const HH = [155, 215, 138, 185, 170, 205, 142, 225, 160, 190, 148, 180];
+			const TAGS = [
+				'#impressionism',
+				'#lighting',
+				'#environment',
+				'#figure',
+				'#landscape',
+				'',
+				'',
+				'#color',
+				'',
+				'',
+				'#anatomy',
+				''
+			];
 
-    <!-- RESOURCES -->
-    <div id="v-resources" style="display:none">
-      <div class="sec-head">
-        <div class="sec-title">Resources</div>
-        <div class="sec-sub">Curated tools for artists — searchable, categorised, extendable</div>
-      </div>
-      <div class="chip-row">
-        <div class="chip active">all</div>
-        <div class="chip">reference</div>
-        <div class="chip">anatomy</div>
-        <div class="chip">color</div>
-        <div class="chip">perspective</div>
-        <div class="chip">3D</div>
-        <div class="chip">community</div>
-      </div>
-      <div class="res-grid">
-        <div class="rc"><div class="rc-cat">Reference · Poses</div><div class="rc-name">Line of Action</div><div class="rc-desc">Timed figure drawing with photos, hands, faces, and animals.</div></div>
-        <div class="rc"><div class="rc-cat">Reference · 3D</div><div class="rc-name">SculptGL</div><div class="rc-desc">Browser-based sculpting for custom reference from any angle.</div></div>
-        <div class="rc"><div class="rc-cat">Anatomy</div><div class="rc-name">Sketchfab — Anatomy</div><div class="rc-desc">Free 3D anatomical models, fully rotatable in browser.</div></div>
-        <div class="rc"><div class="rc-cat">Color</div><div class="rc-name">Coolors</div><div class="rc-desc">Fast palette generation and colour space exploration.</div></div>
-        <div class="rc"><div class="rc-cat">Perspective</div><div class="rc-name">fSpy</div><div class="rc-desc">Match camera angles from photos for accurate perspective grids.</div></div>
-        <div class="rc"><div class="rc-cat">Reference · Photos</div><div class="rc-name">Unsplash</div><div class="rc-desc">CC0 photography across a broad subject range.</div></div>
-        <div class="rc"><div class="rc-cat">Community</div><div class="rc-name">Pixiv</div><div class="rc-desc">Japanese illustration community, huge stylised art volume.</div></div>
-        <div class="rc"><div class="rc-cat">Reference · Anatomy</div><div class="rc-name">SenshiStock</div><div class="rc-desc">Extensive free stock pose library on DeviantArt.</div></div>
-      </div>
-    </div>
-
-  </div>
-</div>
-
-<!-- DETAIL PANEL -->
-<div class="dp" id="dp">
-  <div class="dp-img">
-    <div class="dp-ph" id="dpPh">
-      <span style="font-family:var(--font-ui);font-size:11.5px;color:var(--t3)">no image selected</span>
-    </div>
-  </div>
-  <div class="dp-body">
-    <div id="dpEmpty" class="dp-sec">
-      <div style="font-family:var(--font-body);font-style:italic;font-size:15px;color:var(--t2)">Select an image to view its details.</div>
-    </div>
-    <div id="dpContent" style="display:none">
-      <div class="dp-sec">
-        <div class="dp-title" id="dTitle">Garden at Dusk</div>
-        <div class="dp-artist" id="dArtist">refs / artworks</div>
-      </div>
-      <div class="dp-sec">
-        <div class="dp-lbl">Quick actions</div>
-        <div class="star-row" id="stars">
-          <span class="star on">★</span><span class="star on">★</span><span class="star on">★</span><span class="star on">★</span><span class="star">★</span>
-        </div>
-        <div class="dot-row">
-          <div class="cdot" style="background:#a05050"></div>
-          <div class="cdot" style="background:#a07840"></div>
-          <div class="cdot" style="background:#8a9840"></div>
-          <div class="cdot" style="background:#408850"></div>
-          <div class="cdot" style="background:#4070a0"></div>
-          <div class="cdot" style="background:#6050a0"></div>
-          <div class="cdot" style="background:#a05080"></div>
-          <div class="cdot" style="background:#707070"></div>
-          <div class="cdot" style="background:#ccc;border:1px solid var(--border-med)"></div>
-          <div class="cdot" style="background:#1e1c1a"></div>
-        </div>
-      </div>
-      <div class="dp-sec">
-        <div class="dp-lbl">Content</div>
-        <div class="dp-field ph">Add a description...</div>
-        <div class="tag-wrap">
-          <span class="tp">impressionism</span>
-          <span class="tp">monet</span>
-          <span class="tp">landscape</span>
-          <span class="add-tag">+ tag</span>
-        </div>
-      </div>
-      <div class="dp-sec">
-        <div class="dp-lbl">Extracted palette</div>
-        <div class="pal-row" id="dpPal">
-          <div class="psw" style="background:#4a7a5a"></div>
-          <div class="psw" style="background:#8ab090"></div>
-          <div class="psw" style="background:#2a4a38"></div>
-          <div class="psw" style="background:#c0a870"></div>
-          <div class="psw" style="background:#6a8898"></div>
-          <div class="psw" style="background:#e8d8b8"></div>
-        </div>
-        <div class="dim" id="dpDim">1024 × 768 px · PNG · 2.4 MB</div>
-      </div>
-      <div class="dp-sec">
-        <div class="dp-lbl">Attribution</div>
-        <div class="dp-field ph">Creator name...</div>
-        <div class="dp-field ph">Source name...</div>
-        <div class="dp-field ph" style="font-size:11px">https://...</div>
-      </div>
-      <div class="dp-sec">
-        <div class="dp-lbl">Notes</div>
-        <div class="dp-field ph" style="min-height:58px">Rich notes...</div>
-      </div>
-    </div>
-  </div>
-  <div class="dp-foot">
-    <button class="df"><i class="ti ti-palette"></i> Open in Colors</button>
-    <button class="df prim"><i class="ti ti-plus"></i> Save</button>
-  </div>
-</div>
-
-</div>
-
-<script>
-const GRAD=[
-  ['#2a4a38','#1a3228'],['#4a3820','#321e08'],['#283848','#182030'],
-  ['#382838','#201020'],['#383818','#202008'],['#1e3830','#0e2018'],
-  ['#48281e','#30100a'],['#28183a','#100828'],['#2a3a18','#182208'],
-  ['#381828','#200818'],['#183848','#082030'],['#38320e','#201a02'],
-];
-const TITLES=['Garden at Dusk','Evening Haze','Water Lily Study','Figure in Blue','Urban Geometry','Soft Focus','Atmospheric Study','Chromatic Harmony','Light and Shadow','Depth Study','Still Life','Twilight'];
-const HH=[155,215,138,185,170,205,142,225,160,190,148,180];
-const TAGS=['#impressionism','#lighting','#environment','#figure','#landscape','','','#color','','','#anatomy',''];
-
-function card(i,mode){
-  const g=GRAD[i%GRAD.length],h=HH[i%HH.length],t=TITLES[i%TITLES.length],tg=TAGS[i%TAGS.length];
-  const d=document.createElement('div');d.className='card';d.dataset.i=i;
-  d.innerHTML=`<div class="card-img" style="height:${h}px;background:linear-gradient(150deg,${g[0]},${g[1]})">
+			function card(i, mode) {
+				const g = GRAD[i % GRAD.length],
+					h = HH[i % HH.length],
+					t = TITLES[i % TITLES.length],
+					tg = TAGS[i % TAGS.length];
+				const d = document.createElement('div');
+				d.className = 'card';
+				d.dataset.i = i;
+				d.innerHTML = `<div class="card-img" style="height:${h}px;background:linear-gradient(150deg,${g[0]},${g[1]})">
     <div class="card-ov">
-      <div class="c-title">${t} ${i+1}</div>
-      <div class="c-meta">${mode==='explore'?'The Met · oil on canvas · 1899':'refs / artworks · 1024 px'}</div>
+      <div class="c-title">${t} ${i + 1}</div>
+      <div class="c-meta">${mode === 'explore' ? 'The Met · oil on canvas · 1899' : 'refs / artworks · 1024 px'}</div>
     </div>
     <div class="card-acts">
-      <div class="ca"><i class="ti ti-${mode==='explore'?'download':'heart'}"></i></div>
+      <div class="ca"><i class="ti ti-${mode === 'explore' ? 'download' : 'heart'}"></i></div>
       <div class="ca"><i class="ti ti-arrow-up-right"></i></div>
     </div>
-    ${tg?`<div class="c-tag">${tg}</div>`:''}
+    ${tg ? `<div class="c-tag">${tg}</div>` : ''}
   </div>`;
-  d.addEventListener('click',e=>{
-    if(e.target.closest('.ca'))return;
-    document.querySelectorAll('.card').forEach(c=>c.classList.remove('active-detail'));
-    d.classList.add('active-detail');
-    openDetail(i,t,mode);
-  });
-  return d;
-}
+				d.addEventListener('click', (e) => {
+					if (e.target.closest('.ca')) return;
+					document.querySelectorAll('.card').forEach((c) => c.classList.remove('active-detail'));
+					d.classList.add('active-detail');
+					openDetail(i, t, mode);
+				});
+				return d;
+			}
 
-function openDetail(i,title,mode){
-  document.getElementById('dpEmpty').style.display='none';
-  document.getElementById('dpContent').style.display='block';
-  document.getElementById('dTitle').textContent=title+' '+(i+1);
-  document.getElementById('dArtist').textContent=mode==='explore'?'Claude Monet · 1899 · The Met':'refs / artworks';
-  const g=GRAD[i%GRAD.length];
-  document.getElementById('dpPal').innerHTML=[g[0],g[1],'#c0b898','#e0d8c0','#808888','#404848'].map(c=>`<div class="psw" style="background:${c}" title="${c}"></div>`).join('');
-}
+			function openDetail(i, title, mode) {
+				document.getElementById('dpEmpty').style.display = 'none';
+				document.getElementById('dpContent').style.display = 'block';
+				document.getElementById('dTitle').textContent = title + ' ' + (i + 1);
+				document.getElementById('dArtist').textContent =
+					mode === 'explore' ? 'Claude Monet · 1899 · The Met' : 'refs / artworks';
+				const g = GRAD[i % GRAD.length];
+				document.getElementById('dpPal').innerHTML = [
+					g[0],
+					g[1],
+					'#c0b898',
+					'#e0d8c0',
+					'#808888',
+					'#404848'
+				]
+					.map((c) => `<div class="psw" style="background:${c}" title="${c}"></div>`)
+					.join('');
+			}
 
-function build(id,mode,n){const el=document.getElementById(id);el.innerHTML='';for(let i=0;i<n;i++)el.appendChild(card(i,mode));}
-build('libG','library',24);
-build('expG','explore',20);
+			function build(id, mode, n) {
+				const el = document.getElementById(id);
+				el.innerHTML = '';
+				for (let i = 0; i < n; i++) el.appendChild(card(i, mode));
+			}
+			build('libG', 'library', 24);
+			build('expG', 'explore', 20);
 
-document.querySelectorAll('.chip-row').forEach(row=>{
-  row.querySelectorAll('.chip').forEach(ch=>{
-    ch.addEventListener('click',()=>{row.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));ch.classList.add('active');});
-  });
-});
+			document.querySelectorAll('.chip-row').forEach((row) => {
+				row.querySelectorAll('.chip').forEach((ch) => {
+					ch.addEventListener('click', () => {
+						row.querySelectorAll('.chip').forEach((c) => c.classList.remove('active'));
+						ch.classList.add('active');
+					});
+				});
+			});
 
-const MODES=['library','explore','canvas','colors','resources'];
-const BCS={library:'library / refs / artworks',explore:'explore / all sources',canvas:'canvas / moodboard',colors:'colors',resources:'resources'};
-document.querySelectorAll('.nav-item[data-mode]').forEach(item=>{
-  item.addEventListener('click',function(){
-    const mode=this.dataset.mode;
-    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-    this.classList.add('active');
-    MODES.forEach(m=>{document.getElementById('v-'+m).style.display=m===mode?'block':'none';});
-    const parts=BCS[mode].split(' / ');
-    document.getElementById('bc').innerHTML=parts.map((p,i)=>`<span class="bc-seg${i===parts.length-1?' active':''}">${p}</span>${i<parts.length-1?'<span class="bc-sep">/</span>':''}`).join('');
-    document.getElementById('ftree').style.display=mode==='library'?'flex':'none';
-    document.getElementById('ftree').style.flexDirection='column';
-  });
-});
+			const MODES = ['library', 'explore', 'canvas', 'colors', 'resources'];
+			const BCS = {
+				library: 'library / refs / artworks',
+				explore: 'explore / all sources',
+				canvas: 'canvas / moodboard',
+				colors: 'colors',
+				resources: 'resources'
+			};
+			document.querySelectorAll('.nav-item[data-mode]').forEach((item) => {
+				item.addEventListener('click', function () {
+					const mode = this.dataset.mode;
+					document.querySelectorAll('.nav-item').forEach((n) => n.classList.remove('active'));
+					this.classList.add('active');
+					MODES.forEach((m) => {
+						document.getElementById('v-' + m).style.display = m === mode ? 'block' : 'none';
+					});
+					const parts = BCS[mode].split(' / ');
+					document.getElementById('bc').innerHTML = parts
+						.map(
+							(p, i) =>
+								`<span class="bc-seg${i === parts.length - 1 ? ' active' : ''}">${p}</span>${i < parts.length - 1 ? '<span class="bc-sep">/</span>' : ''}`
+						)
+						.join('');
+					document.getElementById('ftree').style.display = mode === 'library' ? 'flex' : 'none';
+					document.getElementById('ftree').style.flexDirection = 'column';
+				});
+			});
 
-document.getElementById('toggleDetail').addEventListener('click',function(){
-  const p=document.getElementById('dp');
-  const hidden=p.style.display==='none';
-  p.style.display=hidden?'flex':'none';
-  this.classList.toggle('on',hidden);
-});
+			document.getElementById('toggleDetail').addEventListener('click', function () {
+				const p = document.getElementById('dp');
+				const hidden = p.style.display === 'none';
+				p.style.display = hidden ? 'flex' : 'none';
+				this.classList.toggle('on', hidden);
+			});
 
-document.getElementById('stars').addEventListener('click',function(e){
-  if(!e.target.classList.contains('star'))return;
-  const ss=[...this.querySelectorAll('.star')];
-  const idx=ss.indexOf(e.target);
-  ss.forEach((s,i)=>s.classList.toggle('on',i<=idx));
-});
+			document.getElementById('stars').addEventListener('click', function (e) {
+				if (!e.target.classList.contains('star')) return;
+				const ss = [...this.querySelectorAll('.star')];
+				const idx = ss.indexOf(e.target);
+				ss.forEach((s, i) => s.classList.toggle('on', i <= idx));
+			});
 
-document.querySelectorAll('.ctb').forEach(b=>{
-  b.addEventListener('click',function(){
-    document.querySelectorAll('.ctb').forEach(c=>c.classList.remove('on'));
-    this.classList.add('on');
-  });
-});
-</script>
-</body>
+			document.querySelectorAll('.ctb').forEach((b) => {
+				b.addEventListener('click', function () {
+					document.querySelectorAll('.ctb').forEach((c) => c.classList.remove('on'));
+					this.classList.add('on');
+				});
+			});
+		</script>
+	</body>
 </html>

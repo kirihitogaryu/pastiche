@@ -10,7 +10,12 @@ export function GET({ params, url }: { params: { slug: string }; url: URL }) {
 		const query = url.searchParams.get('q') ?? '';
 		const limit = Number.parseInt(url.searchParams.get('limit') ?? '30', 10);
 		return json({
-			candidates: readAtlasExampleCandidates(db, params.slug, query, Number.isFinite(limit) ? limit : 30)
+			candidates: readAtlasExampleCandidates(
+				db,
+				params.slug,
+				query,
+				Number.isFinite(limit) ? limit : 30
+			)
 		});
 	} finally {
 		db.close();

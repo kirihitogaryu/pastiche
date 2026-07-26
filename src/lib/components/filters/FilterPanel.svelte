@@ -24,7 +24,6 @@
 		closeFilter,
 		resetExploreFilters,
 		resetLibraryFilters,
-		setWikimediaMode,
 		updateExploreFilter,
 		updateLibraryFilters
 	} from '$lib/state/app-state.svelte';
@@ -39,6 +38,30 @@
 	} from '$lib/explore/types';
 
 	type Option = { value: string; label: string; count?: number };
+
+	function isWebsiteFilterSource() {
+		return (
+			appState.exploreSourceId === 'danbooru' ||
+			appState.exploreSourceId === 'deviantart' ||
+			appState.exploreSourceId === 'bluesky' ||
+			appState.exploreSourceId === 'furaffinity'
+		);
+	}
+
+	function websiteContentSafety() {
+		const source = appState.exploreSourceId;
+		if (!isWebsiteFilterSource()) return 'show';
+		return appState.exploreFilters[source as 'danbooru' | 'deviantart' | 'bluesky' | 'furaffinity']
+			.contentSafety;
+	}
+
+	function setWebsiteContentSafety(value: 'hide' | 'blur' | 'show') {
+		const source = appState.exploreSourceId;
+		if (source === 'danbooru') updateExploreFilter('danbooru', { contentSafety: value });
+		if (source === 'deviantart') updateExploreFilter('deviantart', { contentSafety: value });
+		if (source === 'bluesky') updateExploreFilter('bluesky', { contentSafety: value });
+		if (source === 'furaffinity') updateExploreFilter('furaffinity', { contentSafety: value });
+	}
 
 	const metMediums = [
 		'Paintings',
@@ -74,19 +97,59 @@
 		{
 			label: 'Living',
 			options: [
-				{ value: 'animals', label: 'Animals', description: 'Mammals, birds, reptiles', icon: PawPrintIcon },
-				{ value: 'plants', label: 'Plants', description: 'Flowers, trees, botanical', icon: PlantIcon },
-				{ value: 'marine_life', label: 'Marine life', description: 'Fish, sea creatures', icon: FishIcon },
-				{ value: 'insects', label: 'Insects', description: 'Macro, scientific', icon: BugBeetleIcon }
+				{
+					value: 'animals',
+					label: 'Animals',
+					description: 'Mammals, birds, reptiles',
+					icon: PawPrintIcon
+				},
+				{
+					value: 'plants',
+					label: 'Plants',
+					description: 'Flowers, trees, botanical',
+					icon: PlantIcon
+				},
+				{
+					value: 'marine_life',
+					label: 'Marine life',
+					description: 'Fish, sea creatures',
+					icon: FishIcon
+				},
+				{
+					value: 'insects',
+					label: 'Insects',
+					description: 'Macro, scientific',
+					icon: BugBeetleIcon
+				}
 			]
 		},
 		{
 			label: 'Environment',
 			options: [
-				{ value: 'landscapes', label: 'Landscapes', description: 'Forests, mountains', icon: MountainsIcon },
-				{ value: 'water_sky', label: 'Water & sky', description: 'Oceans, clouds', icon: WavesIcon },
-				{ value: 'architecture', label: 'Architecture', description: 'Buildings, interiors', icon: BuildingsIcon },
-				{ value: 'textures', label: 'Textures', description: 'Stone, wood, fabric', icon: SelectionIcon }
+				{
+					value: 'landscapes',
+					label: 'Landscapes',
+					description: 'Forests, mountains',
+					icon: MountainsIcon
+				},
+				{
+					value: 'water_sky',
+					label: 'Water & sky',
+					description: 'Oceans, clouds',
+					icon: WavesIcon
+				},
+				{
+					value: 'architecture',
+					label: 'Architecture',
+					description: 'Buildings, interiors',
+					icon: BuildingsIcon
+				},
+				{
+					value: 'textures',
+					label: 'Textures',
+					description: 'Stone, wood, fabric',
+					icon: SelectionIcon
+				}
 			]
 		},
 		{
@@ -94,8 +157,18 @@
 			options: [
 				{ value: 'figure', label: 'Figure', description: 'Full figure, academic', icon: UserIcon },
 				{ value: 'faces', label: 'Faces', description: 'Heads, expression', icon: UserFocusIcon },
-				{ value: 'body_parts', label: 'Body parts', description: 'Hands, feet, anatomy', icon: HandIcon },
-				{ value: 'pose_motion', label: 'Pose & motion', description: 'Gesture, dancers', icon: PersonSimpleRunIcon },
+				{
+					value: 'body_parts',
+					label: 'Body parts',
+					description: 'Hands, feet, anatomy',
+					icon: HandIcon
+				},
+				{
+					value: 'pose_motion',
+					label: 'Pose & motion',
+					description: 'Gesture, dancers',
+					icon: PersonSimpleRunIcon
+				},
 				{ value: 'drapery', label: 'Drapery', description: 'Fabric, costume', icon: TShirtIcon }
 			]
 		}
@@ -211,11 +284,6 @@
 	let filteredLibraryCount = $derived(
 		filterAssetsByLibraryFilters(library.assets, appState.libraryFilters).length
 	);
-	let libraryTags = $derived(
-		library.tagFacets.flatMap((group) =>
-			group.tags.map((tag) => ({ value: tag.id, label: tag.value, count: tag.assetCount }))
-		)
-	);
 	let sourceTypes = $derived(
 		uniqueOptions(library.assets.map((asset) => asset.record?.source.type ?? asset.sourceType))
 	);
@@ -296,7 +364,7 @@
 			.join(' ');
 	}
 
-	function toggleLibraryArray(key: 'tagIds' | 'sourceTypes' | 'importers', value: string) {
+	function toggleLibraryArray(key: 'sourceTypes' | 'importers', value: string) {
 		const current = appState.libraryFilters[key];
 		updateLibraryFilters({
 			[key]: current.includes(value)
@@ -416,6 +484,35 @@
 
 		{#if appState.mode === 'library'}
 			<section>
+				<h3>Storage</h3>
+				<div class="chips">
+					{#each [{ value: 'all', label: 'All' }, { value: 'saved', label: 'Saved locally' }, { value: 'bookmarked', label: 'Bookmarked' }] as option}
+						<button
+							class:active={(appState.libraryFilters.storageMode ?? 'all') === option.value}
+							type="button"
+							onclick={() =>
+								updateLibraryFilters({
+									storageMode: option.value as 'all' | 'saved' | 'bookmarked'
+								})}
+						>
+							{option.label}
+						</button>
+					{/each}
+				</div>
+				{#if appState.libraryView === 'folder'}
+					<label class="panel-check">
+						<input
+							type="checkbox"
+							checked={appState.libraryFilters.includeSubfolders ?? false}
+							onchange={(event) =>
+								updateLibraryFilters({ includeSubfolders: event.currentTarget.checked })}
+						/>
+						<span>Include subfolders</span>
+					</label>
+				{/if}
+			</section>
+
+			<section>
 				<h3>Status</h3>
 				<div class="chips">
 					<button
@@ -444,65 +541,6 @@
 					>
 						Missing Source
 					</button>
-				</div>
-			</section>
-
-			<section>
-				<h3>Folders</h3>
-				<div class="option-list">
-					<button
-						class:active={appState.libraryFilters.folderId === null}
-						type="button"
-						onclick={() => updateLibraryFilters({ folderId: null })}
-					>
-						<span>Any folder</span>
-					</button>
-					{#each library.folders.slice(0, 12) as folder (folder.id)}
-						<button
-							class:active={appState.libraryFilters.folderId === folder.id}
-							type="button"
-							onclick={() =>
-								updateLibraryFilters({
-									folderId: appState.libraryFilters.folderId === folder.id ? null : folder.id
-								})}
-						>
-							<span>{folder.path.slice(1).join(' / ')}</span>
-							<small>{folder.assetCount}</small>
-						</button>
-					{/each}
-				</div>
-			</section>
-
-			<section>
-				<h3>Projects</h3>
-				<div class="chips">
-					{#each library.projects.slice(0, 10) as project (project.id)}
-						<button
-							class:active={appState.libraryFilters.projectId === project.id}
-							type="button"
-							onclick={() =>
-								updateLibraryFilters({
-									projectId: appState.libraryFilters.projectId === project.id ? null : project.id
-								})}
-						>
-							{project.name}
-						</button>
-					{/each}
-				</div>
-			</section>
-
-			<section>
-				<h3>Tags</h3>
-				<div class="chips">
-					{#each libraryTags.slice(0, 18) as tag (tag.value)}
-						<button
-							class:active={appState.libraryFilters.tagIds.includes(tag.value)}
-							type="button"
-							onclick={() => toggleLibraryArray('tagIds', tag.value)}
-						>
-							{tag.label}
-						</button>
-					{/each}
 				</div>
 			</section>
 
@@ -768,22 +806,99 @@
 					<p class="quiet-note">Search Art Institute results to reveal metadata filters.</p>
 				{/if}
 			</section>
-		{:else}
+		{:else if isWebsiteFilterSource()}
 			<section>
-				<h3>Wikimedia Mode</h3>
+				<h3>Content visibility</h3>
 				<div class="chips">
-					<button
-						class:active={appState.wikimediaMode === 'art'}
-						type="button"
-						onclick={() => setWikimediaMode('art')}>Art</button
-					>
-					<button
-						class:active={appState.wikimediaMode === 'reference'}
-						type="button"
-						onclick={() => setWikimediaMode('reference')}>Reference</button
-					>
+					{#each [{ value: 'hide', label: 'Hide' }, { value: 'blur', label: 'Blur' }, { value: 'show', label: 'Show' }] as option}
+						<button
+							class:active={websiteContentSafety() === option.value}
+							type="button"
+							onclick={() => setWebsiteContentSafety(option.value as 'hide' | 'blur' | 'show')}
+						>
+							{option.label}
+						</button>
+					{/each}
 				</div>
+				<p class="quiet-note">
+					Blur keeps non-general results in place until you deliberately open one. Hide removes them
+					from results.
+				</p>
 			</section>
+			{#if appState.exploreSourceId === 'deviantart' && appState.websiteSearchMode === 'artist'}
+				<section>
+					<h3>Order</h3>
+					<div class="chips">
+						<button
+							class:active={appState.exploreFilters.deviantart.sort === 'recent'}
+							type="button"
+							aria-pressed={appState.exploreFilters.deviantart.sort === 'recent'}
+							onclick={() => updateExploreFilter('deviantart', { sort: 'recent' })}
+						>
+							Recent
+						</button>
+						<button
+							class:active={appState.exploreFilters.deviantart.sort === 'popular'}
+							type="button"
+							aria-pressed={appState.exploreFilters.deviantart.sort === 'popular'}
+							onclick={() => updateExploreFilter('deviantart', { sort: 'popular' })}
+						>
+							Most popular
+						</button>
+					</div>
+					<p class="quiet-note">
+						Popularity ranks the DeviantArt results Pastiche has loaded. Loading more expands the
+						ranking.
+					</p>
+				</section>
+				<section>
+					<h3>Published date</h3>
+					<div class="date-inputs">
+						<label class="date-field">
+							<span>From</span>
+							<input
+								type="date"
+								value={appState.exploreFilters.deviantart.dateFrom ?? ''}
+								oninput={(event) =>
+									updateExploreFilter('deviantart', {
+										dateFrom: event.currentTarget.value || null
+									})}
+							/>
+						</label>
+						<label class="date-field">
+							<span>Before</span>
+							<input
+								type="date"
+								value={appState.exploreFilters.deviantart.dateTo ?? ''}
+								oninput={(event) =>
+									updateExploreFilter('deviantart', {
+										dateTo: event.currentTarget.value || null
+									})}
+							/>
+						</label>
+					</div>
+					<p class="quiet-note">
+						From includes the selected day. Before excludes it, so “before 2016” is January 1, 2016.
+					</p>
+				</section>
+			{/if}
+			{#if appState.exploreSourceId === 'danbooru'}
+				<section>
+					<h3>Danbooru blacklist</h3>
+					<textarea
+						rows="6"
+						placeholder={'One rule per line\nai-generated\nrating:e\ngore blood'}
+						value={appState.exploreFilters.danbooru.blacklist}
+						oninput={(event) =>
+							updateExploreFilter('danbooru', { blacklist: event.currentTarget.value })}
+					></textarea>
+					<p class="quiet-note">
+						Tags on one line are matched together. Separate rules with a new line or comma. Prefix a
+						tag with <code>-</code> to require its absence.
+					</p>
+				</section>
+			{/if}
+		{:else}
 			{#if appState.wikimediaMode === 'art'}
 				<section>
 					<h3>Image Availability</h3>
@@ -853,7 +968,9 @@
 					<div class="chips compact-chips">
 						{#each referenceFormats as format (format.value)}
 							<button
-								class:active={appState.exploreFilters.wikidata.reference.formats.includes(format.value)}
+								class:active={appState.exploreFilters.wikidata.reference.formats.includes(
+									format.value
+								)}
 								type="button"
 								onclick={() => toggleReferenceFormat(format.value)}
 							>
@@ -1043,7 +1160,8 @@
 	}
 
 	button,
-	input {
+	input,
+	textarea {
 		border: 1px solid var(--color-border);
 		background: var(--color-surface);
 		color: var(--color-text);
@@ -1140,8 +1258,8 @@
 		display: grid;
 		grid-template-columns: auto minmax(0, 1fr);
 		grid-template-areas:
-			"icon label"
-			"icon desc";
+			'icon label'
+			'icon desc';
 		align-items: center;
 		column-gap: var(--space-2);
 		row-gap: 0.12rem;
@@ -1260,11 +1378,38 @@
 		gap: var(--space-2);
 	}
 
+	.date-field {
+		min-width: 0;
+		display: grid;
+		gap: var(--space-1);
+		color: var(--color-muted);
+		font-size: 0.74rem;
+	}
+
+	.date-field input {
+		width: 100%;
+		color-scheme: dark;
+	}
+
 	input {
 		min-height: 2.45rem;
 		min-width: 0;
 		padding: 0 var(--space-3);
 		border-radius: var(--radius-md);
+	}
+
+	textarea {
+		min-height: 8rem;
+		resize: vertical;
+		padding: var(--space-3);
+		border-radius: var(--radius-md);
+		line-height: 1.45;
+		color-scheme: dark;
+	}
+
+	code {
+		color: var(--color-text);
+		font-size: 0.78rem;
 	}
 
 	.note {

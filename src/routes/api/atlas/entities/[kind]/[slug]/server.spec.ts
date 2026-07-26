@@ -112,7 +112,8 @@ describe('GET /api/atlas/entities/[kind]/[slug]', () => {
 					commonSubjects: ['dragons', 'wyverns'],
 					historicalPeriod: 'contemporary',
 					media: ['digital painting'],
-					aiGuidance: 'Suggest dragon, creature design, and painterly tags when visually supported.',
+					aiGuidance:
+						'Suggest dragon, creature design, and painterly tags when visually supported.',
 					aliases: ['Example Artist', '@DragonPainter', 'Example Artist'],
 					links: ['https://www.instagram.com/dragonpainter/']
 				})
@@ -151,8 +152,12 @@ describe('GET /api/atlas/entities/[kind]/[slug]', () => {
 
 		const db = openLibraryDatabase();
 		try {
-			expect(searchAtlasAssets(db, 'artist:(dragonpainter)').results.map((item) => item.id)).toHaveLength(1);
-			expect(searchAtlasAssets(db, 'artist:(example artist)').results.map((item) => item.id)).toHaveLength(1);
+			expect(
+				searchAtlasAssets(db, 'artist:(dragonpainter)').results.map((item) => item.id)
+			).toHaveLength(1);
+			expect(
+				searchAtlasAssets(db, 'artist:(example artist)').results.map((item) => item.id)
+			).toHaveLength(1);
 			expect(searchAtlasAssets(db, 'dragonpainter').entityResults[0]).toMatchObject({
 				kind: 'artist',
 				slug: 'exampleartist',

@@ -1,8 +1,4 @@
-import type {
-	AiGenerationMetadata,
-	PromptToken,
-	PromptTokenScope
-} from '$lib/library/types';
+import type { AiGenerationMetadata, PromptToken, PromptTokenScope } from '$lib/library/types';
 
 import type { EmbeddedImageMetadata } from './embeddedImageMetadata';
 
@@ -153,7 +149,9 @@ function extractCharacterPrompts(rawParameters: JsonObject) {
 	}).filter((character) => character.prompt || character.negativePrompt);
 }
 
-function generationSettings(rawParameters: JsonObject): Record<string, string | number | boolean | null> {
+function generationSettings(
+	rawParameters: JsonObject
+): Record<string, string | number | boolean | null> {
 	const settings: Record<string, string | number | boolean | null> = {};
 	for (const key of [
 		'width',

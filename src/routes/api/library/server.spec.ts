@@ -18,7 +18,7 @@ describe('GET /api/library', () => {
 		rmSync(archiveRoot, { recursive: true, force: true });
 	});
 
-	it('returns real imported assets and CORS headers', async () => {
+	it('returns real imported assets without wildcard CORS headers', async () => {
 		await importLibraryItems({
 			destination_folder_id: null,
 			items: [
@@ -39,10 +39,12 @@ describe('GET /api/library', () => {
 		});
 		const { GET } = await import('./+server');
 
-		const response = await GET();
+		const response = await GET({
+			request: new Request('http://localhost/api/library')
+		});
 
 		expect(response.status).toBe(200);
-		expect(response.headers.get('access-control-allow-origin')).toBe('*');
+		expect(response.headers.get('access-control-allow-origin')).toBeNull();
 		await expect(response.json()).resolves.toMatchObject({
 			stats: { assets: 1, folders: 0, tags: 0 },
 			assets: [
@@ -57,6 +59,19 @@ describe('GET /api/library', () => {
 			],
 			folders: []
 		});
+	});
+
+	it('does not expose the full library snapshot to untrusted cross-origin browsers', async () => {
+		const { GET } = await import('./+server');
+
+		const response = await GET({
+			request: new Request('http://localhost/api/library', {
+				headers: { origin: 'https://hostile.example' }
+			})
+		});
+
+		expect(response.status).toBe(403);
+		await expect(response.json()).resolves.toEqual({ error: 'Untrusted local API origin' });
 	});
 
 	it('returns mock assets when mock fallback is forced even if a local library exists', async () => {
@@ -81,13 +96,17 @@ describe('GET /api/library', () => {
 		});
 		const { GET } = await import('./+server');
 
-		const response = await GET();
+		const response = await GET({
+			request: new Request('http://localhost/api/library')
+		});
 		const body = await response.json();
 
 		expect(response.status).toBe(200);
 		expect(body.assets.some((asset: { title: string }) => asset.title === 'Crimson Horizon')).toBe(
 			true
 		);
-		expect(body.assets.some((asset: { title: string }) => asset.title === 'Real Local')).toBe(false);
+		expect(body.assets.some((asset: { title: string }) => asset.title === 'Real Local')).toBe(
+			false
+		);
 	});
 });

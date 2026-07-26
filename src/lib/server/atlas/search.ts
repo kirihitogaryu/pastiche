@@ -27,6 +27,7 @@ type AssetRow = {
 	source_image_url: string | null;
 	original_path: string | null;
 	thumbnail_path: string | null;
+	mime_type: string | null;
 	width: number;
 	height: number;
 	metadata_json: string | null;
@@ -69,6 +70,14 @@ type ClassifierRow = {
 	asset_id: string;
 	classifier_type: string;
 	classifier_value: string;
+};
+
+type ApprovedClassifierSuggestionRow = {
+	target_slug: string;
+	target_label: string;
+	classifier_type: string;
+	classifier_value: string;
+	use_count: number;
 };
 
 type AssetConceptRow = {
@@ -176,25 +185,30 @@ export function parseAtlasSearchForApi(query: string) {
 export function searchAtlasAssets(
 	db: Database.Database,
 	query: string,
-	options: { limit?: number; sort?: 'relevance' | 'title' | 'newest' } = {}
+	options: { limit?: number; sort?: 'relevance' | 'title' | 'newest'; cursor?: string | null } = {}
 ): AtlasSearchResponse {
 	applyAtlasWikiSeed(db);
 	const limit = Math.max(1, Math.min(options.limit ?? 50, 100));
+	const offset = searchOffset(options.cursor);
 	const conceptRows = readConceptRows(db);
 	const conceptMap = readConceptMap(conceptRows);
 	const parsed = resolveParsedQuery(parseAtlasSearchQuery(query), conceptRows);
 	const index = {
 		conceptMap,
 		conceptRows,
-		implicationMap: buildImplicationMap(conceptRows)
+		implicationMap: buildImplicationMap(db, conceptRows)
 	};
-	const candidates = readSearchCandidates(db);
+	const candidateIds = prefilterSearchCandidateIds(db, parsed, index.implicationMap);
+	const candidates = readSearchCandidates(db, candidateIds);
 	const matched = candidates
 		.map((candidate) => scoreCandidate(candidate, parsed.clauses, index))
 		.filter((candidate) => candidate.matched);
-	const scored = sortResults(matched, options.sort ?? 'relevance').slice(0, limit);
-	const matchedCandidateIds = new Set(scored.map((result) => result.id));
-	const matchedCandidates = candidates.filter((candidate) => matchedCandidateIds.has(candidate.asset.id));
+	const ordered = sortResults(matched, options.sort ?? 'relevance');
+	const scored = ordered.slice(offset, offset + limit);
+	const matchedCandidateIds = new Set(matched.map((result) => result.id));
+	const matchedCandidates = candidates.filter((candidate) =>
+		matchedCandidateIds.has(candidate.asset.id)
+	);
 	const context = contextForQuery(parsed, conceptMap);
 
 	return {
@@ -203,10 +217,15 @@ export function searchAtlasAssets(
 		wikiPreview: wikiPreviewForContext(db, context),
 		sidebar: sidebarForQuery(db, parsed, scored, matchedCandidates, conceptMap),
 		entityResults: entityResultsForQuery(candidates, parsed).slice(0, 6),
-		results: scored.map(({ matched, importedAt, ...result }) => result),
+		results: scored.map(({ matched, importedAt, ...result }) => {
+			void matched;
+			void importedAt;
+			return result;
+		}),
 		page: {
 			limit,
-			nextCursor: null,
+			nextCursor: offset + limit < ordered.length ? String(offset + limit) : null,
+			total: ordered.length,
 			totalEstimate: matched.length
 		}
 	};
@@ -219,10 +238,11 @@ export function suggestAtlasSearch(
 ): AtlasSearchSuggestResponse {
 	applyAtlasWikiSeed(db);
 	const limit = Math.max(1, Math.min(options.limit ?? 10, 20));
-	const conceptRows = readConceptRows(db);
+	const conceptRows = readConceptRows(db).filter(isEstablishedConcept);
 	const token = activeToken(query);
+	const phrase = trailingGuidancePhrase(query);
 	const suggestions = dedupeSuggestions(
-		suggestionsForToken(db, query, token, conceptRows).slice(0, limit)
+		suggestionsForToken(db, query, phrase ?? token, conceptRows).slice(0, limit)
 	);
 
 	return {
@@ -230,6 +250,21 @@ export function suggestAtlasSearch(
 		token,
 		suggestions
 	};
+}
+
+function searchOffset(cursor: string | null | undefined) {
+	if (!cursor) return 0;
+	const offset = Number.parseInt(cursor, 10);
+	return Number.isFinite(offset) && offset > 0 ? offset : 0;
+}
+
+function isEstablishedConcept(concept: ConceptRow) {
+	return (
+		concept.status === 'active' &&
+		(concept.maturity === 'usable' ||
+			concept.maturity === 'reviewed' ||
+			concept.maturity === 'locked')
+	);
 }
 
 function sortResults(results: ScoredCandidate[], sort: 'relevance' | 'title' | 'newest') {
@@ -286,7 +321,11 @@ function scoreCandidate(
 	return resultForCandidate(candidate, matched, score, explanations);
 }
 
-function matchClause(candidate: SearchCandidate, clause: AtlasQueryClause, index: SearchIndex): ClauseMatch {
+function matchClause(
+	candidate: SearchCandidate,
+	clause: AtlasQueryClause,
+	index: SearchIndex
+): ClauseMatch {
 	if (clause.kind === 'entity') return matchEntityClause(candidate, clause);
 	if (clause.kind === 'concept') return matchConcept(candidate, clause.slug, index);
 	if (clause.kind === 'classifier') return matchClassifier(candidate, clause, index.implicationMap);
@@ -299,11 +338,7 @@ function hasMode(
 	return 'mode' in clause;
 }
 
-function matchConcept(
-	candidate: SearchCandidate,
-	slug: string,
-	index: SearchIndex
-): ClauseMatch {
+function matchConcept(candidate: SearchCandidate, slug: string, index: SearchIndex): ClauseMatch {
 	const assetSource = matchingSource(candidate.assetConcepts, slug, index.implicationMap);
 	const annotationMatches = candidate.annotations
 		.map((annotation) => ({
@@ -312,16 +347,21 @@ function matchConcept(
 				matchingSource(annotation.concepts, slug, index.implicationMap) ??
 				matchingClassifierValueSource(annotation, slug, index.implicationMap)
 		}))
-		.filter((match): match is { annotation: SearchAnnotation; source: string } => Boolean(match.source));
+		.filter((match): match is { annotation: SearchAnnotation; source: string } =>
+			Boolean(match.source)
+		);
 	const entityMatch = findMatchingEntity(candidate.entities, undefined, slug);
 	const claimMatch = candidate.claims.find(
-		(claim) => claim.slug === slug || displaySlug(claim.label) === slug || displaySlug(claim.value) === slug
+		(claim) =>
+			claim.slug === slug || displaySlug(claim.label) === slug || displaySlug(claim.value) === slug
 	);
 	if (!assetSource && !annotationMatches.length && entityMatch) {
 		return {
 			matched: true,
 			score: 28,
-			explanations: [`Matched ${displayLabel(slug)} as ${displayLabel(entityMatch.entity.kind)} entity`]
+			explanations: [
+				`Matched ${displayLabel(slug)} as ${displayLabel(entityMatch.entity.kind)} entity`
+			]
 		};
 	}
 	if (!assetSource && !annotationMatches.length && claimMatch) {
@@ -428,7 +468,9 @@ function matchRoleClause(
 	candidate: SearchCandidate,
 	clause: Extract<AtlasQueryClause, { kind: 'role' }>
 ): ClauseMatch {
-	const roles = candidate.annotations.map((annotation) => annotation.visualRole).filter(Boolean) as string[];
+	const roles = candidate.annotations
+		.map((annotation) => annotation.visualRole)
+		.filter(Boolean) as string[];
 	if (clause.include?.length) {
 		const matched = roles.some((role) => clause.include?.includes(role));
 		return {
@@ -488,6 +530,9 @@ function resultForCandidate(
 		id: candidate.asset.id,
 		title,
 		thumbnailUrl: searchThumbnailUrl(candidate.asset),
+		mimeType: candidate.asset.mime_type,
+		width: candidate.asset.width,
+		height: candidate.asset.height,
 		sourceUrl: candidate.asset.source_url,
 		subtitle: assetSubtitle(candidate.asset),
 		score,
@@ -501,13 +546,14 @@ function entityResultsForQuery(
 	candidates: SearchCandidate[],
 	parsed: AtlasParsedSearchQuery
 ): AtlasSearchEntityResult[] {
-	const terms = parsed.clauses
-		.flatMap((clause): Array<{ kind: string | undefined; slug: string }> => {
+	const terms = parsed.clauses.flatMap(
+		(clause): Array<{ kind: string | undefined; slug: string }> => {
 			if (!hasMode(clause) || clause.mode !== 'include') return [];
 			if (clause.kind === 'concept') return [{ kind: undefined, slug: clause.slug }];
 			if (clause.kind === 'entity') return [{ kind: clause.entityKind, slug: clause.slug }];
 			return [];
-		});
+		}
+	);
 	if (!terms.length) return [];
 
 	const byEntity = new Map<
@@ -537,7 +583,10 @@ function entityResultsForQuery(
 			};
 			existing.assets.push(candidate.asset);
 			for (const match of matches) existing.matchedLabels.add(match);
-			existing.score += entityResultScore(entity, terms.map((term) => term.slug));
+			existing.score += entityResultScore(
+				entity,
+				terms.map((term) => term.slug)
+			);
 			byEntity.set(entity.entity_id, existing);
 		}
 	}
@@ -568,7 +617,11 @@ function entityResultsForQuery(
 function entityResultScore(entity: EntityRow, terms: string[]) {
 	return terms.reduce((score, term) => {
 		if (entity.slug === term || displaySlug(entity.label) === term) return score + 100;
-		if (entity.aliases.some((alias) => alias.normalizedAlias === term || displaySlug(alias.alias) === term)) {
+		if (
+			entity.aliases.some(
+				(alias) => alias.normalizedAlias === term || displaySlug(alias.alias) === term
+			)
+		) {
 			return score + 92;
 		}
 		if (entity.links.some((link) => link.normalizedUsername === term)) return score + 86;
@@ -589,119 +642,355 @@ function uniqueEntityLinks(links: EntityLink[]) {
 		.slice(0, 3);
 }
 
-function readSearchCandidates(db: Database.Database): SearchCandidate[] {
+function prefilterSearchCandidateIds(
+	db: Database.Database,
+	parsed: AtlasParsedSearchQuery,
+	implicationMap: Map<string, Set<string>>
+): string[] | null {
+	const filters: Set<string>[] = [];
+	for (const clause of parsed.clauses) {
+		if (hasMode(clause) && clause.mode === 'exclude') continue;
+		let ids: string[] | null = null;
+		if (clause.kind === 'concept') {
+			ids = conceptCandidateIds(db, clause.slug, implicationMap);
+		} else if (clause.kind === 'entity') {
+			ids = entityCandidateIds(db, clause.entityKind, clause.slug);
+		} else if (clause.kind === 'classifier') {
+			ids = classifierCandidateIds(db, clause, implicationMap);
+		} else if (clause.kind === 'claim') {
+			ids = claimCandidateIds(db, clause.claimKind, clause.value);
+		} else if (clause.kind === 'role' && clause.include?.length) {
+			ids = annotationClassifierCandidateIds(db, 'visual_role', clause.include);
+		}
+		if (ids) filters.push(new Set(ids));
+	}
+	if (!filters.length) return null;
+	const [first, ...rest] = filters.sort((left, right) => left.size - right.size);
+	return [...first].filter((id) => rest.every((filter) => filter.has(id)));
+}
+
+function conceptCandidateIds(
+	db: Database.Database,
+	target: string,
+	implicationMap: Map<string, Set<string>>
+) {
+	const sourceSlugs = [
+		target,
+		...[...implicationMap].filter(([, implied]) => implied.has(target)).map(([slug]) => slug)
+	];
+	const placeholders = sqlPlaceholders(sourceSlugs.length);
+	const normalizedTarget = displaySlug(target);
+	const textNeedle = `%${displayLabel(normalizedTarget).toLowerCase()}%`;
+	return idRows(
+		db,
+		`select atlas_asset_concepts.asset_id as id
+		 from atlas_asset_concepts
+		 join atlas_concepts on atlas_concepts.id = atlas_asset_concepts.concept_id
+		 where atlas_asset_concepts.status = 'approved' and atlas_concepts.slug in (${placeholders})
+		 union
+		 select atlas_annotations.asset_id as id
+		 from atlas_annotation_concepts
+		 join atlas_annotations on atlas_annotations.id = atlas_annotation_concepts.annotation_id
+		 join atlas_concepts on atlas_concepts.id = atlas_annotation_concepts.concept_id
+		 where atlas_annotation_concepts.status = 'approved' and atlas_concepts.slug in (${placeholders})
+		 union
+		 select atlas_annotations.asset_id as id
+		 from atlas_annotation_classifiers
+		 join atlas_annotations on atlas_annotations.id = atlas_annotation_classifiers.annotation_id
+		 where atlas_annotation_classifiers.status = 'approved'
+			and atlas_annotation_classifiers.classifier_value in (${placeholders})
+		 union
+		 select atlas_asset_entities.asset_id as id
+		 from atlas_asset_entities
+		 join atlas_entities on atlas_entities.id = atlas_asset_entities.entity_id
+		 left join atlas_entity_aliases on atlas_entity_aliases.entity_id = atlas_entities.id
+		 where atlas_asset_entities.status = 'approved'
+			and (atlas_entities.slug = ? or lower(replace(atlas_entities.label, ' ', '_')) = ?
+				or atlas_entity_aliases.normalized_alias = ?)
+		 union
+		 select asset_id as id from atlas_claims
+		 where status = 'approved'
+			and (slug = ? or lower(replace(label, ' ', '_')) = ? or lower(replace(value, ' ', '_')) = ?)
+		 union
+		 select id from assets
+		 where lower(title) like ? or lower(coalesce(page_title, '')) like ?
+			or lower(coalesce(metadata_json, '')) like ?`,
+		[
+			...sourceSlugs,
+			...sourceSlugs,
+			...sourceSlugs,
+			normalizedTarget,
+			normalizedTarget,
+			normalizedTarget,
+			normalizedTarget,
+			normalizedTarget,
+			normalizedTarget,
+			textNeedle,
+			textNeedle,
+			textNeedle
+		]
+	);
+}
+
+function entityCandidateIds(db: Database.Database, kind: string | undefined, slug: string) {
+	const normalized = displaySlug(slug);
+	return idRows(
+		db,
+		`select distinct atlas_asset_entities.asset_id as id
+		 from atlas_asset_entities
+		 join atlas_entities on atlas_entities.id = atlas_asset_entities.entity_id
+		 left join atlas_entity_aliases on atlas_entity_aliases.entity_id = atlas_entities.id
+		 left join atlas_entity_links on atlas_entity_links.entity_id = atlas_entities.id
+		 where atlas_asset_entities.status = 'approved'
+			and (? is null or atlas_entities.kind = ?)
+			and (atlas_entities.slug = ? or lower(replace(atlas_entities.label, ' ', '_')) = ?
+				or atlas_entity_aliases.normalized_alias = ?
+				or lower(replace(coalesce(atlas_entity_links.username, ''), ' ', '_')) = ?)`,
+		[kind ?? null, kind ?? null, normalized, normalized, normalized, normalized]
+	);
+}
+
+function classifierCandidateIds(
+	db: Database.Database,
+	clause: Extract<AtlasQueryClause, { kind: 'classifier' }>,
+	implicationMap: Map<string, Set<string>>
+) {
+	const targets = [
+		clause.target,
+		...[...implicationMap].filter(([, implied]) => implied.has(clause.target)).map(([slug]) => slug)
+	];
+	const values = uniqueStrings(
+		clause.values.values.flatMap((value) => [
+			value,
+			...[...implicationMap].filter(([, implied]) => implied.has(value)).map(([slug]) => slug)
+		])
+	);
+	if (!values.length) return [];
+	return idRows(
+		db,
+		`select distinct atlas_annotations.asset_id as id
+		 from atlas_annotations
+		 join atlas_annotation_concepts on atlas_annotation_concepts.annotation_id = atlas_annotations.id
+		 join atlas_concepts on atlas_concepts.id = atlas_annotation_concepts.concept_id
+		 join atlas_annotation_classifiers on atlas_annotation_classifiers.annotation_id = atlas_annotations.id
+		 where atlas_annotation_concepts.status = 'approved'
+			and atlas_annotation_classifiers.status = 'approved'
+			and atlas_concepts.slug in (${sqlPlaceholders(targets.length)})
+			and atlas_annotation_classifiers.classifier_type = ?
+			and atlas_annotation_classifiers.classifier_value in (${sqlPlaceholders(values.length)})`,
+		[...targets, clause.classifier, ...values]
+	);
+}
+
+function claimCandidateIds(db: Database.Database, kind: string, value: string) {
+	const normalized = displaySlug(value);
+	return idRows(
+		db,
+		`select asset_id as id from atlas_claims where status = 'approved' and kind = ?
+			and (slug = ? or lower(replace(value, ' ', '_')) = ?)`,
+		[kind, normalized, normalized]
+	);
+}
+
+function annotationClassifierCandidateIds(
+	db: Database.Database,
+	classifier: string,
+	values: string[]
+) {
+	return idRows(
+		db,
+		`select distinct atlas_annotations.asset_id as id
+		 from atlas_annotation_classifiers
+		 join atlas_annotations on atlas_annotations.id = atlas_annotation_classifiers.annotation_id
+		 where atlas_annotation_classifiers.status = 'approved'
+			and atlas_annotation_classifiers.classifier_type = ?
+			and atlas_annotation_classifiers.classifier_value in (${sqlPlaceholders(values.length)})`,
+		[classifier, ...values]
+	);
+}
+
+function idRows(db: Database.Database, sql: string, parameters: unknown[]) {
+	return (db.prepare(sql).all(...parameters) as Array<{ id: string }>).map((row) => row.id);
+}
+
+function sqlPlaceholders(count: number) {
+	return Array.from({ length: count }, () => '?').join(', ');
+}
+
+function readSearchCandidates(
+	db: Database.Database,
+	candidateIds: string[] | null
+): SearchCandidate[] {
+	if (candidateIds?.length === 0) return [];
+	const assetWhere = candidateIds ? 'where id in (select value from json_each(?))' : '';
+	const relatedWhere = candidateIds
+		? 'and atlas_asset_concepts.asset_id in (select value from json_each(?))'
+		: '';
+	const candidateParameter = candidateIds ? [JSON.stringify(candidateIds)] : [];
 	const assets = db
 		.prepare(
 			`select id, title, page_title, storage_mode, source_url, source_image_url, original_path,
-					thumbnail_path, width, height, metadata_json, imported_at
-			 from assets`
+					thumbnail_path, mime_type, width, height, metadata_json, imported_at
+			 from assets ${assetWhere}`
 		)
-		.all() as AssetRow[];
+		.all(...candidateParameter) as AssetRow[];
 	const assetConceptRows = db
 		.prepare(
 			`select atlas_asset_concepts.asset_id, atlas_concepts.slug, atlas_concepts.label
 			 from atlas_asset_concepts
 			 join atlas_concepts on atlas_concepts.id = atlas_asset_concepts.concept_id
-			 where atlas_asset_concepts.status = 'approved'`
+			 where atlas_asset_concepts.status = 'approved' ${relatedWhere}`
 		)
-		.all() as AssetConceptRow[];
+		.all(...candidateParameter) as AssetConceptRow[];
+	const annotationFilter = candidateIds
+		? 'and atlas_annotations.asset_id in (select value from json_each(?))'
+		: '';
 	const annotationConceptRows = db
 		.prepare(
 			`select atlas_annotations.id as annotation_id, atlas_annotations.asset_id, atlas_concepts.slug, atlas_concepts.label
 			 from atlas_annotation_concepts
 			 join atlas_annotations on atlas_annotations.id = atlas_annotation_concepts.annotation_id
 			 join atlas_concepts on atlas_concepts.id = atlas_annotation_concepts.concept_id
-			 where atlas_annotation_concepts.status = 'approved'`
+			 where atlas_annotation_concepts.status = 'approved' ${annotationFilter}`
 		)
-		.all() as AnnotationConceptRow[];
+		.all(...candidateParameter) as AnnotationConceptRow[];
 	const classifierRows = db
 		.prepare(
 			`select atlas_annotation_classifiers.annotation_id, atlas_annotations.asset_id,
 				atlas_annotation_classifiers.classifier_type, atlas_annotation_classifiers.classifier_value
 			 from atlas_annotation_classifiers
 			 join atlas_annotations on atlas_annotations.id = atlas_annotation_classifiers.annotation_id
-			 where atlas_annotation_classifiers.status = 'approved'`
+			 where atlas_annotation_classifiers.status = 'approved' ${annotationFilter}`
 		)
-		.all() as ClassifierRow[];
+		.all(...candidateParameter) as ClassifierRow[];
+	const entityFilter = candidateIds
+		? 'and atlas_asset_entities.asset_id in (select value from json_each(?))'
+		: '';
 	const entityRows = db
 		.prepare(
 			`select atlas_asset_entities.asset_id, atlas_entities.id as entity_id,
 				atlas_entities.kind, atlas_entities.slug, atlas_entities.label
 			 from atlas_asset_entities
 			 join atlas_entities on atlas_entities.id = atlas_asset_entities.entity_id
-			 where atlas_asset_entities.status = 'approved'`
+			 where atlas_asset_entities.status = 'approved' ${entityFilter}`
 		)
-		.all() as RawEntityRow[];
+		.all(...candidateParameter) as RawEntityRow[];
+	const entityIds = uniqueStrings(entityRows.map((row) => row.entity_id));
+	const entityWhere = entityIds.length
+		? 'where entity_id in (select value from json_each(?))'
+		: candidateIds
+			? 'where 0'
+			: '';
 	const entityAliases = db
 		.prepare(
 			`select entity_id, alias, normalized_alias
-			 from atlas_entity_aliases`
+			 from atlas_entity_aliases ${entityWhere}`
 		)
-		.all() as EntityAliasRow[];
+		.all(...(entityIds.length ? [JSON.stringify(entityIds)] : [])) as EntityAliasRow[];
 	const entityLinks = db
 		.prepare(
 			`select entity_id, url, host, username
-			 from atlas_entity_links`
+			 from atlas_entity_links ${entityWhere}`
 		)
-		.all() as EntityLinkRow[];
+		.all(...(entityIds.length ? [JSON.stringify(entityIds)] : [])) as EntityLinkRow[];
+	const aliasesByEntity = groupBy(entityAliases, (row) => row.entity_id);
+	const linksByEntity = groupBy(entityLinks, (row) => row.entity_id);
 	const entities = entityRows.map((row) => ({
 		...row,
-		aliases: entityAliases
-			.filter((alias) => alias.entity_id === row.entity_id)
-			.map((alias) => ({ alias: alias.alias, normalizedAlias: alias.normalized_alias })),
-		links: entityLinks
-			.filter((link) => link.entity_id === row.entity_id)
-			.map((link) => ({
-				url: link.url,
-				host: link.host,
-				username: link.username,
-				normalizedUsername: link.username ? displaySlug(link.username) : null
-			}))
+		aliases: (aliasesByEntity.get(row.entity_id) ?? []).map((alias) => ({
+			alias: alias.alias,
+			normalizedAlias: alias.normalized_alias
+		})),
+		links: (linksByEntity.get(row.entity_id) ?? []).map((link) => ({
+			url: link.url,
+			host: link.host,
+			username: link.username,
+			normalizedUsername: link.username ? displaySlug(link.username) : null
+		}))
 	}));
 	const claimRows = db
 		.prepare(
 			`select asset_id, kind, slug, label, value
 			 from atlas_claims
-			 where status = 'approved'`
+			 where status = 'approved' ${
+					candidateIds ? 'and asset_id in (select value from json_each(?))' : ''
+				}`
 		)
-		.all() as ClaimRow[];
+		.all(...candidateParameter) as ClaimRow[];
+	const conceptsByAsset = groupBy(assetConceptRows, (row) => row.asset_id);
+	const entitiesByAsset = groupBy(entities, (row) => row.asset_id);
+	const claimsByAsset = groupBy(claimRows, (row) => row.asset_id);
+	const annotationsByAsset = buildAnnotationsByAsset(annotationConceptRows, classifierRows);
 
 	return assets.map((asset) => ({
 		asset,
-		assetConcepts: new Set(
-			assetConceptRows.filter((row) => row.asset_id === asset.id).map((row) => row.slug)
-		),
-		entities: entities.filter((row) => row.asset_id === asset.id),
-		claims: claimRows.filter((row) => row.asset_id === asset.id),
-		annotations: buildAnnotations(asset.id, annotationConceptRows, classifierRows)
+		assetConcepts: new Set((conceptsByAsset.get(asset.id) ?? []).map((row) => row.slug)),
+		entities: entitiesByAsset.get(asset.id) ?? [],
+		claims: claimsByAsset.get(asset.id) ?? [],
+		annotations: annotationsByAsset.get(asset.id) ?? []
 	}));
 }
 
-function buildAnnotations(
-	assetId: string,
+function buildAnnotationsByAsset(
 	conceptRows: AnnotationConceptRow[],
 	classifierRows: ClassifierRow[]
-): SearchAnnotation[] {
-	const ids = new Set([
-		...conceptRows.filter((row) => row.asset_id === assetId).map((row) => row.annotation_id),
-		...classifierRows.filter((row) => row.asset_id === assetId).map((row) => row.annotation_id)
-	]);
-	return [...ids].map((id) => {
-		const classifiers = new Map<string, Set<string>>();
-		for (const row of classifierRows.filter((item) => item.annotation_id === id)) {
-			const values = classifiers.get(row.classifier_type) ?? new Set<string>();
-			values.add(row.classifier_value);
-			classifiers.set(row.classifier_type, values);
-		}
-		return {
+): Map<string, SearchAnnotation[]> {
+	const builders = new Map<
+		string,
+		{ assetId: string; concepts: Set<string>; classifiers: Map<string, Set<string>> }
+	>();
+	for (const row of conceptRows) {
+		const builder = annotationBuilder(builders, row.annotation_id, row.asset_id);
+		builder.concepts.add(row.slug);
+	}
+	for (const row of classifierRows) {
+		const builder = annotationBuilder(builders, row.annotation_id, row.asset_id);
+		const values = builder.classifiers.get(row.classifier_type) ?? new Set<string>();
+		values.add(row.classifier_value);
+		builder.classifiers.set(row.classifier_type, values);
+	}
+	const byAsset = new Map<string, SearchAnnotation[]>();
+	for (const [id, builder] of builders) {
+		const annotations = byAsset.get(builder.assetId) ?? [];
+		annotations.push({
 			id,
-			concepts: new Set(
-				conceptRows.filter((row) => row.annotation_id === id).map((row) => row.slug)
-			),
-			classifiers,
-			visualRole: [...(classifiers.get('visual_role') ?? [])][0] ?? null
-		};
-	});
+			concepts: builder.concepts,
+			classifiers: builder.classifiers,
+			visualRole: [...(builder.classifiers.get('visual_role') ?? [])][0] ?? null
+		});
+		byAsset.set(builder.assetId, annotations);
+	}
+	return byAsset;
+}
+
+function annotationBuilder(
+	builders: Map<
+		string,
+		{ assetId: string; concepts: Set<string>; classifiers: Map<string, Set<string>> }
+	>,
+	id: string,
+	assetId: string
+) {
+	const existing = builders.get(id);
+	if (existing) return existing;
+	const created = {
+		assetId,
+		concepts: new Set<string>(),
+		classifiers: new Map<string, Set<string>>()
+	};
+	builders.set(id, created);
+	return created;
+}
+
+function groupBy<T>(items: T[], keyFor: (item: T) => string) {
+	const groups = new Map<string, T[]>();
+	for (const item of items) {
+		const key = keyFor(item);
+		const group = groups.get(key) ?? [];
+		group.push(item);
+		groups.set(key, group);
+	}
+	return groups;
 }
 
 function readConceptRows(db: Database.Database) {
@@ -747,7 +1036,10 @@ function readConceptMap(rows: ConceptRow[]) {
 	);
 }
 
-function resolveParsedQuery(parsed: AtlasParsedSearchQuery, conceptRows: ConceptRow[]): AtlasParsedSearchQuery {
+function resolveParsedQuery(
+	parsed: AtlasParsedSearchQuery,
+	conceptRows: ConceptRow[]
+): AtlasParsedSearchQuery {
 	const clauses = parsed.clauses.map((clause): AtlasQueryClause => {
 		if (clause.kind === 'concept') {
 			return { ...clause, slug: resolveConceptSlug(clause.slug, conceptRows) };
@@ -776,7 +1068,9 @@ function resolveParsedQuery(parsed: AtlasParsedSearchQuery, conceptRows: Concept
 
 function resolveConceptSlug(value: string, rows: ConceptRow[]) {
 	const normalized = displaySlug(value);
-	const exactSlug = rows.find((row) => row.slug === value || row.slug === normalized || displaySlug(row.slug) === normalized);
+	const exactSlug = rows.find(
+		(row) => row.slug === value || row.slug === normalized || displaySlug(row.slug) === normalized
+	);
 	if (exactSlug) return exactSlug.slug;
 	const exactLabel = rows.find((row) => displaySlug(row.label) === normalized);
 	if (exactLabel) return exactLabel.slug;
@@ -799,15 +1093,17 @@ function suggestionsForToken(
 	if (!token.trim()) return conceptSuggestions(query, token, '', conceptRows);
 
 	if (token.startsWith('exclude:')) {
-		return conceptSuggestions(query, token, token.slice('exclude:'.length), conceptRows).map(
-			(suggestion) => ({
-				...suggestion,
-				kind: 'exclude' as const,
-				detail: `Exclude ${suggestion.detail.toLowerCase()}`,
-				query: replaceActiveToken(query, token, `exclude:${suggestion.insertText}`),
-				insertText: `exclude:${suggestion.insertText}`
-			})
-		);
+		const rawValue = token.slice('exclude:'.length);
+		return [
+			...globalClassifierValueSuggestions(db, query, token, rawValue, conceptRows),
+			...conceptSuggestions(query, token, rawValue, conceptRows)
+		].map((suggestion) => ({
+			...suggestion,
+			kind: 'exclude' as const,
+			detail: `Exclude ${suggestion.detail.toLowerCase()}`,
+			query: replaceActiveToken(query, token, `exclude:${suggestion.insertText}`),
+			insertText: `exclude:${suggestion.insertText}`
+		}));
 	}
 
 	const dotClassifierValue = token.match(/^([^:\s.]+)\.([^:\s]+):(.*)$/);
@@ -862,7 +1158,106 @@ function suggestionsForToken(
 			: classifierSuggestions(query, token, conceptRows, target, valuePrefix);
 	}
 
-	return [...compoundColorSuggestions(query, token, conceptRows), ...conceptSuggestions(query, token, token, conceptRows)];
+	const globalValues = globalClassifierValueSuggestions(db, query, token, token, conceptRows);
+	const compoundValues = compoundColorSuggestions(query, token, conceptRows);
+	const preferCompound = token.includes('_');
+	const primaryValues = preferCompound ? compoundValues : globalValues;
+	const secondaryValues = (preferCompound ? globalValues : compoundValues).filter(
+		(suggestion) =>
+			!primaryValues.some((primarySuggestion) => primarySuggestion.query === suggestion.query)
+	);
+	return [
+		...primaryValues,
+		...secondaryValues,
+		...conceptSuggestions(query, token, token, conceptRows)
+	];
+}
+
+function globalClassifierValueSuggestions(
+	db: Database.Database,
+	query: string,
+	token: string,
+	rawSearch: string,
+	conceptRows: ConceptRow[]
+): AtlasSearchSuggestion[] {
+	const search = displaySlug(rawSearch);
+	if (search.length < 2) return [];
+	const terms = search.split('_').filter(Boolean);
+	const sqlPrefix = `%${terms[0]}%`;
+	const established = new Set(conceptRows.map((row) => row.slug));
+	const rows = db
+		.prepare(
+			`select
+				atlas_concepts.slug as target_slug,
+				atlas_concepts.label as target_label,
+				atlas_annotation_classifiers.classifier_type,
+				atlas_annotation_classifiers.classifier_value,
+				count(distinct atlas_annotations.id) as use_count
+			 from atlas_annotation_classifiers
+			 join atlas_annotations
+				on atlas_annotations.id = atlas_annotation_classifiers.annotation_id
+			 join atlas_annotation_concepts
+				on atlas_annotation_concepts.annotation_id = atlas_annotations.id
+			 join atlas_concepts
+				on atlas_concepts.id = atlas_annotation_concepts.concept_id
+			 where atlas_annotation_classifiers.status = 'approved'
+				and atlas_annotation_concepts.status = 'approved'
+				and (
+					lower(atlas_annotation_classifiers.classifier_value) like ?
+					or lower(atlas_annotation_classifiers.classifier_type) like ?
+					or lower(atlas_concepts.slug) like ?
+				)
+			 group by
+				atlas_concepts.slug,
+				atlas_concepts.label,
+				atlas_annotation_classifiers.classifier_type,
+				atlas_annotation_classifiers.classifier_value`
+		)
+		.all(sqlPrefix, sqlPrefix, sqlPrefix) as ApprovedClassifierSuggestionRow[];
+	const seenClassifierValues = new Set<string>();
+
+	return rows
+		.filter((row) => established.has(row.target_slug))
+		.map((row) => {
+			const target = displaySlug(row.target_slug);
+			const classifier = displaySlug(row.classifier_type);
+			const value = displaySlug(row.classifier_value);
+			const searchable = `${target}_${classifier}_${value}`;
+			if (!terms.every((term) => searchable.includes(term))) return null;
+			let score = value === search ? 120 : value.startsWith(search) ? 95 : 55;
+			if (`${value}_${target}` === search || `${target}_${value}` === search) score = 115;
+			if (`${classifier}_${value}` === search || `${value}_${classifier}` === search) score = 118;
+			const classifierSubject = classifier.replace(/_color$/, 's');
+			if (target === classifierSubject) score += 12;
+			return { row, score };
+		})
+		.filter((item): item is { row: ApprovedClassifierSuggestionRow; score: number } =>
+			Boolean(item)
+		)
+		.sort(
+			(left, right) =>
+				right.score - left.score ||
+				right.row.use_count - left.row.use_count ||
+				left.row.target_label.localeCompare(right.row.target_label)
+		)
+		.filter(({ row }) => {
+			const key = `${row.classifier_type}:${row.classifier_value}`;
+			if (seenClassifierValues.has(key)) return false;
+			seenClassifierValues.add(key);
+			return true;
+		})
+		.slice(0, 16)
+		.map(({ row }) => {
+			const exactQuery = `${row.target_slug}.${row.classifier_type}:${row.classifier_value}`;
+			return {
+				kind: 'classifier_value' as const,
+				label: `${titleLabel(row.classifier_type)}: ${titleLabel(row.classifier_value)}`,
+				detail: `On ${row.target_label} · ${row.use_count.toLocaleString()} approved ${row.use_count === 1 ? 'reference' : 'references'}`,
+				query: replaceActiveToken(query, token, exactQuery),
+				insertText: exactQuery,
+				action: 'submit' as const
+			};
+		});
 }
 
 function classifierSuggestions(
@@ -933,7 +1328,9 @@ function conceptSuggestions(
 			const score =
 				!prefix || rowSearchSlug === prefix || displaySlug(row.label) === prefix
 					? 100
-					: rowSearchSlug.startsWith(prefix) || displaySlug(row.label).startsWith(prefix) || aliasMatch
+					: rowSearchSlug.startsWith(prefix) ||
+						  displaySlug(row.label).startsWith(prefix) ||
+						  aliasMatch
 						? 70
 						: rowSearchSlug.includes(prefix) || displaySlug(row.label).includes(prefix)
 							? 35
@@ -946,7 +1343,10 @@ function conceptSuggestions(
 				: null;
 		})
 		.filter((item): item is { row: ConceptRow; score: number } => Boolean(item))
-		.sort((first, second) => second.score - first.score || first.row.label.localeCompare(second.row.label))
+		.sort(
+			(first, second) =>
+				second.score - first.score || first.row.label.localeCompare(second.row.label)
+		)
 		.slice(0, 12)
 		.map(({ row }) => ({
 			kind: 'concept',
@@ -968,10 +1368,13 @@ function compoundColorSuggestions(
 	const color = parts[0];
 	if (!COMMON_COLOR_VALUES.has(color)) return [];
 	const subject = parts.slice(1).join('_');
-	const concept = conceptRows.find((row) => row.slug === subject || displaySlug(row.label) === subject);
+	const concept = conceptRows.find(
+		(row) => row.slug === subject || displaySlug(row.label) === subject
+	);
 	if (!concept) return [];
 	const allowed = parseJsonArray(concept.allowed_classifiers_json ?? '[]');
-	const classifier = allowed.includes('coat_color') ? 'coat_color' : 'color';
+	const classifier =
+		allowed.find((item) => item === 'coat_color' || item === 'scale_color') ?? 'color';
 	return [
 		{
 			kind: 'correction',
@@ -1010,6 +1413,13 @@ function normalizeClassifier(classifier: string, conceptRows: ConceptRow[], targ
 		conceptRows.find((row) => row.slug === target)?.allowed_classifiers_json ?? '[]'
 	);
 	if (allowed.includes(normalized)) return normalized;
+	if (normalized === 'color') {
+		const targetColor = `${target.replace(/s$/, '')}_color`;
+		const colorMatch =
+			allowed.find((item) => item === targetColor) ??
+			allowed.find((item) => item.endsWith('_color'));
+		if (colorMatch) return colorMatch;
+	}
 	const singular = normalized.endsWith('s') ? normalized.slice(0, -1) : normalized;
 	const singularMatch = allowed.find((item) => item === singular);
 	return singularMatch ?? normalized;
@@ -1017,6 +1427,23 @@ function normalizeClassifier(classifier: string, conceptRows: ConceptRow[], targ
 
 function activeToken(query: string) {
 	return query.match(/\S+$/)?.[0] ?? '';
+}
+
+function trailingGuidancePhrase(query: string) {
+	const tokens = query.trim().split(/\s+/);
+	if (tokens.length < 2) return null;
+	const previous = tokens.at(-2) ?? '';
+	const last = tokens.at(-1) ?? '';
+	const color = displaySlug(previous);
+	if (COMMON_COLOR_VALUES.has(color) && !/[.:]/.test(last)) return `${previous} ${last}`;
+	if (
+		!/^(exclude|role|visual_role|exclude_role|artist|source):/i.test(last) &&
+		/^[a-z0-9_]+:[a-z0-9_-]+$/i.test(last) &&
+		!/[.:]/.test(previous)
+	) {
+		return `${previous} ${last}`;
+	}
+	return null;
 }
 
 function replaceActiveToken(query: string, token: string, replacement: string) {
@@ -1034,20 +1461,23 @@ function dedupeSuggestions(suggestions: AtlasSearchSuggestion[]) {
 	});
 }
 
-function buildImplicationMap(rows: ConceptRow[]) {
-	const direct = new Map(
-		rows.map((row) => [
-			row.slug,
-			new Set(
-				[
-					...parseJsonArray(row.automatic_implications_json ?? '[]'),
-					...parseJsonArray(row.broader_json ?? '[]')
-				].map((value) =>
-					resolveConceptSlug(value, rows)
-				)
-			)
-		])
-	);
+function buildImplicationMap(db: Database.Database, rows: ConceptRow[]) {
+	const direct = new Map(rows.map((row) => [row.slug, new Set<string>()]));
+	const implications = db
+		.prepare(
+			`select source.slug as source_slug, target.slug as target_slug
+			 from atlas_concept_relations relation
+			 join atlas_concepts source on source.id = relation.source_concept_id
+			 join atlas_concepts target on target.id = relation.target_concept_id
+			 where relation.relation_type = 'automatic_implication'
+				and relation.status = 'approved'
+				and source.status = 'active'
+				and target.status = 'active'`
+		)
+		.all() as Array<{ source_slug: string; target_slug: string }>;
+	for (const implication of implications) {
+		direct.get(implication.source_slug)?.add(implication.target_slug);
+	}
 	const resolved = new Map<string, Set<string>>();
 	for (const row of rows) {
 		resolved.set(row.slug, implicationClosure(row.slug, direct, new Set()));
@@ -1125,10 +1555,17 @@ function canonicalClause(clause: AtlasQueryClause) {
 }
 
 function displaySlug(value: string) {
-	return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+	return value
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '_')
+		.replace(/^_+|_+$/g, '');
 }
 
-function contextForQuery(parsed: AtlasParsedSearchQuery, conceptMap: Map<string, AtlasConceptSummary>) {
+function contextForQuery(
+	parsed: AtlasParsedSearchQuery,
+	conceptMap: Map<string, AtlasConceptSummary>
+) {
 	const semanticClauses = parsed.clauses.filter((clause) => clause.kind !== 'role');
 	if (semanticClauses.length === 1) {
 		const clause = semanticClauses[0];
@@ -1201,7 +1638,10 @@ function conceptMapSidebar(db: Database.Database, slug: string): AtlasSidebarSec
 			})),
 			classifierGroups
 		)
-	].filter((section) => section.items.length || section.classifierGroups?.some((group) => group.values.length));
+	].filter(
+		(section) =>
+			section.items.length || section.classifierGroups?.some((group) => group.values.length)
+	);
 }
 
 function relatedSidebarSection(wiki: WikiSidebarRow): AtlasSidebarSection {
@@ -1221,7 +1661,9 @@ function queryFacetSidebar(
 	conceptMap: Map<string, AtlasConceptSummary>
 ): AtlasSidebarSection[] {
 	const activeSlugs = new Set(
-		parsed.clauses.map((clause) => clauseDominantSlug(clause)).filter((slug): slug is string => Boolean(slug))
+		parsed.clauses
+			.map((clause) => clauseDominantSlug(clause))
+			.filter((slug): slug is string => Boolean(slug))
 	);
 	const counts = new Map<string, number>();
 	for (const candidate of candidates) {
@@ -1307,15 +1749,14 @@ function wikiPreviewForContext(
 		maturity: wiki.maturity,
 		shortDefinition: wiki.shortDefinition,
 		useWhen: wiki.useWhen,
-		automaticImplications: wiki.automaticImplications.length
-			? wiki.automaticImplications
-			: wiki.broader,
+		automaticImplications: wiki.automaticImplications,
 		allowedClassifiers: wiki.allowedClassifiers,
 		exampleAsset: example
 			? {
 					id: example.id,
 					title: example.title,
 					thumbnailUrl: example.thumbnailUrl,
+					mimeType: example.mimeType,
 					width: example.width,
 					height: example.height,
 					sourceUrl: example.sourceUrl

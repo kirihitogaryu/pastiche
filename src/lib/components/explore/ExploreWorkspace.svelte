@@ -1,7 +1,13 @@
 <script lang="ts">
+	import ArrowRightIcon from 'phosphor-svelte/lib/ArrowRightIcon';
+	import BookmarkSimpleIcon from 'phosphor-svelte/lib/BookmarkSimpleIcon';
+	import FunnelIcon from 'phosphor-svelte/lib/FunnelIcon';
+	import MagnifyingGlassIcon from 'phosphor-svelte/lib/MagnifyingGlassIcon';
 	import ExploreGrid from '$lib/components/explore/ExploreGrid.svelte';
 	import ExploreInspector from '$lib/components/explore/ExploreInspector.svelte';
 	import FocusedArtPreview from '$lib/components/explore/FocusedArtPreview.svelte';
+	import SavedSearchesPanel from '$lib/components/explore/SavedSearchesPanel.svelte';
+	import SearchBox from '$lib/components/shell/SearchBox.svelte';
 	import {
 		cacheGet,
 		cacheLookup,
@@ -25,25 +31,39 @@
 		clearExploreQueryPatch,
 		clearWikimediaReferenceTokens,
 		clearWikidataSubjects,
+		commitExploreSearch,
+		openFilter,
 		removeWikidataSubject,
 		setExploreSource,
 		setExploreFilterOptions,
 		setExploreSuggestions,
+		setSearchQuery,
 		setShellScrolled,
+		setWebsiteSearchMode,
 		setWikimediaMode,
-		setWikidataMode
+		setWikidataMode,
+		updateExploreFilter
 	} from '$lib/state/app-state.svelte';
 	import type {
 		ExploreItem,
 		ExplorePage,
 		ExploreQuery,
 		ExploreRelatedPage,
+		SavedExploreSearch,
+		SavedExploreSearchMode,
 		SourceDepartment,
 		SourceId,
+		WebsiteSourceId,
 		WikidataSearchMode
 	} from '$lib/explore/types';
 
-	const sources = [
+	const sources: Array<{
+		id: SourceId;
+		label: string;
+		eyebrow: string;
+		resultLabel?: string;
+		showInSwitcher?: boolean;
+	}> = [
 		{ id: 'met' as const, label: 'The Met', eyebrow: 'The Met Collection' },
 		{
 			id: 'artic' as const,
@@ -54,6 +74,33 @@
 			id: 'wikidata' as const,
 			label: 'Wikimedia',
 			eyebrow: 'Wikidata + Wikimedia Commons'
+		},
+		{
+			id: 'danbooru' as const,
+			label: 'Other website',
+			resultLabel: 'Danbooru',
+			eyebrow: 'Artist and tag search'
+		},
+		{
+			id: 'deviantart' as const,
+			label: 'Other website',
+			resultLabel: 'DeviantArt',
+			eyebrow: 'Artist galleries and tag search',
+			showInSwitcher: false
+		},
+		{
+			id: 'bluesky' as const,
+			label: 'Other website',
+			resultLabel: 'Bluesky',
+			eyebrow: 'Artist posts and tag search',
+			showInSwitcher: false
+		},
+		{
+			id: 'furaffinity' as const,
+			label: 'Other website',
+			resultLabel: 'Fur Affinity',
+			eyebrow: 'Artist galleries',
+			showInSwitcher: false
 		}
 	];
 	const wikimediaModes: Array<{ id: WikidataSearchMode; label: string }> = [
@@ -65,7 +112,7 @@
 		{ id: 'genre', label: 'Genre' }
 	];
 
-	let activeSource = $state<SourceId>('met');
+	let activeSource = $state<SourceId>(appState.exploreSourceId);
 	let items = $state<ExploreItem[]>([]);
 	let selectedItem = $state<ExploreItem | null>(null);
 	let departments = $state<SourceDepartment[]>([]);
@@ -84,13 +131,21 @@
 	let prefetchingSearchKey = $state<string | null>(null);
 	let relatedSeed = $state<ExploreItem | null>(null);
 	let relatedTitle = $state<string | null>(null);
+	let savedOpen = $state(false);
+	let savedSearches = $state<SavedExploreSearch[]>([]);
+	let savedLoading = $state(false);
+	let savedError = $state<string | null>(null);
+	let savingSearch = $state(false);
+	let saveFeedback = $state<string | null>(null);
+	let recordedSavedVisitKey = $state<string | null>(null);
+	let loadedSavedScope = $state<string | null>(null);
 	const pendingSearches = new Map<string, Promise<ExplorePage>>();
 	const activeControllers = new Set<AbortController>();
 
 	let activeSourceConfig = $derived(
 		sources.find((source) => source.id === activeSource) ?? sources[0]
 	);
-	let activeSourceLabel = $derived(activeSourceConfig.label);
+	let activeSourceLabel = $derived(activeSourceConfig.resultLabel ?? activeSourceConfig.label);
 	let activeSourceResultLabel = $derived(
 		activeSource === 'met' ? 'Met' : activeSource === 'wikidata' ? 'Wikidata' : activeSourceLabel
 	);
@@ -101,7 +156,7 @@
 	let queryPatchKey = $derived(JSON.stringify(appState.exploreQueryPatch ?? {}));
 	let sourceFilterKey = $derived(JSON.stringify(appState.exploreFilters));
 	let queryKey = $derived(
-		`${activeSource}|${appState.wikimediaMode}|${appState.wikidataMode}|${keyword}|${subjectKey}|${referenceTokenKey}|${queryPatchKey}|${sourceFilterKey}|${relatedSeed?.id ?? ''}`
+		`${activeSource}|${appState.websiteSearchMode}|${appState.wikimediaMode}|${appState.wikidataMode}|${keyword}|${subjectKey}|${referenceTokenKey}|${queryPatchKey}|${sourceFilterKey}|${relatedSeed?.id ?? ''}`
 	);
 	let articMetadataFiltersActive = $derived(
 		hasActiveArticMetadataFilters(appState.exploreFilters.artic)
@@ -115,11 +170,21 @@
 			metFiltersActive ||
 			articMetadataFiltersActive ||
 			appState.exploreFilters.artic.publicDomainOnly ||
-			wikidataFiltersActive
+			wikidataFiltersActive ||
+			(activeSource === 'danbooru' &&
+				(appState.exploreFilters.danbooru.contentSafety !== 'blur' ||
+					appState.exploreFilters.danbooru.blacklist.trim().length > 0)) ||
+			(activeSource === 'deviantart' &&
+				(appState.exploreFilters.deviantart.contentSafety !== 'blur' ||
+					appState.exploreFilters.deviantart.dateFrom !== null ||
+					appState.exploreFilters.deviantart.dateTo !== null ||
+					appState.exploreFilters.deviantart.sort !== 'recent')) ||
+			(activeSource === 'bluesky' && appState.exploreFilters.bluesky.contentSafety !== 'blur') ||
+			(activeSource === 'furaffinity' &&
+				appState.exploreFilters.furaffinity.contentSafety !== 'blur')
 	);
-	let visibleItems = $derived(
-		activeSource === 'artic' ? filterArticItems(items, appState.exploreFilters.artic) : items
-	);
+	let visibleItems = $derived(visibleExploreItems(items));
+	let currentSavedSearch = $derived(findCurrentSavedSearch());
 	let resultSummary = $derived(
 		resultSummaryFor({
 			source: activeSource,
@@ -127,14 +192,6 @@
 			loadedCount: items.length,
 			total,
 			filtered: activeSource === 'artic' && articMetadataFiltersActive
-		})
-	);
-	let headerResultLabel = $derived(
-		resultHeaderLabel({
-			source: activeSource,
-			sourceLabel: activeSourceLabel,
-			total,
-			related: Boolean(relatedSeed)
 		})
 	);
 	let activeWikimediaModeLabel = $derived(
@@ -185,6 +242,14 @@
 	});
 
 	$effect(() => {
+		if (!supportsSavedSearches(activeSource)) return;
+		const scope = `${activeSource}:${activeSavedSearchMode()}`;
+		if (loadedSavedScope === scope) return;
+		loadedSavedScope = scope;
+		void loadSavedSearches();
+	});
+
+	$effect(() => {
 		setExploreFilterOptions({
 			artic: activeSource === 'artic' ? buildArticFilterOptions(items) : emptyArticFilterOptions()
 		});
@@ -205,6 +270,22 @@
 		if (selectedItem && !visibleItems.some((item) => item.id === selectedItem?.id)) {
 			selectedItem = null;
 		}
+	});
+
+	$effect(() => {
+		const matching = currentSavedSearch;
+		const latest = newestKnownItem(items);
+		if (
+			!matching ||
+			!latest ||
+			normalizeSavedQuery(keyword) !== normalizeSavedQuery(matching.query)
+		) {
+			return;
+		}
+		const visitKey = `${matching.id}:${latest.id}:${latest.dateDisplay ?? ''}`;
+		if (recordedSavedVisitKey === visitKey) return;
+		recordedSavedVisitKey = visitKey;
+		void updateSavedSearchVisit(matching, latest);
 	});
 
 	async function loadDepartments(source: SourceId) {
@@ -458,6 +539,30 @@
 
 	function buildQuery(cursor?: string): ExploreQuery {
 		const patch = appState.exploreQueryPatch ?? {};
+		if (isWebsiteSource(activeSource)) {
+			const contentSafety = websiteContentSafety(activeSource);
+			return {
+				[appState.websiteSearchMode === 'artist' ? 'artist' : 'tag']: keyword || undefined,
+				contentSafety,
+				blacklist:
+					activeSource === 'danbooru' ? appState.exploreFilters.danbooru.blacklist : undefined,
+				dateFrom:
+					activeSource === 'deviantart' && appState.websiteSearchMode === 'artist'
+						? (appState.exploreFilters.deviantart.dateFrom ?? undefined)
+						: undefined,
+				dateTo:
+					activeSource === 'deviantart' && appState.websiteSearchMode === 'artist'
+						? (appState.exploreFilters.deviantart.dateTo ?? undefined)
+						: undefined,
+				sort:
+					activeSource === 'deviantart' && appState.websiteSearchMode === 'artist'
+						? appState.exploreFilters.deviantart.sort
+						: undefined,
+				hasImageOnly: true,
+				cursor,
+				limit: 40
+			};
+		}
 		if (activeSource === 'wikidata') {
 			const filters = appState.exploreFilters.wikidata;
 			if (appState.wikimediaMode === 'reference' && !relatedSeed) {
@@ -568,6 +673,55 @@
 		prefetchingSearchKey = null;
 	}
 
+	function selectWebsiteProvider(event: Event) {
+		const source = (event.currentTarget as HTMLSelectElement).value;
+		if (!isWebsiteSourceValue(source)) return;
+		if (source === 'furaffinity' && appState.websiteSearchMode === 'tags') {
+			setWebsiteSearchMode('artist');
+		}
+		selectSource(source);
+	}
+
+	function isWebsiteSource(source: SourceId): source is WebsiteSourceId {
+		return isWebsiteSourceValue(source);
+	}
+
+	function isWebsiteSourceValue(source: string): source is WebsiteSourceId {
+		return (
+			source === 'danbooru' ||
+			source === 'deviantart' ||
+			source === 'bluesky' ||
+			source === 'furaffinity'
+		);
+	}
+
+	function supportsSavedSearches(source: SourceId) {
+		return source === 'wikidata' || isWebsiteSource(source);
+	}
+
+	function activeSavedSearchMode(): SavedExploreSearchMode {
+		return activeSource === 'wikidata' ? appState.wikimediaMode : appState.websiteSearchMode;
+	}
+
+	function currentSavedQuery() {
+		if (activeSource !== 'wikidata') return appState.query.trim();
+		if (appState.wikimediaMode === 'reference') {
+			return appState.wikimediaReferenceTokens
+				.map((token) => (token.kind === 'entity' ? token.label : token.value))
+				.join(', ');
+		}
+		if (appState.wikidataMode === 'title') return appState.query.trim();
+		return appState.wikidataSubjects.map((subject) => subject.label).join(', ');
+	}
+
+	function websiteContentSafety(source: WebsiteSourceId) {
+		return appState.exploreFilters[source].contentSafety;
+	}
+
+	function websiteTagsAvailable(source: WebsiteSourceId) {
+		return source !== 'furaffinity';
+	}
+
 	function selectWikimediaMode(mode: WikidataSearchMode) {
 		if (appState.wikidataMode === mode) return;
 		abortActiveRequests();
@@ -603,14 +757,344 @@
 	}
 
 	function sourceLabelFor(source: SourceId) {
-		return sources.find((option) => option.id === source)?.label ?? 'Explore';
+		const option = sources.find((candidate) => candidate.id === source);
+		if (!option) return 'Explore';
+		return option.resultLabel ?? option.label;
+	}
+
+	function submitWebsiteSearch(event?: SubmitEvent) {
+		event?.preventDefault();
+		commitExploreSearch();
+	}
+
+	async function loadSavedSearches() {
+		if (!supportsSavedSearches(activeSource)) return;
+		savedLoading = true;
+		savedError = null;
+		try {
+			const params = new URLSearchParams({
+				source: activeSource,
+				mode: activeSavedSearchMode()
+			});
+			const response = await fetch(`/explore/api/saved-searches?${params.toString()}`);
+			const payload = (await response.json()) as
+				| { searches: SavedExploreSearch[] }
+				| { error: string };
+			if (!response.ok || !('searches' in payload)) {
+				throw new Error('error' in payload ? payload.error : 'Saved searches are unavailable.');
+			}
+			savedSearches = payload.searches;
+		} catch (savedSearchError) {
+			savedError =
+				savedSearchError instanceof Error
+					? savedSearchError.message
+					: 'Saved searches are unavailable.';
+		} finally {
+			savedLoading = false;
+		}
+	}
+
+	async function openSavedSearches() {
+		savedOpen = true;
+		await loadSavedSearches();
+	}
+
+	async function saveCurrentSearch() {
+		if (!supportsSavedSearches(activeSource) || savingSearch) return;
+		const query = currentSavedQuery();
+		if (!query) return;
+		savingSearch = true;
+		saveFeedback = null;
+		const latest =
+			normalizeSavedQuery(query) === normalizeSavedQuery(keyword) ? newestKnownItem(items) : null;
+		try {
+			const response = await fetch('/explore/api/saved-searches', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					source: activeSource,
+					mode: activeSavedSearchMode(),
+					query,
+					filters: savedFiltersSnapshot(),
+					lastSeenItemId: latest?.id ?? null,
+					lastSeenPublishedAt: latest?.dateDisplay ?? null
+				})
+			});
+			const payload = (await response.json()) as
+				| { search: SavedExploreSearch; created: boolean }
+				| { error: string };
+			if (!response.ok || !('search' in payload)) {
+				throw new Error('error' in payload ? payload.error : 'Search could not be saved.');
+			}
+			savedSearches = [
+				payload.search,
+				...savedSearches.filter((search) => search.id !== payload.search.id)
+			];
+			commitExploreSearch(query);
+			saveFeedback = payload.created ? 'Search saved' : 'Saved search updated';
+			window.setTimeout(() => {
+				saveFeedback = null;
+			}, 2200);
+		} catch (savedSearchError) {
+			saveFeedback =
+				savedSearchError instanceof Error ? savedSearchError.message : 'Search could not be saved.';
+		} finally {
+			savingSearch = false;
+		}
+	}
+
+	function applySavedSearch(search: SavedExploreSearch) {
+		if (!supportsSavedSearches(search.source)) return;
+		if (activeSource !== search.source) selectSource(search.source);
+		if (search.source === 'wikidata') {
+			restoreWikimediaSearch(search);
+		} else {
+			if (search.mode !== 'artist' && search.mode !== 'tags') return;
+			if (appState.websiteSearchMode !== search.mode) setWebsiteSearchMode(search.mode);
+			restoreWebsiteFilters(search);
+			setSearchQuery(search.query);
+			commitExploreSearch(search.query);
+		}
+		savedOpen = false;
+		void patchSavedSearch(search.id, { touchOpened: true });
+	}
+
+	async function deleteSavedSearch(search: SavedExploreSearch) {
+		const response = await fetch(`/explore/api/saved-searches/${encodeURIComponent(search.id)}`, {
+			method: 'DELETE'
+		});
+		if (!response.ok) {
+			savedError = 'That saved search could not be removed.';
+			return;
+		}
+		savedSearches = savedSearches.filter((candidate) => candidate.id !== search.id);
+	}
+
+	async function updateSavedSearchVisit(search: SavedExploreSearch, latest: ExploreItem) {
+		const updated = await patchSavedSearch(search.id, {
+			touchOpened: true,
+			lastSeenItemId: latest.id,
+			lastSeenPublishedAt: latest.dateDisplay
+		});
+		if (!updated) return;
+		savedSearches = savedSearches.map((candidate) =>
+			candidate.id === updated.id ? updated : candidate
+		);
+	}
+
+	async function patchSavedSearch(
+		id: string,
+		patch: Record<string, unknown>
+	): Promise<SavedExploreSearch | null> {
+		try {
+			const response = await fetch(`/explore/api/saved-searches/${encodeURIComponent(id)}`, {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(patch)
+			});
+			if (!response.ok) return null;
+			const payload = (await response.json()) as { search: SavedExploreSearch };
+			return payload.search;
+		} catch {
+			return null;
+		}
+	}
+
+	function websiteFiltersSnapshot(source: WebsiteSourceId) {
+		if (source === 'danbooru') {
+			return {
+				contentSafety: appState.exploreFilters.danbooru.contentSafety,
+				blacklist: appState.exploreFilters.danbooru.blacklist
+			};
+		}
+		if (source === 'deviantart') {
+			return {
+				contentSafety: appState.exploreFilters.deviantart.contentSafety,
+				dateFrom: appState.exploreFilters.deviantart.dateFrom,
+				dateTo: appState.exploreFilters.deviantart.dateTo,
+				sort: appState.exploreFilters.deviantart.sort
+			};
+		}
+		return { contentSafety: websiteContentSafety(source) };
+	}
+
+	function savedFiltersSnapshot() {
+		if (isWebsiteSource(activeSource)) return websiteFiltersSnapshot(activeSource);
+		if (activeSource !== 'wikidata') return {};
+		return {
+			wikimediaMode: appState.wikimediaMode,
+			wikidataMode: appState.wikidataMode,
+			wikidataSubjects: appState.wikidataSubjects,
+			wikimediaReferenceTokens: appState.wikimediaReferenceTokens,
+			wikidataFilters: appState.exploreFilters.wikidata
+		};
+	}
+
+	function findCurrentSavedSearch() {
+		if (!supportsSavedSearches(activeSource)) return null;
+		const source = activeSource;
+		const filterKey = JSON.stringify(savedFiltersSnapshot());
+		const query = currentSavedQuery();
+		return (
+			savedSearches.find(
+				(search) =>
+					search.source === source &&
+					search.mode === activeSavedSearchMode() &&
+					normalizeSavedQuery(search.query) === normalizeSavedQuery(query) &&
+					JSON.stringify(search.filters) === filterKey
+			) ?? null
+		);
+	}
+
+	function restoreWikimediaSearch(search: SavedExploreSearch) {
+		if (search.mode !== 'art' && search.mode !== 'reference') return;
+		const filters = search.filters;
+		const mode =
+			filters.wikidataMode === 'depicts' ||
+			filters.wikidataMode === 'main_subject' ||
+			filters.wikidataMode === 'artist' ||
+			filters.wikidataMode === 'title' ||
+			filters.wikidataMode === 'movement' ||
+			filters.wikidataMode === 'genre'
+				? filters.wikidataMode
+				: 'depicts';
+		setWikimediaMode(search.mode);
+		setWikidataMode(mode);
+		appState.wikidataSubjects = savedSubjects(filters.wikidataSubjects);
+		appState.wikimediaReferenceTokens = savedReferenceTokens(filters.wikimediaReferenceTokens);
+		const storedFilters = isRecord(filters.wikidataFilters) ? filters.wikidataFilters : {};
+		const reference = isRecord(storedFilters.reference) ? storedFilters.reference : {};
+		updateExploreFilter('wikidata', {
+			yearFrom: savedIntegerOrNull(storedFilters.yearFrom),
+			yearTo: savedIntegerOrNull(storedFilters.yearTo),
+			hasImageOnly:
+				typeof storedFilters.hasImageOnly === 'boolean' ? storedFilters.hasImageOnly : true,
+			reference: {
+				...appState.exploreFilters.wikidata.reference,
+				...reference
+			}
+		});
+		const titleQuery = search.mode === 'art' && mode === 'title' ? search.query : '';
+		setSearchQuery(titleQuery);
+		commitExploreSearch(titleQuery);
+	}
+
+	function savedSubjects(value: unknown) {
+		if (!Array.isArray(value)) return [];
+		return value
+			.filter(isRecord)
+			.filter(
+				(subject) =>
+					typeof subject.id === 'string' &&
+					typeof subject.label === 'string' &&
+					(subject.description === null || typeof subject.description === 'string')
+			)
+			.map((subject) => ({
+				id: subject.id as string,
+				label: subject.label as string,
+				description: subject.description as string | null
+			}));
+	}
+
+	function savedReferenceTokens(value: unknown) {
+		if (!Array.isArray(value)) return [];
+		return value.filter((token): token is (typeof appState.wikimediaReferenceTokens)[number] => {
+			if (!isRecord(token) || typeof token.kind !== 'string') return false;
+			if (token.kind === 'text') {
+				return (
+					typeof token.value === 'string' && (token.match === 'boost' || token.match === 'required')
+				);
+			}
+			return (
+				token.kind === 'entity' &&
+				typeof token.id === 'string' &&
+				typeof token.label === 'string' &&
+				(token.description === null || typeof token.description === 'string') &&
+				(token.role === 'subject' || token.role === 'qualifier')
+			);
+		});
+	}
+
+	function savedIntegerOrNull(value: unknown) {
+		return typeof value === 'number' && Number.isInteger(value) ? value : null;
+	}
+
+	function isRecord(value: unknown): value is Record<string, unknown> {
+		return typeof value === 'object' && value !== null && !Array.isArray(value);
+	}
+
+	function restoreWebsiteFilters(search: SavedExploreSearch) {
+		const filters = search.filters;
+		const contentSafety =
+			filters.contentSafety === 'hide' ||
+			filters.contentSafety === 'blur' ||
+			filters.contentSafety === 'show'
+				? filters.contentSafety
+				: 'blur';
+		if (search.source === 'danbooru') {
+			updateExploreFilter('danbooru', {
+				contentSafety,
+				blacklist: typeof filters.blacklist === 'string' ? filters.blacklist : ''
+			});
+			return;
+		}
+		if (search.source === 'deviantart') {
+			updateExploreFilter('deviantart', {
+				contentSafety,
+				dateFrom: savedDateOrNull(filters.dateFrom),
+				dateTo: savedDateOrNull(filters.dateTo),
+				sort: filters.sort === 'popular' ? 'popular' : 'recent'
+			});
+			return;
+		}
+		if (search.source === 'bluesky' || search.source === 'furaffinity') {
+			updateExploreFilter(search.source, { contentSafety });
+		}
+	}
+
+	function savedDateOrNull(value: unknown) {
+		return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
 	}
 
 	function openItem(item: ExploreItem) {
 		selectedItem = item;
-		void cacheSet(exploreObjectKey(item.id), item, CLIENT_OBJECT_TTL_MS);
+		void hydrateSelectedItem(item.id);
 		if (window.matchMedia('(max-width: 979px)').matches) {
 			inspectedOnMobile = true;
+		}
+	}
+
+	async function hydrateSelectedItem(itemId: string) {
+		const cacheKey = exploreObjectKey(itemId);
+		const cached = await cacheGet<ExploreItem>(cacheKey);
+		if (cached) {
+			applyHydratedItem(itemId, cached);
+			return;
+		}
+		const controller = createRequestController();
+		try {
+			const response = await fetch(`/explore/api/item/${encodeURIComponent(itemId)}`, {
+				signal: controller.signal
+			});
+			if (!response.ok || controller.signal.aborted) return;
+			const freshItem = (await response.json()) as ExploreItem;
+			await cacheSet(cacheKey, freshItem, CLIENT_OBJECT_TTL_MS);
+			applyHydratedItem(itemId, freshItem);
+		} catch (itemError) {
+			if (!isAbortError(itemError)) {
+				// Search records remain usable when optional detail hydration fails.
+			}
+		} finally {
+			releaseRequestController(controller);
+		}
+	}
+
+	function applyHydratedItem(itemId: string, hydratedItem: ExploreItem) {
+		const previousPrimaryUrl =
+			selectedItem?.id === itemId ? (selectedItem.imageUrl ?? selectedItem.thumbUrl) : null;
+		if (selectedItem?.id === itemId) selectedItem = hydratedItem;
+		if (previewItem?.id === itemId && previewItem.imageUrl === previousPrimaryUrl) {
+			previewItem = hydratedItem;
 		}
 	}
 
@@ -641,7 +1125,6 @@
 	async function prefetchItem(item: ExploreItem) {
 		const cacheKey = exploreObjectKey(item.id);
 		if (await cacheGet<ExploreItem>(cacheKey)) return;
-		void cacheSet(cacheKey, item, CLIENT_OBJECT_TTL_MS);
 
 		try {
 			const response = await fetch(`/explore/api/item/${encodeURIComponent(item.id)}`);
@@ -664,6 +1147,47 @@
 		if (target.scrollHeight - target.scrollTop - target.clientHeight < 720) {
 			void loadNextPage(queryKey);
 		}
+	}
+
+	function visibleExploreItems(input: ExploreItem[]) {
+		const filtered =
+			activeSource === 'artic' ? filterArticItems(input, appState.exploreFilters.artic) : input;
+		if (activeSource !== 'deviantart' || appState.exploreFilters.deviantart.sort !== 'popular') {
+			return filtered;
+		}
+		return [...filtered].sort((left, right) => {
+			const leftStats = deviantArtStats(left);
+			const rightStats = deviantArtStats(right);
+			return (
+				rightStats.favourites - leftStats.favourites || rightStats.comments - leftStats.comments
+			);
+		});
+	}
+
+	function deviantArtStats(item: ExploreItem) {
+		const metadata = item.rawMetadata.deviantart;
+		const record =
+			typeof metadata === 'object' && metadata !== null
+				? (metadata as Record<string, unknown>)
+				: {};
+		return {
+			favourites: typeof record.favourites === 'number' ? record.favourites : 0,
+			comments: typeof record.comments === 'number' ? record.comments : 0
+		};
+	}
+
+	function newestKnownItem(input: ExploreItem[]) {
+		return (
+			[...input]
+				.filter((item) => item.dateDisplay && Number.isFinite(Date.parse(item.dateDisplay)))
+				.sort(
+					(left, right) => Date.parse(right.dateDisplay ?? '') - Date.parse(left.dateDisplay ?? '')
+				)[0] ?? null
+		);
+	}
+
+	function normalizeSavedQuery(value: string) {
+		return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
 	}
 
 	function hasActiveMetFilters(filters: typeof appState.exploreFilters.met) {
@@ -716,55 +1240,137 @@
 		if (total === null) return `Showing ${visibleCount.toLocaleString()} results`;
 		return `Showing ${visibleCount.toLocaleString()} of ${total.toLocaleString()} matches`;
 	}
-
-	function resultHeaderLabel({
-		source,
-		sourceLabel,
-		total,
-		related
-	}: {
-		source: SourceId;
-		sourceLabel: string;
-		total: number | null;
-		related: boolean;
-	}) {
-		if (related) return 'Related works';
-		if (source === 'artic' || total === null) return sourceLabel;
-		return `${total.toLocaleString()} matches`;
-	}
 </script>
 
 <div class="explore-workspace">
 	<section class="explore-content" aria-label={`Explore ${activeSourceLabel} collection`}>
 		<div class="scroll-area" onscroll={handleScroll}>
-			<header class="source-header">
-				<div>
-					<p>{activeSourceConfig.eyebrow}</p>
-					<h1>
-						{relatedSeed
-							? 'Similar works from Wikidata'
-							: activeSource === 'wikidata'
-								? appState.wikimediaMode === 'reference'
-									? 'Search Wikimedia references'
-									: 'Search Wikimedia artworks'
-								: 'Explore public-domain museum references'}
-					</h1>
+			<div class="explore-heading">
+				<h1>Explore</h1>
+				<div class="source-switcher" aria-label="Explore sources">
+					{#each sources as source (source.id)}
+						{#if source.showInSwitcher !== false}
+							<button
+								class:active={activeSource === source.id ||
+									(source.id === 'danbooru' && isWebsiteSource(activeSource))}
+								type="button"
+								aria-pressed={activeSource === source.id ||
+									(source.id === 'danbooru' && isWebsiteSource(activeSource))}
+								onclick={() =>
+									selectSource(
+										source.id === 'danbooru' && isWebsiteSource(activeSource)
+											? activeSource
+											: source.id
+									)}
+							>
+								{source.label}
+							</button>
+						{/if}
+					{/each}
 				</div>
-				<span>{headerResultLabel}</span>
-			</header>
-
-			<div class="source-switcher" aria-label="Explore sources">
-				{#each sources as source (source.id)}
-					<button
-						class:active={activeSource === source.id}
-						type="button"
-						aria-pressed={activeSource === source.id}
-						onclick={() => selectSource(source.id)}
-					>
-						{source.label}
-					</button>
-				{/each}
 			</div>
+
+			{#if !isWebsiteSource(activeSource) && activeSource !== 'wikidata'}
+				<div class="museum-search">
+					<div class="museum-query">
+						<SearchBox
+							mode="explore"
+							label={`Search ${activeSourceLabel}`}
+							placeholder="Search artwork, artists, or collections..."
+						/>
+					</div>
+					<button class="website-filter" type="button" onclick={openFilter}>
+						<FunnelIcon size={18} />
+						<span>Filter</span>
+					</button>
+				</div>
+			{/if}
+
+			{#if isWebsiteSource(activeSource)}
+				<form
+					class="website-search"
+					aria-label={`Search ${activeSourceLabel}`}
+					onsubmit={submitWebsiteSearch}
+				>
+					<div class="website-mode" aria-label="Search mode">
+						<button
+							class:active={appState.websiteSearchMode === 'artist'}
+							type="button"
+							aria-pressed={appState.websiteSearchMode === 'artist'}
+							onclick={() => setWebsiteSearchMode('artist')}
+						>
+							Artist
+						</button>
+						<button
+							class:active={appState.websiteSearchMode === 'tags'}
+							class:unavailable={!websiteTagsAvailable(activeSource)}
+							type="button"
+							aria-pressed={appState.websiteSearchMode === 'tags'}
+							aria-disabled={!websiteTagsAvailable(activeSource)}
+							disabled={!websiteTagsAvailable(activeSource)}
+							title={websiteTagsAvailable(activeSource)
+								? 'Search tags'
+								: `${activeSourceLabel} tag search is not available yet`}
+							onclick={() => setWebsiteSearchMode('tags')}
+						>
+							Tags
+						</button>
+					</div>
+					<label class="website-provider">
+						<span class="sr-only">Website</span>
+						<select aria-label="Website" value={activeSource} onchange={selectWebsiteProvider}>
+							<option value="danbooru">Danbooru</option>
+							<option value="deviantart">DeviantArt</option>
+							<option value="bluesky">Bluesky</option>
+							<option value="furaffinity">Fur Affinity</option>
+						</select>
+					</label>
+					<div class="website-query">
+						<MagnifyingGlassIcon size={19} aria-hidden="true" />
+						<input
+							aria-label={appState.websiteSearchMode === 'artist'
+								? `${activeSourceLabel} artist`
+								: `${activeSourceLabel} tags`}
+							value={appState.query}
+							placeholder={appState.websiteSearchMode === 'artist'
+								? 'Search an artist name or alias...'
+								: `Search ${activeSourceLabel} tags...`}
+							autocomplete="off"
+							oninput={(event) => setSearchQuery(event.currentTarget.value)}
+						/>
+						<button
+							class:saved={currentSavedSearch !== null}
+							class="website-save"
+							type="button"
+							aria-label={currentSavedSearch ? 'Update saved search' : 'Save current search'}
+							title={currentSavedSearch ? 'Saved' : 'Save this search'}
+							disabled={appState.query.trim().length === 0 || savingSearch}
+							onclick={saveCurrentSearch}
+						>
+							<BookmarkSimpleIcon size={18} weight={currentSavedSearch ? 'fill' : 'regular'} />
+						</button>
+						<button
+							class="website-submit"
+							type="submit"
+							aria-label={`Search ${activeSourceLabel}`}
+							disabled={appState.query.trim().length === 0}
+						>
+							<ArrowRightIcon size={17} weight="bold" />
+						</button>
+					</div>
+					<button class="website-filter" type="button" onclick={openFilter}>
+						<FunnelIcon size={18} />
+						<span>Filter</span>
+					</button>
+					<button class="website-saved" type="button" onclick={openSavedSearches}>
+						<BookmarkSimpleIcon size={18} />
+						<span>Saved</span>
+					</button>
+				</form>
+				{#if saveFeedback}
+					<p class="save-feedback" role="status">{saveFeedback}</p>
+				{/if}
+			{/if}
 
 			{#if activeSource === 'wikidata' && relatedSeed}
 				<div class="related-context" aria-label="Current related works search">
@@ -778,39 +1384,66 @@
 					<button type="button" onclick={clearRelatedMode}>Return to subject search</button>
 				</div>
 			{:else if activeSource === 'wikidata'}
-				<div class="wikimedia-top-switch" aria-label="Wikimedia search type">
-					<button
-						class:active={appState.wikimediaMode === 'art'}
-						type="button"
-						aria-pressed={appState.wikimediaMode === 'art'}
-						onclick={() => selectWikimediaTopMode('art')}
-					>
-						Art
+				<div class:reference-mode={appState.wikimediaMode === 'reference'} class="wikimedia-search">
+					<div class="website-mode" aria-label="Wikimedia search type">
+						<button
+							class:active={appState.wikimediaMode === 'art'}
+							type="button"
+							aria-pressed={appState.wikimediaMode === 'art'}
+							onclick={() => selectWikimediaTopMode('art')}
+						>
+							Art
+						</button>
+						<button
+							class:active={appState.wikimediaMode === 'reference'}
+							type="button"
+							aria-pressed={appState.wikimediaMode === 'reference'}
+							onclick={() => selectWikimediaTopMode('reference')}
+						>
+							Reference
+						</button>
+					</div>
+					{#if appState.wikimediaMode === 'art'}
+						<label class="website-provider wikimedia-mode-select">
+							<span class="sr-only">Artwork search mode</span>
+							<select
+								aria-label="Artwork search mode"
+								value={appState.wikidataMode}
+								onchange={(event) =>
+									selectWikimediaMode(event.currentTarget.value as WikidataSearchMode)}
+							>
+								{#each wikimediaModes as mode (mode.id)}
+									<option value={mode.id}>{mode.label}</option>
+								{/each}
+							</select>
+						</label>
+					{/if}
+					<div class="wikimedia-query">
+						<SearchBox
+							mode="explore"
+							label="Search Wikimedia"
+							placeholder="Search Wikimedia..."
+							onSave={saveCurrentSearch}
+							saved={currentSavedSearch !== null}
+							saving={savingSearch}
+							saveDisabled={currentSavedQuery().length === 0}
+						/>
+					</div>
+					<button class="website-filter" type="button" onclick={openFilter}>
+						<FunnelIcon size={18} />
+						<span>Filter</span>
 					</button>
-					<button
-						class:active={appState.wikimediaMode === 'reference'}
-						type="button"
-						aria-pressed={appState.wikimediaMode === 'reference'}
-						onclick={() => selectWikimediaTopMode('reference')}
-					>
-						Reference
+					<button class="website-saved" type="button" onclick={openSavedSearches}>
+						<BookmarkSimpleIcon size={18} />
+						<span>Saved</span>
 					</button>
 				</div>
+				{#if saveFeedback}
+					<p class="save-feedback" role="status">{saveFeedback}</p>
+				{/if}
 			{/if}
 
 			{#if activeSource === 'wikidata' && !relatedSeed && appState.wikimediaMode === 'art'}
-				<div class="wikimedia-mode-strip" aria-label="Wikimedia artwork search modes">
-					{#each wikimediaModes as mode (mode.id)}
-						<button
-							class:active={appState.wikidataMode === mode.id}
-							type="button"
-							aria-pressed={appState.wikidataMode === mode.id}
-							onclick={() => selectWikimediaMode(mode.id)}
-						>
-							{mode.label}
-						</button>
-					{/each}
-				</div>
 				{#if appState.wikidataSubjects.length > 0}
 					<div class="subject-chip-row" aria-label="Selected Wikimedia entities">
 						{#each appState.wikidataSubjects as subject (subject.id)}
@@ -853,13 +1486,17 @@
 										? 'No Wikimedia references matched those tokens and filters.'
 										: 'Choose an entity, then add optional descriptors like female, juvenile, side view, skull, or texture.'
 									: appState.wikidataSubjects.length > 0
-									? `No Wikimedia artworks matched that ${activeWikimediaModeLabel.toLowerCase()}.`
-									: appState.wikidataMode === 'title'
-										? 'Search for an artwork title to find Wikimedia records.'
-										: `Choose a ${activeWikimediaModeLabel.toLowerCase()} from the top search bar.`
-							: hasSearched
-								? `No usable image records matched "${keyword || 'these filters'}".`
-								: 'Try searching by artwork, artist, or collection.'}
+										? `No Wikimedia artworks matched that ${activeWikimediaModeLabel.toLowerCase()}.`
+										: appState.wikidataMode === 'title'
+											? 'Search for an artwork title to find Wikimedia records.'
+											: `Search for a ${activeWikimediaModeLabel.toLowerCase()} in the field above.`
+							: isWebsiteSource(activeSource)
+								? keyword.length > 0
+									? `No ${activeSourceLabel} images matched "${keyword || 'these filters'}".`
+									: `Search by ${appState.websiteSearchMode === 'artist' ? 'artist name' : `${activeSourceLabel} tags`} to begin.`
+								: hasSearched
+									? `No usable image records matched "${keyword || 'these filters'}".`
+									: 'Try searching by artwork, artist, or collection.'}
 					</p>
 				</section>
 			{:else}
@@ -868,6 +1505,9 @@
 					activeId={selectedItem?.id}
 					{loading}
 					sourceLabel={activeSourceLabel}
+					contentSafety={isWebsiteSource(activeSource)
+						? websiteContentSafety(activeSource)
+						: 'show'}
 					onOpen={openItem}
 					onPrefetch={prefetchItem}
 				/>
@@ -920,6 +1560,19 @@
 	{/if}
 </div>
 
+{#if savedOpen && supportsSavedSearches(activeSource)}
+	<SavedSearchesPanel
+		source={activeSource}
+		mode={activeSavedSearchMode()}
+		searches={savedSearches}
+		loading={savedLoading}
+		error={savedError}
+		onClose={() => (savedOpen = false)}
+		onOpen={applySavedSearch}
+		onDelete={deleteSavedSearch}
+	/>
+{/if}
+
 <style>
 	.explore-workspace {
 		height: 100%;
@@ -941,71 +1594,44 @@
 		overflow: auto;
 	}
 
-	.source-header {
-		display: flex;
-		align-items: end;
-		justify-content: space-between;
-		gap: var(--space-4);
-		padding: var(--space-5) var(--space-5) var(--space-3);
-	}
-
-	.source-header p,
-	.source-header h1 {
-		margin: 0;
-	}
-
-	.source-header p {
-		color: var(--color-accent);
-		font-size: 0.78rem;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.08em;
-	}
-
-	.source-header h1 {
-		margin-top: var(--space-1);
-		font-family: var(--font-heading);
-		font-size: clamp(1.35rem, 2.5vw, 2.15rem);
-		font-weight: 600;
-		line-height: 1.08;
-	}
-
-	.source-header span {
-		color: var(--color-muted);
-		font-size: 0.82rem;
-		white-space: nowrap;
-	}
-
 	.source-switcher,
-	.wikimedia-top-switch,
-	.wikimedia-mode-strip {
+	.website-mode {
 		display: flex;
 		gap: var(--space-2);
 		overflow-x: auto;
 		scrollbar-width: none;
 	}
 
+	.explore-heading {
+		display: flex;
+		align-items: center;
+		gap: var(--space-4);
+		padding: var(--space-4) var(--space-5) var(--space-2);
+	}
+
+	.explore-heading h1 {
+		flex: 0 0 auto;
+		margin: 0;
+		font-family: var(--font-heading);
+		font-size: 1.9rem;
+		font-weight: 600;
+		line-height: 1;
+	}
+
 	.source-switcher {
-		padding: 0 var(--space-5) var(--space-2);
+		min-width: 0;
+		flex: 1;
+		-webkit-overflow-scrolling: touch;
+		overscroll-behavior-inline: contain;
+		touch-action: pan-x;
 	}
 
-	.wikimedia-mode-strip {
-		padding: 0 var(--space-5) var(--space-2);
-	}
-
-	.wikimedia-top-switch {
-		padding: 0 var(--space-5) var(--space-2);
-	}
-
-	.source-switcher::-webkit-scrollbar,
-	.wikimedia-top-switch::-webkit-scrollbar,
-	.wikimedia-mode-strip::-webkit-scrollbar {
+	.source-switcher::-webkit-scrollbar {
 		display: none;
 	}
 
 	.source-switcher button,
-	.wikimedia-top-switch button,
-	.wikimedia-mode-strip button {
+	.website-mode button {
 		flex: 0 0 auto;
 		min-height: 2.2rem;
 		padding: 0 var(--space-3);
@@ -1018,16 +1644,195 @@
 
 	.source-switcher button.active,
 	.source-switcher button:hover,
-	.source-switcher button:focus-visible,
-	.wikimedia-top-switch button.active,
-	.wikimedia-top-switch button:hover,
-	.wikimedia-top-switch button:focus-visible,
-	.wikimedia-mode-strip button.active,
-	.wikimedia-mode-strip button:hover,
-	.wikimedia-mode-strip button:focus-visible {
+	.source-switcher button:focus-visible {
 		border-color: var(--color-border-strong);
 		background: var(--color-surface-soft);
 		color: var(--color-text);
+	}
+
+	.website-search {
+		display: grid;
+		grid-template-columns: auto minmax(9rem, 13rem) minmax(16rem, 1fr) auto auto;
+		align-items: center;
+		gap: var(--space-2);
+		padding: var(--space-2) var(--space-5) var(--space-4);
+	}
+
+	.museum-search,
+	.wikimedia-search {
+		display: grid;
+		align-items: center;
+		gap: var(--space-2);
+		padding: var(--space-2) var(--space-5) var(--space-4);
+	}
+
+	.museum-search {
+		grid-template-columns: minmax(16rem, 1fr) auto;
+	}
+
+	.wikimedia-search {
+		grid-template-columns: auto minmax(9rem, 13rem) minmax(16rem, 1fr) auto auto;
+	}
+
+	.wikimedia-search.reference-mode {
+		grid-template-columns: auto minmax(16rem, 1fr) auto auto;
+	}
+
+	.museum-query,
+	.wikimedia-query {
+		min-width: 0;
+	}
+
+	.museum-query :global(.search),
+	.wikimedia-query :global(.search) {
+		height: 2.75rem;
+	}
+
+	.website-mode {
+		padding: 0.2rem;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		background: var(--color-surface);
+		overflow: visible;
+	}
+
+	.website-mode button {
+		min-height: 2.35rem;
+		border-color: transparent;
+		background: transparent;
+	}
+
+	.website-mode button.active,
+	.website-mode button:hover,
+	.website-mode button:focus-visible {
+		border-color: var(--color-border);
+		background: var(--color-surface-raised);
+		color: var(--color-text);
+	}
+
+	.website-mode button.unavailable,
+	.website-mode button:disabled {
+		opacity: 0.38;
+		cursor: not-allowed;
+	}
+
+	.website-provider,
+	.website-query {
+		min-width: 0;
+		min-height: 2.75rem;
+		display: flex;
+		align-items: center;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		background: var(--color-surface);
+		color: var(--color-muted);
+	}
+
+	.website-provider {
+		position: relative;
+	}
+
+	.website-provider select {
+		width: 100%;
+		min-height: 2.7rem;
+		padding: 0 2.3rem 0 var(--space-3);
+		border: 0;
+		border-radius: inherit;
+		background: var(--color-surface);
+		color: var(--color-text);
+		color-scheme: dark;
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.website-query {
+		gap: var(--space-2);
+		padding-left: var(--space-3);
+	}
+
+	.website-query:focus-within,
+	.website-provider:focus-within {
+		border-color: var(--color-border-strong);
+		background: var(--color-surface-soft);
+	}
+
+	.website-query input {
+		min-width: 0;
+		flex: 1;
+		height: 2.65rem;
+		border: 0;
+		background: transparent;
+		color: var(--color-text);
+		outline: none;
+		font: inherit;
+	}
+
+	.website-submit,
+	.website-save,
+	.website-filter,
+	.website-saved {
+		height: 2.75rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		background: var(--color-surface);
+		color: var(--color-text);
+		cursor: pointer;
+	}
+
+	.website-submit,
+	.website-save {
+		width: 2.6rem;
+		flex: 0 0 auto;
+	}
+
+	.website-submit {
+		margin-right: 0.18rem;
+		border-color: oklch(78% 0.08 78 / 0.42);
+		background: oklch(26% 0.025 75);
+	}
+
+	.website-save {
+		border-color: transparent;
+		background: transparent;
+		color: var(--color-muted);
+	}
+
+	.website-save.saved {
+		color: var(--color-accent);
+	}
+
+	.website-submit:disabled,
+	.website-save:disabled {
+		opacity: 0.42;
+		cursor: not-allowed;
+	}
+
+	.website-filter,
+	.website-saved {
+		gap: var(--space-2);
+		padding: 0 var(--space-3);
+	}
+
+	.website-submit:not(:disabled):hover,
+	.website-submit:not(:disabled):focus-visible,
+	.website-save:not(:disabled):hover,
+	.website-save:not(:disabled):focus-visible,
+	.website-filter:hover,
+	.website-filter:focus-visible,
+	.website-saved:hover,
+	.website-saved:focus-visible {
+		border-color: var(--color-border-strong);
+		background: var(--color-surface-raised);
+	}
+
+	.save-feedback {
+		margin: calc(var(--space-3) * -1) var(--space-5) var(--space-3);
+		color: var(--color-accent);
+		font-size: 0.76rem;
+		text-align: right;
 	}
 
 	.subject-chip-row {
@@ -1217,18 +2022,110 @@
 			overflow: visible;
 		}
 
-		.source-header {
-			align-items: start;
+		.explore-heading {
+			gap: var(--space-3);
 			padding: var(--space-3) var(--space-3) var(--space-2);
 		}
 
-		.source-header span {
+		.explore-heading h1 {
+			font-size: 1.55rem;
+		}
+
+		.website-search {
+			grid-template-columns: 1fr 1fr auto auto;
+			padding: var(--space-2) var(--space-3) var(--space-3);
+		}
+
+		.website-mode {
+			grid-column: 1;
+		}
+
+		.website-provider {
+			grid-column: 2;
+		}
+
+		.website-query {
+			grid-column: 1 / 5;
+			grid-row: 2;
+		}
+
+		.website-filter {
+			grid-column: 3;
+			grid-row: 1;
+			width: 2.75rem;
+			padding: 0;
+		}
+
+		.website-saved {
+			grid-column: 4;
+			grid-row: 1;
+			width: 2.75rem;
+			padding: 0;
+		}
+
+		.museum-search {
+			grid-template-columns: minmax(0, 1fr) auto;
+			padding: var(--space-2) var(--space-3) var(--space-3);
+		}
+
+		.museum-query {
+			grid-column: 1;
+		}
+
+		.museum-search .website-filter {
+			grid-column: 2;
+			grid-row: 1;
+		}
+
+		.wikimedia-search,
+		.wikimedia-search.reference-mode {
+			grid-template-columns: minmax(0, 1fr) auto auto;
+			padding: var(--space-2) var(--space-3) var(--space-3);
+		}
+
+		.wikimedia-search .website-mode {
+			grid-column: 1;
+			grid-row: 1;
+		}
+
+		.wikimedia-mode-select {
+			grid-column: 1 / 4;
+			grid-row: 2;
+		}
+
+		.wikimedia-query {
+			grid-column: 1 / 4;
+			grid-row: 3;
+		}
+
+		.wikimedia-search.reference-mode .wikimedia-query {
+			grid-column: 1 / 4;
+			grid-row: 2;
+		}
+
+		.wikimedia-search .website-filter,
+		.wikimedia-search:not(.reference-mode) .website-filter {
+			grid-column: 2;
+			grid-row: 1;
+		}
+
+		.wikimedia-search .website-saved,
+		.wikimedia-search:not(.reference-mode) .website-saved {
+			grid-column: 3;
+			grid-row: 1;
+		}
+
+		.wikimedia-search.reference-mode .website-mode {
+			grid-column: 1;
+		}
+
+		.website-filter span,
+		.website-saved span {
 			display: none;
 		}
 
-		.source-switcher,
-		.wikimedia-mode-strip {
-			padding: 0 var(--space-3) var(--space-2);
+		.save-feedback {
+			margin: calc(var(--space-2) * -1) var(--space-3) var(--space-3);
 		}
 
 		.subject-chip-row {
@@ -1246,6 +2143,48 @@
 
 		.result-count {
 			padding: 0 var(--space-3) var(--space-1);
+		}
+	}
+
+	@media (min-width: 760px) and (max-width: 1050px) {
+		.website-search {
+			grid-template-columns: auto minmax(9rem, 1fr) auto auto;
+		}
+
+		.website-query {
+			grid-column: 1 / 3;
+			grid-row: 2;
+		}
+
+		.website-filter {
+			grid-column: 3;
+			grid-row: 1 / 3;
+		}
+
+		.website-saved {
+			grid-column: 4;
+			grid-row: 1 / 3;
+		}
+
+		.wikimedia-search,
+		.wikimedia-search.reference-mode {
+			grid-template-columns: auto minmax(9rem, 1fr) auto auto;
+		}
+
+		.wikimedia-query,
+		.wikimedia-search.reference-mode .wikimedia-query {
+			grid-column: 1 / 3;
+			grid-row: 2;
+		}
+
+		.wikimedia-search .website-filter {
+			grid-column: 3;
+			grid-row: 1 / 3;
+		}
+
+		.wikimedia-search .website-saved {
+			grid-column: 4;
+			grid-row: 1 / 3;
 		}
 	}
 </style>

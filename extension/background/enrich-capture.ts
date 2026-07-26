@@ -1,7 +1,14 @@
 import type { CanonicalImageResult, ResolveCanonicalImageOptions } from './canonical-image';
 import { sourceKeyForUrls } from '../shared/source-hash';
-import type { ImageCandidate, CaptureMetadata, CaptureSource } from '../shared/candidates';
+import type {
+	AcceptedAnnotation,
+	ImageCandidate,
+	CaptureMetadata,
+	CaptureSource
+} from '../shared/candidates';
 import type { CapturedItemPayload, EnrichedItem, FetchStatus, StorageMode } from '../shared/types';
+import { hydrateItemForImport, type ImageDataLoader } from '../shared/fetch-status';
+import { normalizeArtistCandidates } from '../shared/artist-candidates';
 
 type StoragePolicy = {
 	mode: StorageMode;
@@ -37,6 +44,7 @@ type WireImportItem = {
 		dateDisplay: string | null;
 		tags: string[];
 		acceptedConceptSlugs: string[];
+		acceptedAnnotations: AcceptedAnnotation[];
 		rawMetadata: Record<string, unknown>;
 	};
 };
@@ -46,9 +54,8 @@ export async function enrichCapturedItem(
 	deps: EnrichCapturedItemDependencies
 ): Promise<EnrichedItem> {
 	const selectedCandidate = selectedCandidateForCapture(captured);
-	const hasRichCandidates = (captured.candidates?.length ?? 0) > 0;
 	const canonical =
-		captured.inlineData || hasRichCandidates
+		captured.inlineData || !captured.detailUrl || isAuthoritativeOriginal(selectedCandidate)
 			? {
 					url: selectedCandidate?.url ?? captured.url,
 					detailUrl: selectedCandidate?.detailUrl ?? captured.detailUrl,
@@ -76,6 +83,8 @@ export async function enrichCapturedItem(
 
 	return {
 		id: sourceHash,
+		captureKey: captured.url,
+		revision: 0,
 		url: resolvedUrl,
 		selectedCandidateId,
 		candidates,
@@ -94,19 +103,33 @@ export async function enrichCapturedItem(
 		storageModeReason,
 		fetchStatus: fetchStatusForCapture(captured, storageMode),
 		destinationFolderId: null,
-		alreadyInLibrary
+		alreadyInLibrary,
+		enrichment: { state: 'idle' }
 	};
+}
+
+function isAuthoritativeOriginal(candidate: ImageCandidate | null): boolean {
+	return Boolean(
+		candidate?.scoreReasons.some(
+			(reason) => reason === 'Instagram large media endpoint' || reason === 'Danbooru original file'
+		)
+	);
 }
 
 export function wireImportItemForEnrichedItem(item: EnrichedItem): WireImportItem {
 	const isDone = item.fetchStatus.state === 'done';
-	const done = item.fetchStatus as { state: 'done'; base64: string; mimeType: string };
+	const done = item.fetchStatus as {
+		state: 'done';
+		base64?: string;
+		blobKey?: string;
+		mimeType: string;
+	};
 
 	return {
 		filename: item.metadata.title || item.suggestedName,
 		storage_mode: item.storageMode,
-		image_data: isDone ? done.base64 : null,
-		source_image_url: item.url.startsWith('data:') ? null : item.url,
+		image_data: isDone ? (done.base64 ?? null) : null,
+		source_image_url: /^https?:/i.test(item.url) ? item.url : null,
 		mime_type: isDone ? done.mimeType : item.mimeType,
 		natural_width: item.naturalWidth,
 		natural_height: item.naturalHeight,
@@ -124,6 +147,7 @@ export function wireImportItemForEnrichedItem(item: EnrichedItem): WireImportIte
 			dateDisplay: item.metadata.date,
 			tags: item.metadata.tags,
 			acceptedConceptSlugs: item.metadata.acceptedConceptSlugs,
+			acceptedAnnotations: item.metadata.acceptedAnnotations ?? [],
 			rawMetadata: {
 				description: item.metadata.description,
 				imageHost: item.source.imageHost,
@@ -132,10 +156,23 @@ export function wireImportItemForEnrichedItem(item: EnrichedItem): WireImportIte
 				rawPageTitle: item.metadata.rawPageTitle,
 				selectedCandidateId: item.selectedCandidateId,
 				suggestedTags: item.metadata.suggestedTags,
-				sourceTags: item.metadata.sourceTags
+				sourceTags: item.metadata.sourceTags,
+				artistCandidates: item.metadata.artistCandidates ?? [],
+				sourceRecord: item.metadata.sourceRecord ?? null,
+				creators: item.metadata.sourceRecord?.creators ?? [],
+				media: item.metadata.sourceRecord?.media ?? [],
+				sensitivity: item.metadata.sourceRecord?.sensitivity ?? null,
+				rights: item.metadata.sourceRecord?.rights ?? null
 			}
 		}
 	};
+}
+
+export async function wireImportItemForEnrichedItemAsync(
+	item: EnrichedItem,
+	loadImageData: ImageDataLoader
+): Promise<WireImportItem> {
+	return wireImportItemForEnrichedItem(await hydrateItemForImport(item, loadImageData));
 }
 
 function selectedCandidateForCapture(captured: CapturedItemPayload): ImageCandidate | null {
@@ -222,15 +259,39 @@ function metadataForCapture(
 		artist: cleanString(captured.metadata?.artist),
 		artistProfileUrl: cleanString(captured.metadata?.artistProfileUrl),
 		artistUsername: cleanString(captured.metadata?.artistUsername),
+		artistCandidates: normalizeArtistCandidates(captured.metadata?.artistCandidates),
 		date: cleanString(captured.metadata?.date),
 		tags: normalizeTags(captured.metadata?.tags),
 		acceptedConceptSlugs: normalizeConceptSlugs(captured.metadata?.acceptedConceptSlugs),
+		acceptedAnnotations: normalizeAcceptedAnnotations(captured.metadata?.acceptedAnnotations),
 		suggestedTags: normalizeTags(captured.metadata?.suggestedTags),
 		sourceTags: captured.metadata?.sourceTags ?? [],
 		description: cleanString(captured.metadata?.description),
 		rawPageTitle: cleanString(captured.metadata?.rawPageTitle) ?? captured.pageTitle ?? null,
-		rawAltText: cleanString(captured.metadata?.rawAltText) ?? selected?.altText ?? captured.altText
+		rawAltText: cleanString(captured.metadata?.rawAltText) ?? selected?.altText ?? captured.altText,
+		sourceRecord: captured.metadata?.sourceRecord ?? null
 	};
+}
+
+function normalizeAcceptedAnnotations(
+	annotations: CaptureMetadata['acceptedAnnotations']
+): AcceptedAnnotation[] {
+	if (!annotations) return [];
+	return annotations
+		.map((annotation) => ({
+			label: annotation.label.trim(),
+			concepts: normalizeConceptSlugs(annotation.concepts),
+			classifiers: Object.fromEntries(
+				Object.entries(annotation.classifiers)
+					.map(([key, value]) => [normalizeConceptSlug(key), normalizeConceptSlug(value)])
+					.filter(([key, value]) => Boolean(key && value))
+			)
+		}))
+		.filter((annotation) => annotation.label && annotation.concepts.length > 0);
+}
+
+function normalizeConceptSlug(value: string): string {
+	return normalizeConceptSlugs([value])[0] ?? '';
 }
 
 function sourceForCapture(
@@ -275,6 +336,13 @@ function fetchStatusForCapture(
 			state: 'done',
 			base64: captured.inlineData.replace(/^data:[^;]+;base64,/, ''),
 			mimeType
+		};
+	}
+	if (captured.storedBlobKey) {
+		return {
+			state: 'done',
+			blobKey: captured.storedBlobKey,
+			mimeType: captured.mimeType ?? 'application/octet-stream'
 		};
 	}
 	if (storageMode === 'download') return { state: 'fetching' };

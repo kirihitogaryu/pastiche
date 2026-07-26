@@ -41,9 +41,7 @@ type AtlasQueryClause =
 	| { kind: 'role'; include?: string[]; exclude?: string[] }
 	| { kind: 'evidence'; include?: string[]; exclude?: string[] };
 
-type AtlasQueryValueExpr =
-	| { op: 'any'; values: string[] }
-	| { op: 'all'; values: string[] };
+type AtlasQueryValueExpr = { op: 'any'; values: string[] } | { op: 'all'; values: string[] };
 ```
 
 The parser should preserve enough source text to explain how each clause was resolved.
@@ -356,12 +354,7 @@ Sidebar items should not have one hard-coded action by section title.
 Each item gets an inferred intent:
 
 ```ts
-type SidebarItemIntent =
-	| 'refine'
-	| 'navigate'
-	| 'specialize'
-	| 'context'
-	| 'ambiguous';
+type SidebarItemIntent = 'refine' | 'navigate' | 'specialize' | 'context' | 'ambiguous';
 ```
 
 Intent is derived from:
